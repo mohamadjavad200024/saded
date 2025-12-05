@@ -59,7 +59,7 @@ export function SupplierProductsManager({
   // Filter products by supplier categories
   const availableProducts = useMemo(() => {
     let filtered = products.filter((p) =>
-      supplier.categories.includes(p.category)
+      p.category && supplier.categories.includes(p.category)
     );
 
     if (categoryFilter !== "all") {
@@ -91,7 +91,7 @@ export function SupplierProductsManager({
     const newProduct: SupplierProduct = {
       productId: product.id,
       productName: product.name,
-      category: product.category,
+      category: product.category || "",
       quantity,
       unitPrice: unitPrice || undefined,
     };

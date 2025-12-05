@@ -1317,7 +1317,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
     
     // Scroll to bottom after adding message (force scroll for user messages)
     setTimeout(() => {
-      scrollToBottom(false, true);
+      scrollToBottom(false);
     }, 150);
     
     // Clear input immediately for better UX

@@ -48,7 +48,7 @@ export function SupplierCard({ supplier, onDelete, onToggle }: SupplierCardProps
     const threshold = supplier.lowStockThreshold || 10;
     const supplierProducts = products.filter(
       (p) =>
-        supplier.categories.includes(p.category) &&
+        p.category && supplier.categories.includes(p.category) &&
         p.stockCount <= threshold
     );
     return supplierProducts.length;
@@ -65,7 +65,7 @@ export function SupplierCard({ supplier, onDelete, onToggle }: SupplierCardProps
   );
   const totalProducts = supplier.products?.length || 0;
 
-  const formatDate = (date: Date) => {
+  const formatDate = (date: Date | string) => {
     try {
       return format(new Date(date), "yyyy/MM/dd", { locale: faIR });
     } catch {

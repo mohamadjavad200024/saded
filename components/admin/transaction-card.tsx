@@ -40,7 +40,7 @@ export function TransactionCard({
 }: TransactionCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const formatDate = (date: Date) => {
+  const formatDate = (date: Date | string) => {
     try {
       return format(new Date(date), "yyyy/MM/dd", { locale: faIR });
     } catch {

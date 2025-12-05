@@ -25,6 +25,10 @@ interface AdminSettings {
   allowRegistration: boolean;
   emailNotifications: boolean;
   lowStockThreshold: number;
+  itemsPerPage?: number;
+  showNotifications?: boolean;
+  theme?: string;
+  lastUpdated?: string;
 }
 
 interface AdminStore {
@@ -45,6 +49,9 @@ const defaultSettings: AdminSettings = {
   allowRegistration: true,
   emailNotifications: true,
   lowStockThreshold: 10,
+  itemsPerPage: 10,
+  showNotifications: true,
+  theme: "system",
 };
 
 const defaultStats: AdminStats = {

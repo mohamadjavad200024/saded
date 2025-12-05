@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { CheckCircle2, Package, FileText } from "lucide-react";
 import Link from "next/link";
 import { useOrderStore } from "@/store/order-store";
 
-export default function OrderSuccessPage() {
+function OrderSuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const orderNumber = searchParams.get("orderNumber");
@@ -135,6 +135,14 @@ export default function OrderSuccessPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function OrderSuccessPage() {
+  return (
+    <Suspense fallback={<div className="container mx-auto px-4 py-6">در حال بارگذاری...</div>}>
+      <OrderSuccessContent />
+    </Suspense>
   );
 }
 

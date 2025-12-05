@@ -80,7 +80,7 @@ export function SupplierTable({ suppliers, onRefresh }: SupplierTableProps) {
     const threshold = supplier.lowStockThreshold || 10;
     const supplierProducts = products.filter(
       (p) =>
-        supplier.categories.includes(p.category) &&
+        p.category && supplier.categories.includes(p.category) &&
         p.stockCount <= threshold
     );
     return supplierProducts.length;
@@ -134,7 +134,7 @@ export function SupplierTable({ suppliers, onRefresh }: SupplierTableProps) {
                 const totalSuppliedAmount = transactions.reduce((sum, t) => sum + t.totalAmount, 0);
                 const totalSuppliedItems = transactions.reduce((sum, t) => sum + t.items.reduce((itemSum, item) => itemSum + item.quantity, 0), 0);
                 
-                const formatDate = (date: Date) => {
+                const formatDate = (date: Date | string) => {
                   try {
                     return format(new Date(date), "yyyy/MM/dd", { locale: faIR });
                   } catch {

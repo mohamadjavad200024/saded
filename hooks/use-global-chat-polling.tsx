@@ -183,7 +183,7 @@ export function useGlobalChatPolling({
             const allMessageIds = allMessages.map((m: any) => m.id);
             if (allMessageIds.length > 0) {
               lastPolledMessageIdRef.current = allMessageIds[allMessageIds.length - 1];
-              if (typeof window !== "undefined") {
+              if (typeof window !== "undefined" && lastPolledMessageIdRef.current) {
                 localStorage.setItem("quickBuyChat_lastMessageId", lastPolledMessageIdRef.current);
               }
             }

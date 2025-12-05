@@ -23,8 +23,8 @@ interface ChatInputProps {
   onCancelRecording: () => void;
   onSaveRecording: () => Promise<void>;
   formatTime: (seconds: number) => string;
-  imageInputRef: React.RefObject<HTMLInputElement>;
-  fileInputRef: React.RefObject<HTMLInputElement>;
+  imageInputRef: React.RefObject<HTMLInputElement | null>;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
   onFileSelect: (e: React.ChangeEvent<HTMLInputElement>, type: "image" | "file") => Promise<void>;
   onLocationShare: () => void;
   onCheckMicrophonePermission: () => Promise<boolean>;

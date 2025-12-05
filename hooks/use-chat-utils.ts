@@ -33,8 +33,8 @@ export interface UseChatUtilsReturn {
   formatTime: (seconds: number) => string;
   formatFileSize: (bytes: number) => string;
   checkMicrophonePermission: () => Promise<boolean>;
-  imageInputRef: React.RefObject<HTMLInputElement>;
-  fileInputRef: React.RefObject<HTMLInputElement>;
+  imageInputRef: React.RefObject<HTMLInputElement | null>;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
 }
 
 export function useChatUtils(): UseChatUtilsReturn {

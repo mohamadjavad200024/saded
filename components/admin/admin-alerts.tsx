@@ -47,7 +47,7 @@ export function AdminAlerts() {
     const upcomingChecks: Array<{
       supplierName: string;
       checkNumber: string;
-      dueDate: Date;
+      dueDate: string;
       amount: number;
     }> = [];
 

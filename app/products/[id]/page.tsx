@@ -81,8 +81,8 @@ export async function generateMetadata({
     description: description.substring(0, 160),
     keywords: [
       product.name,
-      product.brand,
-      product.category,
+      product.brand || "",
+      product.category || "",
       "قطعات خودرو",
       "قطعات وارداتی",
       ...(product.tags || []),

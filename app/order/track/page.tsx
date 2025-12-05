@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -61,7 +61,7 @@ const paymentStatusConfig = {
   },
 };
 
-export default function TrackOrderPage() {
+function TrackOrderContent() {
   const searchParams = useSearchParams();
   const initialOrderNumber = searchParams.get("orderNumber") || "";
   const [orderNumber, setOrderNumber] = useState(initialOrderNumber);
@@ -559,6 +559,14 @@ export default function TrackOrderPage() {
         onOpenChange={setChatOpen}
       />
     </div>
+  );
+}
+
+export default function TrackOrderPage() {
+  return (
+    <Suspense fallback={<div className="container mx-auto px-4 py-6">در حال بارگذاری...</div>}>
+      <TrackOrderContent />
+    </Suspense>
   );
 }
 

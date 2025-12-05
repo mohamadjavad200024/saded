@@ -106,16 +106,22 @@ export function SupplierTransactionForm({
           checkDetails: transaction.checkDetails
             ? {
                 checkNumber: transaction.checkDetails.checkNumber,
-                bankName: transaction.checkDetails.bankName,
-                dueDate: transaction.checkDetails.dueDate
-                  .toISOString()
-                  .split("T")[0],
+                bankName: transaction.checkDetails.bankName,  
+                dueDate: typeof transaction.checkDetails.dueDate === 'string' 
+                  ? transaction.checkDetails.dueDate.split("T")[0]
+                  : new Date(transaction.checkDetails.dueDate).toISOString().split("T")[0],
               }
             : undefined,
-          orderDate: transaction.orderDate.toISOString().split("T")[0],
-          deliveryDate: transaction.deliveryDate.toISOString().split("T")[0],
+          orderDate: typeof transaction.orderDate === 'string' 
+            ? transaction.orderDate.split("T")[0]
+            : new Date(transaction.orderDate).toISOString().split("T")[0],
+          deliveryDate: typeof transaction.deliveryDate === 'string'
+            ? transaction.deliveryDate.split("T")[0]
+            : new Date(transaction.deliveryDate).toISOString().split("T")[0],
           paymentDate: transaction.paymentDate
-            ? transaction.paymentDate.toISOString().split("T")[0]
+            ? (typeof transaction.paymentDate === 'string'
+              ? transaction.paymentDate.split("T")[0]
+              : new Date(transaction.paymentDate).toISOString().split("T")[0])
             : "",
           notes: transaction.notes || "",
         }

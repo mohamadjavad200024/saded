@@ -18,7 +18,7 @@ interface CategoryStore {
   getEnabledCategories: () => Category[];
   
   // Async API sync method
-  loadCategoriesFromDB: () => Promise<void>;
+  loadCategoriesFromDB: (includeInactive?: boolean) => Promise<void>;
 }
 
 export const useCategoryStore = create<CategoryStore>((set, get) => ({

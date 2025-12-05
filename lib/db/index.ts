@@ -7,7 +7,7 @@
 /**
  * Get single row from database
  */
-export async function getRow<T = any>(
+export async function getRow<T extends Record<string, any> = any>(
   sql: string,
   params: any[] = []
 ): Promise<T | null> {
@@ -30,7 +30,7 @@ export async function getRow<T = any>(
 /**
  * Get multiple rows from database
  */
-export async function getRows<T = any>(
+export async function getRows<T extends Record<string, any> = any>(
   sql: string,
   params: any[] = []
 ): Promise<T[]> {
