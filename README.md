@@ -1,36 +1,110 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ساد - فروشگاه آنلاین قطعات خودرو وارداتی
 
-## Getting Started
+یک وبسایت مدرن و قدرتمند برای فروش قطعات خودرو وارداتی با استفاده از Next.js 14، React 18، TypeScript و Tailwind CSS.
 
-First, run the development server:
+## ویژگی‌های کلیدی
+
+### طراحی و UI
+- ✅ طراحی مدرن و واکنش‌گرا با Tailwind CSS
+- ✅ تم رنگی سفارشی (آبی تیره، قرمز، طلایی)
+- ✅ انیمیشن‌های روان با Framer Motion
+- ✅ کامپوننت‌های UI با Radix UI و Shadcn/ui
+- ✅ پشتیبانی کامل از RTL (راست به چپ)
+
+### صفحات اصلی
+- ✅ صفحه اصلی با Hero Section و جستجوی پیشرفته
+- ✅ صفحه محصولات با فیلترهای پیشرفته
+- ✅ صفحه جزئیات محصول با گالری تصاویر
+- ✅ سبد خرید و فرآیند خرید
+
+### عملکرد
+- ✅ State Management با Zustand
+- ✅ Data Fetching با React Query
+- ✅ بهینه‌سازی تصاویر با Next.js Image
+- ✅ Code Splitting و Lazy Loading
+
+## تکنولوژی‌ها
+
+- **Frontend Framework**: Next.js 14 (App Router)
+- **UI Library**: React 18
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS 4
+- **State Management**: Zustand
+- **Data Fetching**: React Query (TanStack Query)
+- **Animations**: Framer Motion
+- **UI Components**: Radix UI + Shadcn/ui
+- **Icons**: Lucide React
+- **Package Manager**: pnpm
+
+## نصب و راه‌اندازی
+
+### پیش‌نیازها
+- Node.js 18+ 
+- pnpm (نصب شده)
+
+### مراحل نصب
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+# نصب وابستگی‌ها
+pnpm install
+
+# اجرای پروژه در حالت توسعه
 pnpm dev
-# or
-bun dev
+
+# ساخت پروژه برای تولید
+pnpm build
+
+# اجرای پروژه در حالت تولید
+pnpm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+پروژه در آدرس [http://localhost:3000](http://localhost:3000) در دسترس خواهد بود.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## ساختار پروژه
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+saded/
+├── app/                    # Next.js App Router
+│   ├── layout.tsx         # Layout اصلی
+│   ├── page.tsx           # صفحه اصلی
+│   ├── products/          # صفحات محصولات
+│   └── cart/              # صفحه سبد خرید
+├── components/            # کامپوننت‌های React
+│   ├── ui/               # کامپوننت‌های پایه UI
+│   ├── layout/           # Header, Footer, Navigation
+│   ├── home/             # کامپوننت‌های صفحه اصلی
+│   ├── product/          # کامپوننت‌های محصولات
+│   └── cart/             # کامپوننت‌های سبد خرید
+├── lib/                  # توابع کمکی
+├── store/                # Zustand stores
+└── public/               # فایل‌های استاتیک
+```
 
-## Learn More
+## ویژگی‌های در حال توسعه
 
-To learn more about Next.js, take a look at the following resources:
+- [ ] سیستم احراز هویت (NextAuth.js)
+- [ ] پنل کاربری و داشبورد
+- [ ] جستجوی پیشرفته (VIN، تصویری، صوتی)
+- [ ] سیستم نظرات و امتیازدهی
+- [ ] درگاه پرداخت
+- [ ] PWA و قابلیت Offline
+- [ ] تست‌های واحد (Jest + React Testing Library)
+- [ ] SEO بهینه‌سازی
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🚀 استقرار
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+برای استقرار پروژه روی هاست، راهنماهای زیر را مطالعه کنید:
 
-## Deploy on Vercel
+- [راهنمای استقرار روی cPanel](./DEPLOYMENT-CPANEL.md) - برای هاست‌های cPanel (مثل هاست فریم‌ورک ایران)
+- [راهنمای کامل استقرار](./DEPLOYMENT.md) - برای VPS و سرور اختصاصی
+- [راهنمای سریع](./DEPLOYMENT-QUICK-START.md) - مرور سریع مراحل
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 📚 مستندات
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [راهنمای PostgreSQL](./README-POSTGRES.md)
+- [راهنمای زرین‌پال](./ZARINPAL_GUIDE.md)
+- [فهرست راهنماهای استقرار](./README-DEPLOYMENT.md)
+
+## مجوز
+
+این پروژه تحت مجوز MIT منتشر شده است.
