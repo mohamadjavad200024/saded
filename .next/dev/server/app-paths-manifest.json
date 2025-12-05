@@ -1,0 +1,14 @@
+{
+  "/api/chat/route": "app/api/chat/route.js",
+  "/api/chat/unread-count/route": "app/api/chat/unread-count/route.js",
+  "/api/orders/route": "app/api/orders/route.js",
+  "/api/cart/route": "app/api/cart/route.js",
+  "/api/categories/route": "app/api/categories/route.js",
+  "/api/products/route": "app/api/products/route.js",
+  "/api/admin/presence/route": "app/api/admin/presence/route.js",
+  "/page": "app/page.js",
+  "/products/page": "app/products/page.js",
+  "/admin/orders/page": "app/admin/orders/page.js",
+  "/admin/page": "app/admin/page.js",
+  "/admin/products/page": "app/admin/products/page.js"
+}
