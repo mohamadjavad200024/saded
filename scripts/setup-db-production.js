@@ -13,7 +13,13 @@
  * - در صورت وجود جداول، آن‌ها را به‌روزرسانی می‌کند
  */
 
-require('dotenv').config({ path: '.env.production' });
+// Try to load dotenv if available
+try {
+  require('dotenv').config({ path: '.env.production' });
+} catch (e) {
+  // dotenv not available, use environment variables directly
+  console.log('Note: dotenv not found, using environment variables directly');
+}
 
 const { Pool } = require('pg');
 
