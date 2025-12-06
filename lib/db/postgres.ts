@@ -34,6 +34,8 @@ const DB_CONFIG = {
   database: process.env.DB_NAME || "saded",
   user: process.env.DB_USER || "postgres",
   password: process.env.DB_PASSWORD || "",
+  // SSL configuration for cPanel PostgreSQL
+  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
   max: 20, // Maximum number of clients in the pool
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
@@ -375,6 +377,7 @@ export async function ensureDatabase(): Promise<void> {
   const adminPool = new Pool({
     ...DB_CONFIG,
     database: "postgres", // Connect to default postgres database
+    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
   });
 
   try {
