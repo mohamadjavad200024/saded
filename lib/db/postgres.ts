@@ -29,7 +29,7 @@ if (!process.env.DB_PASSWORD) {
 }
 
 const DB_CONFIG = {
-  host: process.env.DB_HOST || "localhost",
+  host: process.env.DB_HOST || "127.0.0.1", // Use IPv4 instead of localhost to avoid IPv6 issues
   port: parseInt(process.env.DB_PORT || "5432"),
   database: process.env.DB_NAME || "saded",
   user: process.env.DB_USER || "postgres",
