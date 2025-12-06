@@ -1,42 +1,50 @@
-// Simple server.js that runs 'next start'
-// This is used by cPanel Node.js App manager
+// Custom Next.js server for cPanel
+// This file is used by cPanel Node.js App manager as startup file
 
-const { spawn } = require('child_process');
-const path = require('path');
+const { createServer } = require('http');
+const { parse } = require('url');
+const next = require('next');
 
-// Get the port from environment variable (set by cPanel)
-const port = process.env.PORT || process.env.APP_PORT || 3000;
+// Get configuration from environment variables
+const dev = process.env.NODE_ENV !== 'production';
+const hostname = process.env.HOSTNAME || '0.0.0.0'; // Listen on all interfaces
+const port = parseInt(process.env.PORT || process.env.APP_PORT || '3000', 10);
 
-// Run 'next start' command
-const nextProcess = spawn('npm', ['start'], {
-  cwd: __dirname,
-  stdio: 'inherit',
-  shell: true,
-  env: {
-    ...process.env,
-    PORT: port,
-    NODE_ENV: 'production'
-  }
+console.log(`Starting Next.js server...`);
+console.log(`Environment: ${process.env.NODE_ENV || 'production'}`);
+console.log(`Port: ${port}`);
+console.log(`Hostname: ${hostname}`);
+
+// Initialize Next.js app
+const app = next({ 
+  dev: false, // Always production mode in cPanel
+  hostname,
+  port 
 });
 
-nextProcess.on('error', (error) => {
-  console.error('Failed to start Next.js:', error);
+const handle = app.getRequestHandler();
+
+// Start the server
+app.prepare().then(() => {
+  createServer(async (req, res) => {
+    try {
+      const parsedUrl = parse(req.url, true);
+      await handle(req, res, parsedUrl);
+    } catch (err) {
+      console.error('Error occurred handling', req.url, err);
+      res.statusCode = 500;
+      res.end('internal server error');
+    }
+  }).listen(port, hostname, (err) => {
+    if (err) {
+      console.error('Failed to start server:', err);
+      process.exit(1);
+    }
+    console.log(`> Ready on http://${hostname}:${port}`);
+    console.log(`> Server started successfully`);
+  });
+}).catch((err) => {
+  console.error('Failed to prepare Next.js app:', err);
   process.exit(1);
-});
-
-nextProcess.on('exit', (code) => {
-  if (code !== 0) {
-    console.error(`Next.js process exited with code ${code}`);
-    process.exit(code);
-  }
-});
-
-// Handle process termination
-process.on('SIGTERM', () => {
-  nextProcess.kill('SIGTERM');
-});
-
-process.on('SIGINT', () => {
-  nextProcess.kill('SIGINT');
 });
 
