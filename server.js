@@ -10,6 +10,10 @@ const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || '0.0.0.0'; // Listen on all interfaces
 const port = parseInt(process.env.PORT || process.env.APP_PORT || '3000', 10);
 
+console.log('='.repeat(50));
+console.log('Starting Next.js with server.js');
+console.log('='.repeat(50));
+
 console.log(`Starting Next.js server...`);
 console.log(`Environment: ${process.env.NODE_ENV || 'production'}`);
 console.log(`Port: ${port}`);
@@ -17,7 +21,7 @@ console.log(`Hostname: ${hostname}`);
 
 // Initialize Next.js app
 const app = next({ 
-  dev: false, // Always production mode in cPanel
+  dev: dev, // Use environment variable
   hostname,
   port 
 });
