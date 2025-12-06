@@ -7,7 +7,7 @@
     "dev:webpack": "next dev --webpack",
     "dev:turbo": "next dev --turbo",
     "build": "next build",
-    "start": "next start",
+    "start": "node server.js",
     "lint": "eslint",
     "test": "jest",
     "test:watch": "jest --watch",
