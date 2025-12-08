@@ -196,6 +196,7 @@ async function initializeTables() {
       attachments JSON DEFAULT '[]',
       status VARCHAR(50) DEFAULT 'sent',
       createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_chat_messages_chatId (chatId),
       FOREIGN KEY (chatId) REFERENCES quick_buy_chats(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -209,6 +210,7 @@ async function initializeTables() {
       fileSize BIGINT,
       fileUrl VARCHAR(500),
       createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_chat_attachments_messageId (messageId),
       FOREIGN KEY (messageId) REFERENCES chat_messages(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
