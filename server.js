@@ -8,6 +8,8 @@ const next = require('next');
 // Get configuration from environment variables
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || '0.0.0.0'; // Listen on all interfaces
+// Force 0.0.0.0 if HOSTNAME is not explicitly set to 0.0.0.0
+const listenHostname = process.env.HOSTNAME === '0.0.0.0' ? '0.0.0.0' : (process.env.HOSTNAME || '0.0.0.0');
 const port = parseInt(process.env.PORT || process.env.APP_PORT || '3000', 10);
 
 console.log('='.repeat(50));
@@ -39,12 +41,12 @@ app.prepare().then(() => {
       res.statusCode = 500;
       res.end('internal server error');
     }
-  }).listen(port, hostname, (err) => {
+  }).listen(port, listenHostname, (err) => {
     if (err) {
       console.error('Failed to start server:', err);
       process.exit(1);
     }
-    console.log(`> Ready on http://${hostname}:${port}`);
+    console.log(`> Ready on http://${listenHostname}:${port}`);
     console.log(`> Server started successfully`);
   });
 }).catch((err) => {
