@@ -25,7 +25,7 @@ export async function GET(
       throw new AppError("محصول یافت نشد", 404, "PRODUCT_NOT_FOUND");
     }
 
-    // Parse JSON fields (PostgreSQL JSONB returns objects, not strings)
+    // Parse JSON fields (MySQL JSON returns objects, but may be strings in some cases)
     const parsedProduct: Product = {
       ...product,
       images: Array.isArray(product.images) ? product.images : (typeof product.images === 'string' ? JSON.parse(product.images) : []),
@@ -101,8 +101,8 @@ export async function PUT(
         ? Math.max(0, Math.round(Number(updates.seaShippingCost))) 
         : null;
     }
-    // PostgreSQL accepts boolean values directly, no need to convert to 1/0
-    // Keep boolean values as-is for PostgreSQL
+    // MySQL accepts boolean values directly, no need to convert to 1/0
+    // Keep boolean values as-is for MySQL
 
     const setClause = Object.keys(updates)
       .map((key) => `${key} = ?`)
@@ -114,7 +114,7 @@ export async function PUT(
 
     const updatedProduct = await getRow<any>("SELECT * FROM products WHERE id = ?", [id]);
     
-    // Parse JSON fields (PostgreSQL JSONB returns objects, not strings)
+    // Parse JSON fields (MySQL JSON returns objects, but may be strings in some cases)
     const parsedProduct: Product = {
       ...updatedProduct,
       images: Array.isArray(updatedProduct.images) ? updatedProduct.images : (typeof updatedProduct.images === 'string' ? JSON.parse(updatedProduct.images) : []),

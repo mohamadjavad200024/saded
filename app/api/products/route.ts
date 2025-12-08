@@ -84,10 +84,10 @@ export async function GET(request: NextRequest) {
 
       // If all=true, get all products, otherwise only enabled ones
       const productsQuery = includeAll
-        ? `SELECT * FROM products ORDER BY "createdAt" DESC LIMIT ? OFFSET ?`
-        : `SELECT * FROM products WHERE enabled = TRUE ORDER BY "createdAt" DESC LIMIT ? OFFSET ?`;
+        ? `SELECT * FROM products ORDER BY createdAt DESC LIMIT ? OFFSET ?`
+        : `SELECT * FROM products WHERE enabled = TRUE ORDER BY createdAt DESC LIMIT ? OFFSET ?`;
       
-      // Get paginated products (wrapper converts ? to $1, $2 for PostgreSQL)
+      // Get paginated products
       products = await getRows<Product>(productsQuery, [limit, offset]);
       
       // Cache the result for 5 minutes (increased from 30 seconds for better performance)
@@ -124,7 +124,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Parse JSON fields (PostgreSQL JSONB returns objects, not strings)
+    // Parse JSON fields (MySQL JSON returns objects, but may be strings in some cases)
     const parsedProducts = products.map((p: any) => ({
       ...p,
       images: Array.isArray(p.images) ? p.images : (typeof p.images === 'string' ? JSON.parse(p.images) : []),
@@ -235,18 +235,18 @@ export async function POST(request: NextRequest) {
         stockCount: Math.max(0, Math.round(stockCount || 0)),
         inStock: inStock !== false,
         enabled: enabled !== false,
-        images: images, // PostgreSQL JSONB accepts arrays directly
+        images: images, // MySQL JSON accepts arrays directly
         tags: tags && Array.isArray(tags) ? tags : [],
         specifications: specifications && typeof specifications === "object" ? specifications : {},
         createdAt: now,
         updatedAt: now,
       };
 
-      // Insert into database (wrapper will convert ? to $1, $2, etc. for PostgreSQL)
+      // Insert into database
       try {
         const insertResult = await runQuery(
-        `INSERT INTO products (id, name, description, price, "originalPrice", brand, category, vin, "vinEnabled", "airShippingEnabled", "seaShippingEnabled", "airShippingCost", "seaShippingCost", "stockCount", "inStock", enabled, images, tags, specifications, "createdAt", "updatedAt")
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb, ?, ?)`,
+        `INSERT INTO products (id, name, description, price, originalPrice, brand, category, vin, vinEnabled, airShippingEnabled, seaShippingEnabled, airShippingCost, seaShippingCost, stockCount, inStock, enabled, images, tags, specifications, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           productData.id,
           productData.name,
@@ -290,7 +290,7 @@ export async function POST(request: NextRequest) {
         throw new AppError("محصول ایجاد شد اما پیدا نشد", 500, "PRODUCT_NOT_FOUND");
       }
 
-      // Parse JSON fields (PostgreSQL JSONB returns objects, not strings)
+      // Parse JSON fields (MySQL JSON returns objects, but may be strings in some cases)
       const parsedProduct: Product = {
         ...newProduct,
         images: Array.isArray(newProduct.images) ? newProduct.images : (typeof newProduct.images === 'string' ? JSON.parse(newProduct.images) : []),
@@ -367,11 +367,11 @@ export async function POST(request: NextRequest) {
     const countResult = await getRows<{ count: number }>(countQuery, params);
     const total = countResult[0]?.count || 0;
 
-    // Get paginated products (wrapper will convert ? to $1, $2, etc. for PostgreSQL)
-    const dataQuery = `SELECT * FROM products ${whereClause} ORDER BY "createdAt" DESC LIMIT ? OFFSET ?`;
+    // Get paginated products
+    const dataQuery = `SELECT * FROM products ${whereClause} ORDER BY createdAt DESC LIMIT ? OFFSET ?`;
     const products = await getRows<any>(dataQuery, [...params, limit, offset]);
 
-    // Parse JSON fields (PostgreSQL JSONB returns objects, not strings)
+    // Parse JSON fields (MySQL JSON returns objects, but may be strings in some cases)
     const parsedProducts = products.map((p: any) => ({
       ...p,
       images: Array.isArray(p.images) ? p.images : (typeof p.images === 'string' ? JSON.parse(p.images) : []),

@@ -34,7 +34,7 @@ export async function PATCH(
     }
 
     await runQuery(
-      `UPDATE orders SET status = ?, "updatedAt" = ? WHERE id = ?`,
+      `UPDATE orders SET status = ?, updatedAt = ? WHERE id = ?`,
       [status, new Date().toISOString(), id]
     );
 

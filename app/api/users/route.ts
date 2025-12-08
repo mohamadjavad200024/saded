@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     const total = countResult[0]?.count || 0;
 
     // Get paginated users
-    query += " ORDER BY \"createdAt\" DESC LIMIT ? OFFSET ?";
+    query += " ORDER BY createdAt DESC LIMIT ? OFFSET ?";
     const users = await getRows<any>(query, [...params, limit, offset]);
 
     // Parse and transform users
@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
     let insertResult: any;
     try {
       insertResult = await runQuery(
-        `INSERT INTO users (id, email, password, name, role, phone, address, enabled, "createdAt", "updatedAt")
+        `INSERT INTO users (id, email, password, name, role, phone, address, enabled, createdAt, updatedAt)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id,

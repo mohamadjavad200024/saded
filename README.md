@@ -101,7 +101,7 @@ saded/
 
 ## 📚 مستندات
 
-- [راهنمای PostgreSQL](./README-POSTGRES.md)
+- [راهنمای MySQL](./README-MYSQL.md)
 - [راهنمای زرین‌پال](./ZARINPAL_GUIDE.md)
 - [فهرست راهنماهای استقرار](./README-DEPLOYMENT.md)
 

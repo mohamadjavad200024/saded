@@ -37,12 +37,12 @@ export async function POST(request: NextRequest) {
       await runQuery(`
         CREATE TABLE IF NOT EXISTS quick_buy_chats (
           id VARCHAR(255) PRIMARY KEY,
-          "customerName" VARCHAR(255) NOT NULL,
-          "customerPhone" VARCHAR(255) NOT NULL,
-          "customerEmail" VARCHAR(255),
+          customerName VARCHAR(255) NOT NULL,
+          customerPhone VARCHAR(255) NOT NULL,
+          customerEmail VARCHAR(255),
           status VARCHAR(50) NOT NULL DEFAULT 'active',
-          "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
-          "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW()
+          createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         );
       `);
 
@@ -50,42 +50,43 @@ export async function POST(request: NextRequest) {
       await runQuery(`
         CREATE TABLE IF NOT EXISTS chat_messages (
           id VARCHAR(255) PRIMARY KEY,
-          "chatId" VARCHAR(255) NOT NULL REFERENCES quick_buy_chats(id) ON DELETE CASCADE,
+          chatId VARCHAR(255) NOT NULL,
           text TEXT,
           sender VARCHAR(50) NOT NULL,
-          attachments JSONB DEFAULT '[]'::jsonb,
+          attachments JSON DEFAULT '[]',
           status VARCHAR(50) DEFAULT 'sent',
-          "createdAt" TIMESTAMP NOT NULL DEFAULT NOW()
+          createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (chatId) REFERENCES quick_buy_chats(id) ON DELETE CASCADE
         );
       `);
       
       // Add status column if it doesn't exist (for existing tables)
       await runQuery(`
-        ALTER TABLE chat_messages 
-        ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'sent';
+        -- MySQL doesn't support IF NOT EXISTS in ALTER TABLE, so we'll handle this in initializeTables
       `);
 
       // Create attachments table (depends on messages)
       await runQuery(`
         CREATE TABLE IF NOT EXISTS chat_attachments (
           id VARCHAR(255) PRIMARY KEY,
-          "messageId" VARCHAR(255) NOT NULL REFERENCES chat_messages(id) ON DELETE CASCADE,
+          messageId VARCHAR(255) NOT NULL,
           type VARCHAR(50) NOT NULL,
-          "filePath" VARCHAR(500),
-          "fileName" VARCHAR(255),
-          "fileSize" BIGINT,
-          "fileUrl" VARCHAR(500),
-          "createdAt" TIMESTAMP NOT NULL DEFAULT NOW()
+          filePath VARCHAR(500),
+          fileName VARCHAR(255),
+          fileSize BIGINT,
+          fileUrl VARCHAR(500),
+          createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (messageId) REFERENCES chat_messages(id) ON DELETE CASCADE
         );
       `);
 
       // Create indexes
       await runQuery(`
-        CREATE INDEX IF NOT EXISTS idx_chat_messages_chatId ON chat_messages("chatId");
-        CREATE INDEX IF NOT EXISTS idx_chat_attachments_messageId ON chat_attachments("messageId");
+        CREATE INDEX IF NOT EXISTS idx_chat_messages_chatId ON chat_messages(chatId);
+        CREATE INDEX IF NOT EXISTS idx_chat_attachments_messageId ON chat_attachments(messageId);
       `);
     } catch (createError: any) {
-      if (createError?.code !== "42P07" && !createError?.message?.includes("already exists")) {
+      if (createError?.code !== "ER_TABLE_EXISTS_ERROR" && !createError?.message?.includes("already exists") && !createError?.message?.includes("Duplicate")) {
         logger.error("Error creating chat tables:", createError);
       }
     }
@@ -100,16 +101,16 @@ export async function POST(request: NextRequest) {
       chatId = providedChatId;
       await runQuery(
         `UPDATE quick_buy_chats 
-         SET "updatedAt" = $1 
-         WHERE id = $2`,
+         SET updatedAt = ? 
+         WHERE id = ?`,
         [now, chatId]
       );
     } else {
       // Create new chat
       chatId = `chat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       await runQuery(
-        `INSERT INTO quick_buy_chats (id, "customerName", "customerPhone", "customerEmail", status, "createdAt", "updatedAt")
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        `INSERT INTO quick_buy_chats (id, customerName, customerPhone, customerEmail, status, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
           chatId,
           customerInfo.name.trim(),
@@ -124,7 +125,7 @@ export async function POST(request: NextRequest) {
 
     // Get existing message IDs to avoid duplicates
     const existingMessages = await getRows<{ id: string }>(
-      `SELECT id FROM chat_messages WHERE "chatId" = $1`,
+      `SELECT id FROM chat_messages WHERE chatId = ?`,
       [chatId]
     );
     const existingMessageIds = new Set(existingMessages.map((m) => m.id));
@@ -170,12 +171,12 @@ export async function POST(request: NextRequest) {
       
       // Save message using UPSERT to avoid duplicates
       await runQuery(
-        `INSERT INTO chat_messages (id, "chatId", text, sender, attachments, status, "createdAt")
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         ON CONFLICT (id) DO UPDATE SET
-           text = EXCLUDED.text,
-           attachments = EXCLUDED.attachments,
-           status = COALESCE(EXCLUDED.status, chat_messages.status)`,
+        `INSERT INTO chat_messages (id, chatId, text, sender, attachments, status, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           text = VALUES(text),
+           attachments = VALUES(attachments),
+           status = COALESCE(VALUES(status), chat_messages.status)`,
         [
           messageId,
           chatId,
@@ -202,7 +203,7 @@ export async function POST(request: NextRequest) {
             try {
               // First, check if attachment with this URL already exists for this message
               const existingAttachment = await getRow<any>(
-                `SELECT id FROM chat_attachments WHERE "messageId" = $1 AND "fileUrl" = $2`,
+                `SELECT id FROM chat_attachments WHERE messageId = ? AND fileUrl = ?`,
                 [messageId, attachmentUrl]
               );
               
@@ -212,8 +213,8 @@ export async function POST(request: NextRequest) {
                 // Update existing attachment
                 await runQuery(
                   `UPDATE chat_attachments 
-                   SET type = $1, "fileName" = $2, "fileSize" = $3, "fileUrl" = $4
-                   WHERE id = $5`,
+                   SET type = ?, fileName = ?, fileSize = ?, fileUrl = ?
+                   WHERE id = ?`,
                   [
                     attachmentType,
                     attachment.name || null,
@@ -230,8 +231,8 @@ export async function POST(request: NextRequest) {
               } else {
                 // Insert new attachment
                 await runQuery(
-                  `INSERT INTO chat_attachments (id, "messageId", type, "filePath", "fileName", "fileSize", "fileUrl", "createdAt")
-                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                  `INSERT INTO chat_attachments (id, messageId, type, filePath, fileName, fileSize, fileUrl, createdAt)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
                   [
                     attachmentId,
                     messageId,
@@ -264,7 +265,7 @@ export async function POST(request: NextRequest) {
 
       // Get the saved message with status from database
       const savedMessage = await getRow<any>(
-        `SELECT id, status FROM chat_messages WHERE id = $1`,
+        `SELECT id, status FROM chat_messages WHERE id = ?`,
         [messageId]
       );
       
@@ -309,12 +310,12 @@ export async function GET(request: NextRequest) {
       let chat;
       try {
         chat = await getRow<any>(
-          `SELECT * FROM quick_buy_chats WHERE id = $1`,
+          `SELECT * FROM quick_buy_chats WHERE id = ?`,
           [chatId]
         );
       } catch (dbError: any) {
         // If table doesn't exist, return 404
-        if (dbError?.code === "42P01" || dbError?.message?.includes("does not exist")) {
+        if (dbError?.code === "ER_NO_SUCH_TABLE" || dbError?.message?.includes("doesn't exist") || dbError?.message?.includes("does not exist")) {
           throw new AppError("چت یافت نشد", 404, "CHAT_NOT_FOUND");
         }
         throw dbError;
@@ -329,31 +330,31 @@ export async function GET(request: NextRequest) {
       const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "50", 10)));
       const offset = (page - 1) * limit;
       
-      let messagesQuery = `SELECT * FROM chat_messages WHERE "chatId" = $1`;
+      let messagesQuery = `SELECT * FROM chat_messages WHERE chatId = ?`;
       const queryParams: any[] = [chatId];
       
       if (lastMessageId) {
         // Get messages after the last known message ID (for polling)
         // First get the createdAt of the last message, then get messages after that time
         const lastMessage = await getRow<any>(
-          `SELECT "createdAt" FROM chat_messages WHERE id = $1`,
+          `SELECT createdAt FROM chat_messages WHERE id = ?`,
           [lastMessageId]
         );
         if (lastMessage) {
-          messagesQuery += ` AND "createdAt" > $2 ORDER BY "createdAt" ASC LIMIT $3`;
+          messagesQuery += ` AND createdAt > ? ORDER BY createdAt ASC LIMIT ?`;
           queryParams.push(lastMessage.createdAt, limit);
         } else {
           // Fallback: use id comparison if createdAt not found
-          messagesQuery += ` AND id != $2 ORDER BY "createdAt" ASC LIMIT $3`;
+          messagesQuery += ` AND id != ? ORDER BY createdAt ASC LIMIT ?`;
           queryParams.push(lastMessageId, limit);
         }
       } else if (since) {
         // Get messages after a specific timestamp (for polling)
-        messagesQuery += ` AND "createdAt" > $2 ORDER BY "createdAt" ASC LIMIT $3`;
+        messagesQuery += ` AND createdAt > ? ORDER BY createdAt ASC LIMIT ?`;
         queryParams.push(since, limit);
       } else {
         // Get paginated messages (for initial load)
-        messagesQuery += ` ORDER BY "createdAt" DESC LIMIT $2 OFFSET $3`;
+        messagesQuery += ` ORDER BY createdAt DESC LIMIT ? OFFSET ?`;
         queryParams.push(limit, offset);
       }
 
@@ -392,7 +393,7 @@ export async function GET(request: NextRequest) {
         let jsonAttachments: any[] = [];
         if (message.attachments) {
           if (Array.isArray(message.attachments)) {
-            // Already an array (PostgreSQL JSONB returns as array)
+            // Already an array (MySQL JSON returns as array)
             jsonAttachments = message.attachments;
           } else if (typeof message.attachments === 'string') {
             // Try to parse if it's a string
@@ -476,15 +477,15 @@ export async function GET(request: NextRequest) {
         if (customerName) {
           chat = await getRow<any>(
             `SELECT * FROM quick_buy_chats 
-             WHERE "customerPhone" = $1 AND "customerName" = $2 
-             ORDER BY "createdAt" DESC LIMIT 1`,
+             WHERE customerPhone = ? AND customerName = ? 
+             ORDER BY createdAt DESC LIMIT 1`,
             [customerPhone, customerName]
           );
         } else {
           chat = await getRow<any>(
             `SELECT * FROM quick_buy_chats 
-             WHERE "customerPhone" = $1 
-             ORDER BY "createdAt" DESC LIMIT 1`,
+             WHERE customerPhone = ? 
+             ORDER BY createdAt DESC LIMIT 1`,
             [customerPhone]
           );
         }
@@ -492,7 +493,7 @@ export async function GET(request: NextRequest) {
         if (chat) {
           // Get messages for this chat
           const messages = await getRows<any>(
-            `SELECT * FROM chat_messages WHERE "chatId" = $1 ORDER BY "createdAt" ASC`,
+            `SELECT * FROM chat_messages WHERE chatId = ? ORDER BY createdAt ASC`,
             [chat.id]
           );
 
@@ -502,9 +503,9 @@ export async function GET(request: NextRequest) {
           
           if (messageIds.length > 0) {
             // Use IN clause to get all attachments in one query
-            const placeholders = messageIds.map((_, i) => `$${i + 1}`).join(',');
+            const placeholders = messageIds.map(() => '?').join(',');
             allDbAttachments = await getRows<any>(
-              `SELECT * FROM chat_attachments WHERE "messageId" IN (${placeholders})`,
+              `SELECT * FROM chat_attachments WHERE messageId IN (${placeholders})`,
               messageIds
             );
           }
@@ -524,7 +525,7 @@ export async function GET(request: NextRequest) {
             let jsonAttachments: any[] = [];
             if (message.attachments) {
               if (Array.isArray(message.attachments)) {
-                // PostgreSQL JSONB returns as array
+                // MySQL JSON returns as array
                 jsonAttachments = message.attachments;
               } else if (typeof message.attachments === 'string') {
                 // Try to parse if it's a string
@@ -618,7 +619,7 @@ export async function GET(request: NextRequest) {
           }
           
           const chats = await getRows<any>(
-            `SELECT * FROM quick_buy_chats ORDER BY "createdAt" DESC LIMIT 50`
+            `SELECT * FROM quick_buy_chats ORDER BY createdAt DESC LIMIT 50`
           );
 
           // Optimize: Get unread counts for all chats in one query using GROUP BY
@@ -630,12 +631,12 @@ export async function GET(request: NextRequest) {
               // Use IN clause with GROUP BY to get all unread counts in one query
               const placeholders = chatIds.map((_, i) => `$${i + 1}`).join(',');
               const unreadCounts = await getRows<{ chatId: string; count: string }>(
-                `SELECT "chatId", COUNT(*) as count 
+                `SELECT chatId, COUNT(*) as count 
                  FROM chat_messages 
-                 WHERE "chatId" IN (${placeholders})
+                 WHERE chatId IN (${placeholders})
                    AND sender = 'user' 
                    AND (status IS NULL OR (status != 'read' AND status IN ('sent', 'delivered', 'sending')))
-                 GROUP BY "chatId"`,
+                 GROUP BY chatId`,
                 chatIds
               );
               
@@ -663,7 +664,7 @@ export async function GET(request: NextRequest) {
           return createSuccessResponse({ chats: chatsWithUnreadCount });
         } catch (dbError: any) {
           // If table doesn't exist, return empty array instead of error
-          if (dbError?.code === "42P01" || dbError?.message?.includes("does not exist")) {
+          if (dbError?.code === "ER_NO_SUCH_TABLE" || dbError?.message?.includes("doesn't exist") || dbError?.message?.includes("does not exist")) {
             logger.warn("Chat table does not exist yet, returning empty chats list");
             return createSuccessResponse({ chats: [] });
           }

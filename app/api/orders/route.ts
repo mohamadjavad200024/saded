@@ -16,15 +16,15 @@ export async function GET(request: NextRequest) {
     const params: any[] = [];
 
     if (orderNumber) {
-      query += " WHERE \"orderNumber\" = ? OR id = ?";
+      query += " WHERE orderNumber = ? OR id = ?";
       params.push(orderNumber, orderNumber);
     } else {
-      query += " ORDER BY \"createdAt\" DESC";
+      query += " ORDER BY createdAt DESC";
     }
 
     const orders = await getRows<any>(query, params.length > 0 ? params : undefined);
 
-    // Parse JSON fields (PostgreSQL JSONB returns objects, not strings)
+    // Parse JSON fields (MySQL JSON returns objects, but may be strings in some cases)
     const parsedOrders = orders.map((o: any) => ({
       ...o,
       items: Array.isArray(o.items) ? o.items : (typeof o.items === 'string' ? JSON.parse(o.items) : []),
@@ -62,31 +62,31 @@ export async function POST(request: NextRequest) {
     }
 
     if (filters.paymentStatus && filters.paymentStatus.length > 0) {
-      query += ` AND "paymentStatus" IN (${filters.paymentStatus.map(() => "?").join(",")})`;
+      query += ` AND paymentStatus IN (${filters.paymentStatus.map(() => "?").join(",")})`;
       params.push(...filters.paymentStatus);
     }
 
     if (filters.search) {
-      query += " AND (\"orderNumber\" LIKE ? OR \"customerName\" LIKE ? OR \"customerPhone\" LIKE ?)";
+      query += " AND (orderNumber LIKE ? OR customerName LIKE ? OR customerPhone LIKE ?)";
       const searchTerm = `%${filters.search}%`;
       params.push(searchTerm, searchTerm, searchTerm);
     }
 
     if (filters.dateFrom) {
-      query += " AND \"createdAt\" >= ?";
+      query += " AND createdAt >= ?";
       params.push(filters.dateFrom.toISOString());
     }
 
     if (filters.dateTo) {
-      query += " AND \"createdAt\" <= ?";
+      query += " AND createdAt <= ?";
       params.push(filters.dateTo.toISOString());
     }
 
-    query += " ORDER BY \"createdAt\" DESC";
+    query += " ORDER BY createdAt DESC";
 
     const orders = await getRows<any>(query, params);
 
-    // Parse JSON fields (PostgreSQL JSONB returns objects, not strings)
+    // Parse JSON fields (MySQL JSON returns objects, but may be strings in some cases)
     const parsedOrders = orders.map((o: any) => ({
       ...o,
       items: Array.isArray(o.items) ? o.items : (typeof o.items === 'string' ? JSON.parse(o.items) : []),

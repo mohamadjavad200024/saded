@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       // If all=true, return all enabled categories (for product filters), otherwise only active ones
       const whereClause = includeAll 
         ? "SELECT * FROM categories WHERE enabled = TRUE ORDER BY name ASC"
-        : "SELECT * FROM categories WHERE enabled = TRUE AND \"isActive\" = TRUE ORDER BY name ASC";
+        : "SELECT * FROM categories WHERE enabled = TRUE AND isActive = TRUE ORDER BY name ASC";
       
       categories = await getRows<any>(whereClause);
     } catch (dbError: any) {
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
           dbError?.code === "ECONNREFUSED" ||
           dbError?.message?.includes("connect") ||
           dbError?.message?.includes("timeout")) {
-        throw new AppError("دیتابیس در دسترس نیست. لطفاً اطمینان حاصل کنید که PostgreSQL نصب و پیکربندی شده است.", 503, "DATABASE_NOT_AVAILABLE");
+        throw new AppError("دیتابیس در دسترس نیست. لطفاً اطمینان حاصل کنید که MySQL نصب و پیکربندی شده است.", 503, "DATABASE_NOT_AVAILABLE");
       }
       throw dbError;
     }
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
             checkError?.code === "ECONNREFUSED" ||
             checkError?.message?.includes("connect") ||
             checkError?.message?.includes("timeout")) {
-          throw new AppError("دیتابیس در دسترس نیست. لطفاً اطمینان حاصل کنید که PostgreSQL نصب و پیکربندی شده است.", 503, "DATABASE_NOT_AVAILABLE");
+          throw new AppError("دیتابیس در دسترس نیست. لطفاً اطمینان حاصل کنید که MySQL نصب و پیکربندی شده است.", 503, "DATABASE_NOT_AVAILABLE");
         }
         throw checkError;
       }
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
       let insertResult: any;
       try {
         insertResult = await runQuery(
-          `INSERT INTO categories (id, name, description, slug, image, icon, enabled, "isActive", "createdAt", "updatedAt")
+          `INSERT INTO categories (id, name, description, slug, image, icon, enabled, isActive, createdAt, updatedAt)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [id, name.trim(), description || null, slug || null, image || null, icon || null, true, categoryIsActive, now, now]
         );
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
             insertError?.code === "ECONNREFUSED" ||
             insertError?.message?.includes("connect") ||
             insertError?.message?.includes("timeout")) {
-          throw new AppError("دیتابیس در دسترس نیست. لطفاً اطمینان حاصل کنید که PostgreSQL نصب و پیکربندی شده است.", 503, "DATABASE_NOT_AVAILABLE");
+          throw new AppError("دیتابیس در دسترس نیست. لطفاً اطمینان حاصل کنید که MySQL نصب و پیکربندی شده است.", 503, "DATABASE_NOT_AVAILABLE");
         }
         throw insertError;
       }
