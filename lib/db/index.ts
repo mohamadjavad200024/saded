@@ -1,7 +1,7 @@
 /**
  * Database Wrapper
  * 
- * این فایل یک interface یکپارچه برای استفاده از PostgreSQL فراهم می‌کند
+ * این فایل یک interface یکپارچه برای استفاده از MySQL فراهم می‌کند
  */
 
 /**
@@ -12,10 +12,10 @@ export async function getRow<T extends Record<string, any> = any>(
   params: any[] = []
 ): Promise<T | null> {
   try {
-    const { queryOne } = await import("./postgres");
-    // Convert ? placeholders to PostgreSQL $1, $2, etc.
-    const pgSql = convertToPostgresSQL(sql);
-    return await queryOne<T>(pgSql, params);
+    const { queryOne } = await import("./mysql");
+    // Convert double-quoted column names to backticks for MySQL
+    const mysqlSql = convertToMySQLSQL(sql);
+    return await queryOne<T>(mysqlSql, params);
   } catch (error: any) {
     console.error("Database error in getRow:", {
       sql,
@@ -35,10 +35,10 @@ export async function getRows<T extends Record<string, any> = any>(
   params: any[] = []
 ): Promise<T[]> {
   try {
-    const { queryAll } = await import("./postgres");
-    // Convert ? placeholders to PostgreSQL $1, $2, etc.
-    const pgSql = convertToPostgresSQL(sql);
-    return await queryAll<T>(pgSql, params);
+    const { queryAll } = await import("./mysql");
+    // Convert double-quoted column names to backticks for MySQL
+    const mysqlSql = convertToMySQLSQL(sql);
+    return await queryAll<T>(mysqlSql, params);
   } catch (error: any) {
     console.error("Database error in getRows:", {
       sql,
@@ -57,51 +57,39 @@ export async function runQuery(
   sql: string,
   params: any[] = []
 ): Promise<{ changes: number; lastInsertRowid?: number }> {
-  const { query } = await import("./postgres");
-  const pgSql = convertToPostgresSQL(sql);
-  const result = await query(pgSql, params);
+  const { query } = await import("./mysql");
+  const mysqlSql = convertToMySQLSQL(sql);
+  const result = await query(mysqlSql, params);
   return {
     changes: result.rowCount || 0,
-    lastInsertRowid: undefined, // PostgreSQL doesn't have lastInsertRowid
+    lastInsertRowid: undefined, // MySQL returns insertId separately if needed
   };
 }
 
 /**
- * Convert SQL to PostgreSQL SQL
- * - Converts ? placeholders to $1, $2, etc.
- * - Handles basic syntax differences
+ * Convert SQL to MySQL SQL
+ * - Converts double-quoted column names to backticks
+ * - MySQL uses ? placeholders (already correct)
  */
-function convertToPostgresSQL(sql: string): string {
-  let pgSql = sql;
-  let paramIndex = 1;
+function convertToMySQLSQL(sql: string): string {
+  let mysqlSql = sql;
 
-  // First, replace ? with $1, $2, etc.
-  pgSql = pgSql.replace(/\?/g, () => `$${paramIndex++}`);
+  // Convert double-quoted column names to backticks for MySQL
+  // Match "columnName" and replace with `columnName`
+  mysqlSql = mysqlSql.replace(/"([^"]+)"/g, '`$1`');
 
-  // Convert column names that need quoting (PostgreSQL is case-sensitive)
-  // Only replace if not already quoted
-  const columnsToQuote = [
-    'createdAt', 'updatedAt', 'originalPrice', 'vinEnabled', 
-    'airShippingEnabled', 'seaShippingEnabled', 'stockCount', 
-    'inStock', 'orderNumber', 'userId', 'customerName', 
-    'customerPhone', 'customerEmail', 'shippingCost', 
-    'shippingMethod', 'shippingAddress', 'paymentStatus', 'isActive'
-  ];
-  
-  columnsToQuote.forEach(col => {
-    // Replace column name only if not already quoted and not part of a quoted string
-    const regex = new RegExp(`\\b${col}\\b(?![^"]*"(?:[^"]*"[^"]*")*[^"]*$)`, 'gi');
-    pgSql = pgSql.replace(regex, `"${col}"`);
-  });
+  // Remove MySQL-incompatible syntax like ::jsonb (legacy PostgreSQL syntax)
+  mysqlSql = mysqlSql.replace(/::jsonb/g, '');
+  mysqlSql = mysqlSql.replace(/::json/g, '');
 
-  return pgSql;
+  return mysqlSql;
 }
 
 /**
  * Initialize database
  */
 export async function initializeDatabase(): Promise<void> {
-  const { ensureDatabase, initializeTables } = await import("./postgres");
+  const { ensureDatabase, initializeTables } = await import("./mysql");
   await ensureDatabase();
   await initializeTables();
 }
@@ -111,7 +99,7 @@ export async function initializeDatabase(): Promise<void> {
  */
 export async function testConnection(): Promise<boolean> {
   try {
-    const { testConnection } = await import("./postgres");
+    const { testConnection } = await import("./mysql");
     return await testConnection();
   } catch (error) {
     return false;
@@ -121,6 +109,6 @@ export async function testConnection(): Promise<boolean> {
 /**
  * Get database type
  */
-export function getDatabaseType(): "postgres" | "none" {
-  return "postgres";
+export function getDatabaseType(): "mysql" | "none" {
+  return "mysql";
 }

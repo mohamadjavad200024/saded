@@ -121,7 +121,7 @@ export async function PUT(
       if (!validStatuses.includes(body.status)) {
         throw new AppError("وضعیت کاربر نامعتبر است", 400, "INVALID_STATUS");
       }
-      // Map status to enabled field (PostgreSQL accepts boolean directly)
+      // Map status to enabled field (MySQL accepts boolean directly)
       updates.enabled = body.status === "active" ? true : false;
     }
 

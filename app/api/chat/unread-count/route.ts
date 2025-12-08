@@ -21,16 +21,16 @@ export async function GET(request: NextRequest) {
       await runQuery(`
         CREATE TABLE IF NOT EXISTS chat_messages (
           id VARCHAR(255) PRIMARY KEY,
-          "chatId" VARCHAR(255) NOT NULL,
+          chatId VARCHAR(255) NOT NULL,
           text TEXT,
           sender VARCHAR(50) NOT NULL,
-          attachments JSONB DEFAULT '[]'::jsonb,
+          attachments JSON DEFAULT '[]',
           status VARCHAR(50) DEFAULT 'sent',
-          "createdAt" TIMESTAMP NOT NULL DEFAULT NOW()
+          createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
       `);
     } catch (createError: any) {
-      if (createError?.code !== "42P07" && !createError?.message?.includes("already exists")) {
+      if (createError?.code !== "ER_TABLE_EXISTS_ERROR" && !createError?.message?.includes("already exists") && !createError?.message?.includes("Duplicate")) {
         logger.error("Error creating chat_messages table:", createError);
       }
     }
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
       const result = await getRow<{ count: string }>(
         `SELECT COUNT(*) as count 
          FROM chat_messages 
-         WHERE "chatId" = $1 
+         WHERE chatId = ? 
            AND sender = 'user' 
            AND (status IS NULL OR (status != 'read' AND status IN ('sent', 'delivered', 'sending')))`,
         [chatId]
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     } else if (getAll) {
       // Get unread counts for all chats
       const chats = await getRows<{ id: string }>(
-        `SELECT DISTINCT "chatId" as id FROM chat_messages`
+        `SELECT DISTINCT chatId as id FROM chat_messages`
       );
 
       const chatsWithUnreadCount = await Promise.all(

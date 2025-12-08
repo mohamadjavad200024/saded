@@ -108,7 +108,7 @@ export function CategoryForm({ category, onSuccess }: CategoryFormProps) {
               // اگر مشکل از دیتابیس است، پیام راهنمایی اضافه کن
               if (errorData.code === "DATABASE_NOT_AVAILABLE") {
                 throw new Error(
-                  `${errorMessage}\n\nبرای رفع این مشکل:\n1. اطمینان حاصل کنید که PostgreSQL نصب و در حال اجرا است\n2. بررسی کنید که متغیرهای محیطی (DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD) به درستی تنظیم شده‌اند\n3. دستور "pnpm setup-postgres-retry" را برای راه‌اندازی دیتابیس اجرا کنید`
+                  `${errorMessage}\n\nبرای رفع این مشکل:\n1. اطمینان حاصل کنید که MySQL نصب و در حال اجرا است\n2. بررسی کنید که متغیرهای محیطی (DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD) به درستی تنظیم شده‌اند\n3. دستور "pnpm setup-mysql" را برای راه‌اندازی دیتابیس اجرا کنید`
                 );
               }
               
