@@ -28,11 +28,11 @@ export async function GET(request: NextRequest) {
     let categories: any[] = [];
     try {
       // If all=true, return all enabled categories (for product filters), otherwise only active ones
-      const whereClause = includeAll 
+      const query = includeAll 
         ? "SELECT * FROM categories WHERE enabled = TRUE ORDER BY name ASC"
         : "SELECT * FROM categories WHERE enabled = TRUE AND isActive = TRUE ORDER BY name ASC";
       
-      categories = await getRows<any>(whereClause);
+      categories = await getRows<any>(query);
     } catch (dbError: any) {
       logger.error("Error fetching categories:", dbError);
       // If database is not available, throw a clear error
