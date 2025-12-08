@@ -223,29 +223,47 @@ async function initializeTables() {
 
   try {
     // MySQL doesn't support multiple statements in one query by default
-    // Better approach: Extract CREATE TABLE statements using regex
-    // This handles multi-line statements correctly
-    const createTableRegex = /CREATE TABLE IF NOT EXISTS\s+(\w+)\s*\([^;]+\)\s*ENGINE[^;]+;/gi;
+    // Better approach: Split by semicolon, then reconstruct multi-line CREATE TABLE statements
+    const lines = createTables.split('\n');
     const statements = [];
-    let match;
+    let currentStatement = '';
+    let inCreateTable = false;
     
-    while ((match = createTableRegex.exec(createTables)) !== null) {
-      statements.push(match[0].trim());
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      
+      // Skip empty lines and comments
+      if (!trimmedLine || trimmedLine.startsWith('--')) {
+        continue;
+      }
+      
+      // Check if this line starts a CREATE TABLE
+      if (trimmedLine.toUpperCase().startsWith('CREATE TABLE')) {
+        // If we were already building a statement, save it first
+        if (inCreateTable && currentStatement.trim()) {
+          statements.push(currentStatement.trim());
+        }
+        currentStatement = trimmedLine;
+        inCreateTable = true;
+      } else if (inCreateTable) {
+        // Continue building the current statement
+        currentStatement += ' ' + trimmedLine;
+        
+        // Check if this line ends the CREATE TABLE (contains ENGINE and semicolon)
+        if (trimmedLine.includes('ENGINE') && trimmedLine.includes(';')) {
+          statements.push(currentStatement.trim());
+          currentStatement = '';
+          inCreateTable = false;
+        }
+      }
+    }
+    
+    // Don't forget the last statement if it wasn't closed
+    if (inCreateTable && currentStatement.trim()) {
+      statements.push(currentStatement.trim());
     }
     
     console.log(`📋 تعداد CREATE TABLE statements پیدا شده: ${statements.length}`);
-    
-    // If regex didn't work, fall back to split method
-    if (statements.length === 0) {
-      console.log('⚠️  استفاده از روش split...');
-      const allStatements = createTables
-        .split(';')
-        .map(s => s.trim())
-        .filter(s => s.length > 0 && !s.startsWith('--') && s.toUpperCase().includes('CREATE TABLE'));
-      
-      statements.push(...allStatements);
-      console.log(`📋 تعداد statements با روش split: ${statements.length}`);
-    }
     
     let createdCount = 0;
     let errorCount = 0;
