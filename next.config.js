@@ -37,8 +37,6 @@ const nextConfig = {
   // Production optimizations
   compress: true,
   poweredByHeader: false,
-  // Use standalone output to avoid WebAssembly issues
-  output: 'standalone',
   // Turbopack configuration (Next.js 16+)
   turbopack: {},
   // Webpack configuration
