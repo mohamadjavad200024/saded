@@ -17,10 +17,13 @@ module.exports = {
       cwd: '/home/shop1111/public_html/saded',
       instances: 1,
       exec_mode: 'fork',
+      interpreter: '/opt/alt/alt-nodejs20/root/usr/bin/node',
       env: {
         NODE_ENV: 'production',
         PORT: 3001,
         NODE_OPTIONS: '--max-old-space-size=2048',
+        PATH: '/opt/alt/alt-nodejs20/root/usr/bin:/usr/local/bin:/usr/bin:/bin',
+        NODE_PATH: '/opt/alt/alt-nodejs20/root/usr/lib/node_modules',
         DB_HOST: 'localhost',
         DB_PORT: '3306',
         DB_NAME: 'shop1111_saded02',
