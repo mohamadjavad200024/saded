@@ -223,31 +223,29 @@ async function initializeTables() {
 
   try {
     // MySQL doesn't support multiple statements in one query by default
-    // Split by semicolon and execute each statement
-    const allStatements = createTables
-      .split(';')
-      .map(s => s.trim());
+    // Better approach: Extract CREATE TABLE statements using regex
+    // This handles multi-line statements correctly
+    const createTableRegex = /CREATE TABLE IF NOT EXISTS\s+(\w+)\s*\([^;]+\)\s*ENGINE[^;]+;/gi;
+    const statements = [];
+    let match;
     
-    // Debug: show all statements before filtering
-    console.log(`📋 تعداد statements قبل از filter: ${allStatements.length}`);
+    while ((match = createTableRegex.exec(createTables)) !== null) {
+      statements.push(match[0].trim());
+    }
     
-    const statements = allStatements
-      .filter(s => {
-        // Keep statements that:
-        // 1. Have content (length > 0)
-        // 2. Don't start with -- (comments)
-        // 3. Actually contain CREATE TABLE
-        const hasContent = s.length > 0;
-        const isComment = s.startsWith('--');
-        const isCreateTable = s.toUpperCase().includes('CREATE TABLE');
-        
-        if (hasContent && !isComment && isCreateTable) {
-          return true;
-        }
-        return false;
-      });
-
-    console.log(`📋 تعداد statements پیدا شده (CREATE TABLE): ${statements.length}`);
+    console.log(`📋 تعداد CREATE TABLE statements پیدا شده: ${statements.length}`);
+    
+    // If regex didn't work, fall back to split method
+    if (statements.length === 0) {
+      console.log('⚠️  استفاده از روش split...');
+      const allStatements = createTables
+        .split(';')
+        .map(s => s.trim())
+        .filter(s => s.length > 0 && !s.startsWith('--') && s.toUpperCase().includes('CREATE TABLE'));
+      
+      statements.push(...allStatements);
+      console.log(`📋 تعداد statements با روش split: ${statements.length}`);
+    }
     
     let createdCount = 0;
     let errorCount = 0;
