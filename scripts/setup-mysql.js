@@ -178,7 +178,7 @@ async function initializeTables() {
 
     -- Quick Buy Chats table
     CREATE TABLE IF NOT EXISTS quick_buy_chats (
-      id VARCHAR(255) PRIMARY KEY,
+      id VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci PRIMARY KEY,
       customerName VARCHAR(255) NOT NULL,
       customerPhone VARCHAR(255) NOT NULL,
       customerEmail VARCHAR(255),
@@ -189,8 +189,8 @@ async function initializeTables() {
 
     -- Chat Messages table
     CREATE TABLE IF NOT EXISTS chat_messages (
-      id VARCHAR(255) PRIMARY KEY,
-      chatId VARCHAR(255) NOT NULL,
+      id VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci PRIMARY KEY,
+      chatId VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
       text TEXT,
       sender VARCHAR(50) NOT NULL,
       attachments JSON DEFAULT '[]',
@@ -202,8 +202,8 @@ async function initializeTables() {
 
     -- Chat Attachments table
     CREATE TABLE IF NOT EXISTS chat_attachments (
-      id VARCHAR(255) PRIMARY KEY,
-      messageId VARCHAR(255) NOT NULL,
+      id VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci PRIMARY KEY,
+      messageId VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
       type VARCHAR(50) NOT NULL,
       filePath VARCHAR(500),
       fileName VARCHAR(255),
