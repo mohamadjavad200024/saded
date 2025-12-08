@@ -224,12 +224,30 @@ async function initializeTables() {
   try {
     // MySQL doesn't support multiple statements in one query by default
     // Split by semicolon and execute each statement
-    const statements = createTables
+    const allStatements = createTables
       .split(';')
-      .map(s => s.trim())
-      .filter(s => s.length > 0 && !s.startsWith('--'));
+      .map(s => s.trim());
+    
+    // Debug: show all statements before filtering
+    console.log(`📋 تعداد statements قبل از filter: ${allStatements.length}`);
+    
+    const statements = allStatements
+      .filter(s => {
+        // Keep statements that:
+        // 1. Have content (length > 0)
+        // 2. Don't start with -- (comments)
+        // 3. Actually contain CREATE TABLE
+        const hasContent = s.length > 0;
+        const isComment = s.startsWith('--');
+        const isCreateTable = s.toUpperCase().includes('CREATE TABLE');
+        
+        if (hasContent && !isComment && isCreateTable) {
+          return true;
+        }
+        return false;
+      });
 
-    console.log(`📋 تعداد statements پیدا شده: ${statements.length}`);
+    console.log(`📋 تعداد statements پیدا شده (CREATE TABLE): ${statements.length}`);
     
     let createdCount = 0;
     let errorCount = 0;
