@@ -229,13 +229,25 @@ async function initializeTables() {
       .map(s => s.trim())
       .filter(s => s.length > 0 && !s.startsWith('--'));
 
+    console.log(`📋 تعداد statements پیدا شده: ${statements.length}`);
+    
     let createdCount = 0;
-    for (const statement of statements) {
+    let errorCount = 0;
+    for (let i = 0; i < statements.length; i++) {
+      const statement = statements[i];
       if (statement.trim()) {
         try {
+          // Debug: show first 50 chars of statement
+          const isCreateTable = statement.toUpperCase().includes('CREATE TABLE');
+          if (isCreateTable) {
+            const tableName = statement.match(/CREATE TABLE IF NOT EXISTS\s+(\w+)/i)?.[1];
+            console.log(`  🔄 در حال ایجاد جدول: ${tableName || 'نامشخص'}...`);
+          }
+          
           await pool.execute(statement);
+          
           // Check if it's a CREATE TABLE statement
-          if (statement.toUpperCase().includes('CREATE TABLE')) {
+          if (isCreateTable) {
             createdCount++;
             const tableName = statement.match(/CREATE TABLE IF NOT EXISTS\s+(\w+)/i)?.[1];
             if (tableName) {
@@ -243,13 +255,19 @@ async function initializeTables() {
             }
           }
         } catch (stmtError) {
-          console.error(`❌ خطا در اجرای statement:`, stmtError.message);
-          console.error(`   Statement: ${statement.substring(0, 100)}...`);
+          errorCount++;
+          const tableName = statement.match(/CREATE TABLE IF NOT EXISTS\s+(\w+)/i)?.[1];
+          console.error(`❌ خطا در ایجاد جدول ${tableName || 'نامشخص'}:`, stmtError.message);
+          console.error(`   کد خطا: ${stmtError.code || 'نامشخص'}`);
+          console.error(`   Statement (اول 150 کاراکتر): ${statement.substring(0, 150)}...`);
           // Don't throw, continue with other statements
         }
       }
     }
     console.log(`✅ ${createdCount} جدول ایجاد شدند`);
+    if (errorCount > 0) {
+      console.log(`⚠️  ${errorCount} خطا در ایجاد جداول`);
+    }
   } catch (error) {
     console.error('❌ خطا در ایجاد جداول:', error.message);
     throw error;
