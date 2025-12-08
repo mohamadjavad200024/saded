@@ -229,12 +229,27 @@ async function initializeTables() {
       .map(s => s.trim())
       .filter(s => s.length > 0 && !s.startsWith('--'));
 
+    let createdCount = 0;
     for (const statement of statements) {
       if (statement.trim()) {
-        await pool.execute(statement);
+        try {
+          await pool.execute(statement);
+          // Check if it's a CREATE TABLE statement
+          if (statement.toUpperCase().includes('CREATE TABLE')) {
+            createdCount++;
+            const tableName = statement.match(/CREATE TABLE IF NOT EXISTS\s+(\w+)/i)?.[1];
+            if (tableName) {
+              console.log(`  ✓ جدول ${tableName} ایجاد شد`);
+            }
+          }
+        } catch (stmtError) {
+          console.error(`❌ خطا در اجرای statement:`, stmtError.message);
+          console.error(`   Statement: ${statement.substring(0, 100)}...`);
+          // Don't throw, continue with other statements
+        }
       }
     }
-    console.log('✅ جداول دیتابیس ایجاد شدند');
+    console.log(`✅ ${createdCount} جدول ایجاد شدند`);
   } catch (error) {
     console.error('❌ خطا در ایجاد جداول:', error.message);
     throw error;
