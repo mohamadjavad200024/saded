@@ -41,6 +41,12 @@ const nextConfig = {
   turbopack: {},
   // Webpack configuration
   webpack: (config, { isServer, webpack }) => {
+    // Disable WebAssembly to avoid memory issues
+    config.experiments = {
+      ...config.experiments,
+      asyncWebAssembly: false,
+      layers: false,
+    };
     return config;
   },
 };
