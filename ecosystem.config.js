@@ -22,7 +22,7 @@ module.exports = {
         NODE_ENV: 'production',
         PORT: 3001,
         HOSTNAME: '0.0.0.0',
-        NODE_OPTIONS: '--max-old-space-size=2048',
+        NODE_OPTIONS: '--max-old-space-size=2048 --no-wasm',
         PATH: '/opt/alt/alt-nodejs20/root/usr/bin:/usr/local/bin:/usr/bin:/bin',
         NODE_PATH: '/opt/alt/alt-nodejs20/root/usr/lib/node_modules',
         DB_HOST: 'localhost',
