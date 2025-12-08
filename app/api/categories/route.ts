@@ -133,6 +133,12 @@ export async function POST(request: NextRequest) {
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [id, name.trim(), description || null, slug || null, image || null, icon || null, true, categoryIsActive, now, now]
         );
+        // Debug: log insert result
+        logger.log("Insert result:", {
+          changes: insertResult?.changes,
+          lastInsertRowid: insertResult?.lastInsertRowid,
+          fullResult: JSON.stringify(insertResult),
+        });
       } catch (insertError: any) {
         logger.error("Error inserting category:", insertError);
         if (insertError?.message?.includes("not available") || 
@@ -146,8 +152,15 @@ export async function POST(request: NextRequest) {
       }
 
       // Check if insert was successful
+      // Note: Even if changes is 0, the insert might have succeeded (duplicate key, etc.)
+      // So we'll try to fetch the category instead of relying solely on changes
       if (insertResult && insertResult.changes === 0) {
-        throw new AppError("خطا در ایجاد دسته‌بندی - هیچ رکوردی ایجاد نشد", 500, "CATEGORY_CREATE_FAILED");
+        // Try to fetch the category - if it exists, the insert was successful
+        const checkCategory = await getRows<any>("SELECT * FROM categories WHERE id = ?", [id]);
+        if (!checkCategory || checkCategory.length === 0) {
+          throw new AppError("خطا در ایجاد دسته‌بندی - هیچ رکوردی ایجاد نشد", 500, "CATEGORY_CREATE_FAILED");
+        }
+        // Category exists, continue with fetch
       }
 
       // Fetch the newly created category
