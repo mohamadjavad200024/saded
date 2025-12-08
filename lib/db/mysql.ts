@@ -92,13 +92,29 @@ export async function testConnection(): Promise<boolean> {
 export async function query<T = any>(
   text: string,
   params?: any[]
-): Promise<{ rows: T[]; rowCount: number }> {
+): Promise<{ rows: T[]; rowCount: number; affectedRows?: number; insertId?: number }> {
   const connection = await getPool().getConnection();
   try {
-    const [rows] = await connection.execute<any[]>(text, params);
+    const [rows, fields] = await connection.execute<any[]>(text, params);
+    // For INSERT/UPDATE/DELETE, rows is a ResultSetHeader with affectedRows
+    // For SELECT, rows is an array
+    const isResultSetHeader = !Array.isArray(rows) && (rows as any).affectedRows !== undefined;
+    
+    if (isResultSetHeader) {
+      const header = rows as any as mysql.ResultSetHeader;
+      return {
+        rows: [],
+        rowCount: header.affectedRows || 0,
+        affectedRows: header.affectedRows || 0,
+        insertId: header.insertId || undefined,
+      };
+    }
+    
     return {
       rows: Array.isArray(rows) ? rows : [],
       rowCount: Array.isArray(rows) ? rows.length : 0,
+      affectedRows: undefined,
+      insertId: undefined,
     };
   } catch (error: any) {
     // Log detailed error (always log errors)

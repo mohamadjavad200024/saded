@@ -61,8 +61,8 @@ export async function runQuery(
   const mysqlSql = convertToMySQLSQL(sql);
   const result = await query(mysqlSql, params);
   return {
-    changes: result.rowCount || 0,
-    lastInsertRowid: undefined, // MySQL returns insertId separately if needed
+    changes: result.affectedRows || result.rowCount || 0,
+    lastInsertRowid: result.insertId || undefined,
   };
 }
 
