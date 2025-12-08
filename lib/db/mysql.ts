@@ -98,10 +98,11 @@ export async function query<T = any>(
     const [rows, fields] = await connection.execute<any[]>(text, params);
     // For INSERT/UPDATE/DELETE, rows is a ResultSetHeader with affectedRows
     // For SELECT, rows is an array
-    const isResultSetHeader = !Array.isArray(rows) && (rows as any).affectedRows !== undefined;
+    // Check if it's a ResultSetHeader (has affectedRows property)
+    const isResultSetHeader = rows && typeof rows === 'object' && !Array.isArray(rows) && 'affectedRows' in rows;
     
     if (isResultSetHeader) {
-      const header = rows as any as mysql.ResultSetHeader;
+      const header = rows as mysql.ResultSetHeader;
       return {
         rows: [],
         rowCount: header.affectedRows || 0,
@@ -110,6 +111,7 @@ export async function query<T = any>(
       };
     }
     
+    // For SELECT queries, rows is an array
     return {
       rows: Array.isArray(rows) ? rows : [],
       rowCount: Array.isArray(rows) ? rows.length : 0,
