@@ -33,10 +33,14 @@ const DB_CONFIG = {
   user: process.env.DB_USER || "root",
   password: process.env.DB_PASSWORD || "",
   waitForConnections: true,
-  connectionLimit: 20,
+  connectionLimit: 10, // Reduced to avoid too many connections
   queueLimit: 0,
   enableKeepAlive: true,
   keepAliveInitialDelay: 0,
+  // Connection timeout settings
+  connectTimeout: 10000, // 10 seconds
+  // Reconnect on connection loss
+  reconnect: true,
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
 };
 
@@ -63,9 +67,22 @@ export function getPool(): mysql.Pool {
 
     // Handle pool errors
     pool.on("connection", (connection) => {
-      connection.on("error", (err) => {
-        logger.error("Unexpected error on MySQL connection", err);
+      connection.on("error", (err: any) => {
+        // Don't log ECONNRESET as error - it's expected when connections are idle
+        if (err.code !== 'ECONNRESET' && err.code !== 'PROTOCOL_CONNECTION_LOST') {
+          logger.error("Unexpected error on MySQL connection", err);
+        } else if (process.env.NODE_ENV === 'development') {
+          logger.debug("MySQL connection reset (normal for idle connections)", err.code);
+        }
       });
+    });
+
+    // Handle pool errors
+    pool.on("error", (err: any) => {
+      // Don't log ECONNRESET as error - it's expected when connections are idle
+      if (err.code !== 'ECONNRESET' && err.code !== 'PROTOCOL_CONNECTION_LOST') {
+        logger.error("MySQL pool error", err);
+      }
     });
   }
 
@@ -87,42 +104,73 @@ export async function testConnection(): Promise<boolean> {
 }
 
 /**
- * Execute a query and return results
+ * Execute a query and return results with retry logic for connection errors
  */
 export async function query<T = any>(
   text: string,
-  params?: any[]
+  params?: any[],
+  retries: number = 2
 ): Promise<{ rows: T[]; rowCount: number; affectedRows?: number; insertId?: number }> {
-  const connection = await getPool().getConnection();
-  try {
-    const [rows, fields] = await connection.execute<any[]>(text, params);
-    // For INSERT/UPDATE/DELETE, rows is a ResultSetHeader with affectedRows
-    // For SELECT, rows is an array
-    const isResultSetHeader = rows && typeof rows === 'object' && 'affectedRows' in rows;
-    
-    if (isResultSetHeader) {
-      const result = rows as mysql.ResultSetHeader;
-      return {
-        rows: [] as T[],
-        rowCount: result.affectedRows || 0,
-        affectedRows: result.affectedRows,
-        insertId: result.insertId,
-      };
-    } else {
-      return {
-        rows: (rows as T[]) || [],
-        rowCount: Array.isArray(rows) ? rows.length : 0,
-      };
+  let lastError: any;
+  
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    let connection: mysql.PoolConnection | null = null;
+    try {
+      connection = await getPool().getConnection();
+      const [rows, fields] = await connection.execute<any[]>(text, params);
+      // For INSERT/UPDATE/DELETE, rows is a ResultSetHeader with affectedRows
+      // For SELECT, rows is an array
+      const isResultSetHeader = rows && typeof rows === 'object' && 'affectedRows' in rows;
+      
+      if (isResultSetHeader) {
+        const result = rows as mysql.ResultSetHeader;
+        return {
+          rows: [] as T[],
+          rowCount: result.affectedRows || 0,
+          affectedRows: result.affectedRows,
+          insertId: result.insertId,
+        };
+      } else {
+        return {
+          rows: (rows as T[]) || [],
+          rowCount: Array.isArray(rows) ? rows.length : 0,
+        };
+      }
+    } catch (error: any) {
+      lastError = error;
+      
+      // Retry on connection errors
+      if (
+        attempt < retries &&
+        (error.code === 'ECONNRESET' ||
+         error.code === 'PROTOCOL_CONNECTION_LOST' ||
+         error.code === 'ETIMEDOUT' ||
+         error.fatal)
+      ) {
+        if (process.env.NODE_ENV === 'development') {
+          logger.debug(`Database connection error, retrying (${attempt + 1}/${retries})...`, error.code);
+        }
+        // Wait a bit before retrying
+        await new Promise(resolve => setTimeout(resolve, 100 * (attempt + 1)));
+        continue;
+      }
+      
+      // Log non-retryable errors
+      logger.error("Database query error:", {
+        sql: text.substring(0, 100),
+        error: error instanceof Error ? error.message : String(error),
+        code: error.code,
+      });
+      throw error;
+    } finally {
+      if (connection) {
+        connection.release();
+      }
     }
-  } catch (error) {
-    logger.error("Database query error:", {
-      sql: text.substring(0, 100),
-      error: error instanceof Error ? error.message : String(error),
-    });
-    throw error;
-  } finally {
-    connection.release();
   }
+  
+  // If we get here, all retries failed
+  throw lastError;
 }
 
 /**
