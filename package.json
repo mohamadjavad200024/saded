@@ -14,7 +14,9 @@
     "setup-mysql": "node scripts/setup-mysql.js",
     "setup-db-production": "node scripts/setup-db-production.js",
     "check-deployment": "node scripts/check-deployment.js",
-    "health-check": "node scripts/health-check.js"
+    "health-check": "node scripts/health-check.js",
+    "deploy:analyze": "node scripts/deploy-incremental.js",
+    "deploy:smart": "bash scripts/deploy-smart.sh"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",
