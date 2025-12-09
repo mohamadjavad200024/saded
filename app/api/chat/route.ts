@@ -306,7 +306,7 @@ export async function GET(request: NextRequest) {
         );
       } catch (dbError: any) {
         // If table doesn't exist, return 404
-        if (dbError?.code === "42P01" || dbError?.message?.includes("does not exist")) {
+        if (dbError?.code === "ER_NO_SUCH_TABLE" || dbError?.message?.includes("doesn't exist") || dbError?.message?.includes("does not exist")) {
           throw new AppError("چت یافت نشد", 404, "CHAT_NOT_FOUND");
         }
         throw dbError;
@@ -679,7 +679,7 @@ export async function GET(request: NextRequest) {
           return createSuccessResponse({ chats: chatsWithUnreadCount });
         } catch (dbError: any) {
           // If table doesn't exist, return empty array instead of error
-          if (dbError?.code === "42P01" || dbError?.message?.includes("does not exist")) {
+          if (dbError?.code === "ER_NO_SUCH_TABLE" || dbError?.message?.includes("doesn't exist") || dbError?.message?.includes("does not exist")) {
             logger.warn("Chat table does not exist yet, returning empty chats list");
             return createSuccessResponse({ chats: [] });
           }
