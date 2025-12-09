@@ -42,6 +42,7 @@
   "/api/users/[id]/route": "/api/users/[id]",
   "/api/users/route": "/api/users",
   "/cart/page": "/cart",
+  "/chat/page": "/chat",
   "/checkout/page": "/checkout",
   "/favicon.ico/route": "/favicon.ico",
   "/order/success/page": "/order/success",
