@@ -56,13 +56,9 @@ export async function POST(request: NextRequest) {
           attachments JSON DEFAULT '[]',
           status VARCHAR(50) DEFAULT 'sent',
           createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_chat_messages_chatId (chatId),
           FOREIGN KEY (chatId) REFERENCES quick_buy_chats(id) ON DELETE CASCADE
         );
-      `);
-      
-      // Add status column if it doesn't exist (for existing tables)
-      await runQuery(`
-        -- MySQL doesn't support IF NOT EXISTS in ALTER TABLE, so we'll handle this in initializeTables
       `);
 
       // Create attachments table (depends on messages)
@@ -76,14 +72,9 @@ export async function POST(request: NextRequest) {
           fileSize BIGINT,
           fileUrl VARCHAR(500),
           createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_chat_attachments_messageId (messageId),
           FOREIGN KEY (messageId) REFERENCES chat_messages(id) ON DELETE CASCADE
         );
-      `);
-
-      // Create indexes
-      await runQuery(`
-        CREATE INDEX IF NOT EXISTS idx_chat_messages_chatId ON chat_messages(chatId);
-        CREATE INDEX IF NOT EXISTS idx_chat_attachments_messageId ON chat_attachments(messageId);
       `);
     } catch (createError: any) {
       if (createError?.code !== "ER_TABLE_EXISTS_ERROR" && !createError?.message?.includes("already exists") && !createError?.message?.includes("Duplicate")) {
@@ -170,38 +161,23 @@ export async function POST(request: NextRequest) {
       const messageStatus = message.status || (message.sender === "user" ? "sent" : null);
       
       // Save message using UPSERT to avoid duplicates
-      try {
-        await runQuery(
-          `INSERT INTO chat_messages (id, chatId, text, sender, attachments, status, createdAt)
-           VALUES (?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE
-             text = VALUES(text),
-             attachments = VALUES(attachments),
-             status = COALESCE(VALUES(status), chat_messages.status)`,
-          [
-            messageId,
-            chatId,
-            message.text || null,
-            message.sender,
-            JSON.stringify(validAttachments),
-            messageStatus,
-            messageCreatedAt,
-          ]
-        );
-      } catch (error: any) {
-        logger.error(`Error saving message ${messageId}:`, error);
-        // If foreign key constraint error, the chat might not exist
-        if (error?.code === "ER_NO_REFERENCED_ROW_2" || error?.message?.includes("foreign key constraint")) {
-          throw new AppError(`چت با شناسه ${chatId} یافت نشد`, 404, "CHAT_NOT_FOUND");
-        }
-        // If table doesn't exist, try to create it
-        if (error?.code === "ER_NO_SUCH_TABLE" || error?.message?.includes("doesn't exist") || error?.message?.includes("does not exist")) {
-          logger.warn("Chat messages table does not exist, attempting to create...");
-          // Table creation is already handled above, but if it failed, throw error
-          throw new AppError("خطا در ایجاد جدول پیام‌ها. لطفاً دیتابیس را راه‌اندازی کنید.", 500, "TABLE_CREATION_FAILED");
-        }
-        throw error;
-      }
+      await runQuery(
+        `INSERT INTO chat_messages (id, chatId, text, sender, attachments, status, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           text = VALUES(text),
+           attachments = VALUES(attachments),
+           status = COALESCE(VALUES(status), chat_messages.status)`,
+        [
+          messageId,
+          chatId,
+          message.text || null,
+          message.sender,
+          JSON.stringify(validAttachments),
+          messageStatus,
+          messageCreatedAt,
+        ]
+      );
 
       // ALWAYS save attachments, even if message already exists (important for images)
       if (validAttachments && Array.isArray(validAttachments) && validAttachments.length > 0) {
@@ -330,7 +306,7 @@ export async function GET(request: NextRequest) {
         );
       } catch (dbError: any) {
         // If table doesn't exist, return 404
-        if (dbError?.code === "ER_NO_SUCH_TABLE" || dbError?.message?.includes("doesn't exist") || dbError?.message?.includes("does not exist")) {
+        if (dbError?.code === "42P01" || dbError?.message?.includes("does not exist")) {
           throw new AppError("چت یافت نشد", 404, "CHAT_NOT_FOUND");
         }
         throw dbError;
@@ -415,7 +391,7 @@ export async function GET(request: NextRequest) {
 
       // Process messages and merge attachments
       for (const message of messages) {
-        // First try to get attachments from JSONB field
+        // First try to get attachments from JSON field
         let jsonAttachments: any[] = [];
         if (message.attachments) {
           if (Array.isArray(message.attachments)) {
@@ -558,7 +534,7 @@ export async function GET(request: NextRequest) {
 
           // Process messages and merge attachments
           for (const message of messages) {
-            // First try to get attachments from JSONB field
+            // First try to get attachments from JSON field
             let jsonAttachments: any[] = [];
             if (message.attachments) {
               if (Array.isArray(message.attachments)) {
@@ -703,7 +679,7 @@ export async function GET(request: NextRequest) {
           return createSuccessResponse({ chats: chatsWithUnreadCount });
         } catch (dbError: any) {
           // If table doesn't exist, return empty array instead of error
-          if (dbError?.code === "ER_NO_SUCH_TABLE" || dbError?.message?.includes("doesn't exist") || dbError?.message?.includes("does not exist")) {
+          if (dbError?.code === "42P01" || dbError?.message?.includes("does not exist")) {
             logger.warn("Chat table does not exist yet, returning empty chats list");
             return createSuccessResponse({ chats: [] });
           }
