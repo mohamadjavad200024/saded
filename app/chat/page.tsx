@@ -682,11 +682,25 @@ export default function ChatPage() {
     requestPermission();
   }, [requestPermission]);
 
+  // Set body and html overflow for chat page
+  useEffect(() => {
+    const originalBodyOverflow = document.body.style.overflow;
+    const originalHtmlOverflow = document.documentElement.style.overflow;
+    
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    
+    return () => {
+      document.body.style.overflow = originalBodyOverflow;
+      document.documentElement.style.overflow = originalHtmlOverflow;
+    };
+  }, []);
+
   return (
-    <div className="flex min-h-screen flex-col">
-      <main className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex flex-col overflow-hidden" style={{ height: '100dvh' }}>
+      <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {/* Header - Sticky at top */}
-        <div className="sticky top-0 z-50 border-b border-border/40 px-4 sm:px-6 py-3 bg-background/95 backdrop-blur-sm">
+        <div className="flex-shrink-0 border-b border-border/40 px-4 sm:px-6 py-3 bg-background/95 backdrop-blur-sm">
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
@@ -1060,8 +1074,8 @@ export default function ChatPage() {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Input Area - Sticky at bottom */}
-              <div className="sticky bottom-0 z-40 border-t border-border/40 bg-background/95 backdrop-blur-sm p-2 sm:p-3 space-y-2 relative flex-shrink-0">
+              {/* Input Area - Fixed at bottom */}
+              <div className="flex-shrink-0 border-t border-border/40 bg-background/95 backdrop-blur-sm p-2 sm:p-3 space-y-2 relative">
                 {/* Scroll to bottom button */}
                 <AnimatePresence>
                   {showScrollToBottom && (
