@@ -115,3 +115,55 @@ export function validateRequestBody<T>(
   return body as T;
 }
 
+/**
+ * Safely parse JSON field from database
+ * MySQL JSON fields can be objects, strings, or null
+ */
+export function safeParseJSON<T = any>(value: unknown, defaultValue: T): T {
+  if (value === null || value === undefined) {
+    return defaultValue;
+  }
+  
+  if (Array.isArray(value) || (typeof value === 'object' && value !== null && !(value instanceof Date))) {
+    return value as T;
+  }
+  
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return defaultValue;
+    }
+  }
+  
+  return defaultValue;
+}
+
+/**
+ * Safely parse number from database
+ */
+export function safeParseNumber(value: unknown, defaultValue: number = 0): number {
+  if (value === null || value === undefined) {
+    return defaultValue;
+  }
+  
+  const num = Number(value);
+  return isNaN(num) ? defaultValue : num;
+}
+
+/**
+ * Safely parse date from database
+ */
+export function safeParseDate(value: unknown): Date {
+  if (value instanceof Date) {
+    return value;
+  }
+  
+  if (typeof value === 'string' || typeof value === 'number') {
+    const date = new Date(value);
+    return isNaN(date.getTime()) ? new Date() : date;
+  }
+  
+  return new Date();
+}
+

@@ -1,0 +1,13 @@
+# Reverse Proxy to Next.js Application
+# این فایل باید در public_html قرار بگیرد
+
+RewriteEngine On
+
+# Proxy all requests to Next.js on port 3001
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ http://localhost:3001/$1 [P,L]
+
+# یا اگر از subdirectory استفاده می‌کنید:
+# RewriteRule ^saded/(.*)$ http://localhost:3001/$1 [P,L]
+
