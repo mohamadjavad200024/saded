@@ -1,8 +1,7 @@
 import { NextRequest } from "next/server";
 import { getRows } from "@/lib/db/index";
-import { createErrorResponse, createSuccessResponse, safeParseJSON, safeParseNumber, safeParseDate } from "@/lib/api-route-helpers";
+import { createErrorResponse, createSuccessResponse } from "@/lib/api-route-helpers";
 import type { Order, OrderFilters } from "@/types/order";
-import { logger } from "@/lib/logger";
 
 /**
  * GET /api/orders - Get all orders
@@ -17,23 +16,25 @@ export async function GET(request: NextRequest) {
     const params: any[] = [];
 
     if (orderNumber) {
-      query += " WHERE orderNumber = ? OR id = ?";
+      query += " WHERE \"orderNumber\" = ? OR id = ?";
       params.push(orderNumber, orderNumber);
     } else {
-      query += " ORDER BY createdAt DESC";
+      query += " ORDER BY \"createdAt\" DESC";
     }
 
     const orders = await getRows<any>(query, params.length > 0 ? params : undefined);
 
-    // Parse JSON fields safely (MySQL JSON returns objects, but may be strings in some cases)
+    // Parse JSON fields (PostgreSQL JSONB returns objects, not strings)
     const parsedOrders = orders.map((o: any) => ({
       ...o,
-      items: safeParseJSON<any[]>(o.items, []),
-      shippingAddress: safeParseJSON<Record<string, any>>(o.shippingAddress, {}),
-      total: safeParseNumber(o.total, 0),
-      shippingCost: safeParseNumber(o.shippingCost, 0),
-      createdAt: safeParseDate(o.createdAt),
-      updatedAt: safeParseDate(o.updatedAt),
+      items: Array.isArray(o.items) ? o.items : (typeof o.items === 'string' ? JSON.parse(o.items) : []),
+      shippingAddress: typeof o.shippingAddress === 'object' && o.shippingAddress !== null 
+        ? o.shippingAddress 
+        : (typeof o.shippingAddress === 'string' ? JSON.parse(o.shippingAddress) : {}),
+      total: Number(o.total),
+      shippingCost: Number(o.shippingCost),
+      createdAt: o.createdAt instanceof Date ? o.createdAt : new Date(o.createdAt),
+      updatedAt: o.updatedAt instanceof Date ? o.updatedAt : new Date(o.updatedAt),
     }));
 
     return createSuccessResponse(parsedOrders, 200, {
@@ -42,12 +43,7 @@ export async function GET(request: NextRequest) {
       total: parsedOrders.length,
       totalPages: 1,
     });
-  } catch (error: any) {
-    logger.error("GET /api/orders error:", {
-      message: error?.message,
-      code: error?.code,
-      stack: error?.stack,
-    });
+  } catch (error) {
     return createErrorResponse(error);
   }
 }
@@ -66,39 +62,41 @@ export async function POST(request: NextRequest) {
     }
 
     if (filters.paymentStatus && filters.paymentStatus.length > 0) {
-      query += ` AND paymentStatus IN (${filters.paymentStatus.map(() => "?").join(",")})`;
+      query += ` AND "paymentStatus" IN (${filters.paymentStatus.map(() => "?").join(",")})`;
       params.push(...filters.paymentStatus);
     }
 
     if (filters.search) {
-      query += " AND (orderNumber LIKE ? OR customerName LIKE ? OR customerPhone LIKE ?)";
+      query += " AND (\"orderNumber\" LIKE ? OR \"customerName\" LIKE ? OR \"customerPhone\" LIKE ?)";
       const searchTerm = `%${filters.search}%`;
       params.push(searchTerm, searchTerm, searchTerm);
     }
 
     if (filters.dateFrom) {
-      query += " AND createdAt >= ?";
+      query += " AND \"createdAt\" >= ?";
       params.push(filters.dateFrom.toISOString());
     }
 
     if (filters.dateTo) {
-      query += " AND createdAt <= ?";
+      query += " AND \"createdAt\" <= ?";
       params.push(filters.dateTo.toISOString());
     }
 
-    query += " ORDER BY createdAt DESC";
+    query += " ORDER BY \"createdAt\" DESC";
 
     const orders = await getRows<any>(query, params);
 
-    // Parse JSON fields safely (MySQL JSON returns objects, but may be strings in some cases)
+    // Parse JSON fields (PostgreSQL JSONB returns objects, not strings)
     const parsedOrders = orders.map((o: any) => ({
       ...o,
-      items: safeParseJSON<any[]>(o.items, []),
-      shippingAddress: safeParseJSON<Record<string, any>>(o.shippingAddress, {}),
-      total: safeParseNumber(o.total, 0),
-      shippingCost: safeParseNumber(o.shippingCost, 0),
-      createdAt: safeParseDate(o.createdAt),
-      updatedAt: safeParseDate(o.updatedAt),
+      items: Array.isArray(o.items) ? o.items : (typeof o.items === 'string' ? JSON.parse(o.items) : []),
+      shippingAddress: typeof o.shippingAddress === 'object' && o.shippingAddress !== null 
+        ? o.shippingAddress 
+        : (typeof o.shippingAddress === 'string' ? JSON.parse(o.shippingAddress) : {}),
+      total: Number(o.total),
+      shippingCost: Number(o.shippingCost),
+      createdAt: o.createdAt instanceof Date ? o.createdAt : new Date(o.createdAt),
+      updatedAt: o.updatedAt instanceof Date ? o.updatedAt : new Date(o.updatedAt),
     }));
 
     return createSuccessResponse(parsedOrders, 200, {
@@ -107,12 +105,7 @@ export async function POST(request: NextRequest) {
       total: parsedOrders.length,
       totalPages: 1,
     });
-  } catch (error: any) {
-    logger.error("POST /api/orders error:", {
-      message: error?.message,
-      code: error?.code,
-      stack: error?.stack,
-    });
+  } catch (error) {
     return createErrorResponse(error);
   }
 }

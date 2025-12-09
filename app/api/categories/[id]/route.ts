@@ -57,8 +57,8 @@ export async function PUT(
       updatedAt: new Date().toISOString(),
     };
 
-    // MySQL accepts boolean values directly, no need to convert to 1/0
-    // Keep boolean values as-is for MySQL
+    // PostgreSQL accepts boolean values directly, no need to convert to 1/0
+    // Keep boolean values as-is for PostgreSQL
 
     const setClause = Object.keys(updates)
       .map((key) => `${key} = ?`)

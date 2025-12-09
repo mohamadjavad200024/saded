@@ -2,8 +2,6 @@ import { NextRequest } from "next/server";
 import { getRow, runQuery } from "@/lib/db/index";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-route-helpers";
 import { AppError } from "@/lib/api-error-handler";
-import { logger } from "@/lib/logger";
-import { parseProduct } from "@/lib/parsers";
 import type { Product } from "@/types/product";
 
 /**
@@ -27,16 +25,30 @@ export async function GET(
       throw new AppError("محصول یافت نشد", 404, "PRODUCT_NOT_FOUND");
     }
 
-    // Parse product data safely
-    const parsedProduct: Product = parseProduct(product);
+    // Parse JSON fields (PostgreSQL JSONB returns objects, not strings)
+    const parsedProduct: Product = {
+      ...product,
+      images: Array.isArray(product.images) ? product.images : (typeof product.images === 'string' ? JSON.parse(product.images) : []),
+      tags: Array.isArray(product.tags) ? product.tags : (typeof product.tags === 'string' ? JSON.parse(product.tags) : []),
+      specifications: typeof product.specifications === 'object' && product.specifications !== null 
+        ? product.specifications 
+        : (typeof product.specifications === 'string' ? JSON.parse(product.specifications) : {}),
+      price: Number(product.price),
+      originalPrice: product.originalPrice ? Number(product.originalPrice) : undefined,
+      stockCount: Number(product.stockCount),
+      inStock: Boolean(product.inStock),
+      enabled: Boolean(product.enabled),
+      vinEnabled: Boolean(product.vinEnabled),
+      airShippingEnabled: Boolean(product.airShippingEnabled),
+      seaShippingEnabled: Boolean(product.seaShippingEnabled),
+      airShippingCost: product.airShippingCost !== null && product.airShippingCost !== undefined ? Number(product.airShippingCost) : null,
+      seaShippingCost: product.seaShippingCost !== null && product.seaShippingCost !== undefined ? Number(product.seaShippingCost) : null,
+      createdAt: product.createdAt instanceof Date ? product.createdAt : new Date(product.createdAt),
+      updatedAt: product.updatedAt instanceof Date ? product.updatedAt : new Date(product.updatedAt),
+    };
 
     return createSuccessResponse(parsedProduct);
-  } catch (error: any) {
-    logger.error("GET /api/products/[id] error:", {
-      message: error?.message,
-      code: error?.code,
-      stack: error?.stack,
-    });
+  } catch (error) {
     return createErrorResponse(error);
   }
 }
@@ -89,8 +101,8 @@ export async function PUT(
         ? Math.max(0, Math.round(Number(updates.seaShippingCost))) 
         : null;
     }
-    // MySQL accepts boolean values directly, no need to convert to 1/0
-    // Keep boolean values as-is for MySQL
+    // PostgreSQL accepts boolean values directly, no need to convert to 1/0
+    // Keep boolean values as-is for PostgreSQL
 
     const setClause = Object.keys(updates)
       .map((key) => `${key} = ?`)
@@ -102,16 +114,30 @@ export async function PUT(
 
     const updatedProduct = await getRow<any>("SELECT * FROM products WHERE id = ?", [id]);
     
-    // Parse product data safely
-    const parsedProduct: Product = parseProduct(updatedProduct);
+    // Parse JSON fields (PostgreSQL JSONB returns objects, not strings)
+    const parsedProduct: Product = {
+      ...updatedProduct,
+      images: Array.isArray(updatedProduct.images) ? updatedProduct.images : (typeof updatedProduct.images === 'string' ? JSON.parse(updatedProduct.images) : []),
+      tags: Array.isArray(updatedProduct.tags) ? updatedProduct.tags : (typeof updatedProduct.tags === 'string' ? JSON.parse(updatedProduct.tags) : []),
+      specifications: typeof updatedProduct.specifications === 'object' && updatedProduct.specifications !== null 
+        ? updatedProduct.specifications 
+        : (typeof updatedProduct.specifications === 'string' ? JSON.parse(updatedProduct.specifications) : {}),
+      price: Number(updatedProduct.price),
+      originalPrice: updatedProduct.originalPrice ? Number(updatedProduct.originalPrice) : undefined,
+      stockCount: Number(updatedProduct.stockCount),
+      inStock: Boolean(updatedProduct.inStock),
+      enabled: Boolean(updatedProduct.enabled),
+      vinEnabled: Boolean(updatedProduct.vinEnabled),
+      airShippingEnabled: Boolean(updatedProduct.airShippingEnabled),
+      seaShippingEnabled: Boolean(updatedProduct.seaShippingEnabled),
+      airShippingCost: updatedProduct.airShippingCost !== null && updatedProduct.airShippingCost !== undefined ? Number(updatedProduct.airShippingCost) : null,
+      seaShippingCost: updatedProduct.seaShippingCost !== null && updatedProduct.seaShippingCost !== undefined ? Number(updatedProduct.seaShippingCost) : null,
+      createdAt: updatedProduct.createdAt instanceof Date ? updatedProduct.createdAt : new Date(updatedProduct.createdAt),
+      updatedAt: updatedProduct.updatedAt instanceof Date ? updatedProduct.updatedAt : new Date(updatedProduct.updatedAt),
+    };
 
     return createSuccessResponse(parsedProduct);
-  } catch (error: any) {
-    logger.error("PUT /api/products/[id] error:", {
-      message: error?.message,
-      code: error?.code,
-      stack: error?.stack,
-    });
+  } catch (error) {
     return createErrorResponse(error);
   }
 }
@@ -131,12 +157,7 @@ export async function DELETE(
     await runQuery("DELETE FROM products WHERE id = ?", [id]);
 
     return createSuccessResponse({ message: "محصول با موفقیت حذف شد" });
-  } catch (error: any) {
-    logger.error("DELETE /api/products/[id] error:", {
-      message: error?.message,
-      code: error?.code,
-      stack: error?.stack,
-    });
+  } catch (error) {
     return createErrorResponse(error);
   }
 }

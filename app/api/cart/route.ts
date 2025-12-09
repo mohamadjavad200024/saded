@@ -32,24 +32,24 @@ export async function GET(request: NextRequest) {
             id VARCHAR(255) PRIMARY KEY,
             "sessionId" VARCHAR(255) NOT NULL,
             "userId" VARCHAR(255),
-            items JSON NOT NULL DEFAULT '[]',
-            shippingMethod VARCHAR(50),
-            createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            UNIQUE(sessionId)
+            items JSONB NOT NULL DEFAULT '[]'::jsonb,
+            "shippingMethod" VARCHAR(50),
+            "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+            "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+            UNIQUE("sessionId")
           );
-          CREATE INDEX IF NOT EXISTS idx_carts_sessionId ON carts(sessionId);
-          CREATE INDEX IF NOT EXISTS idx_carts_userId ON carts(userId);
+          CREATE INDEX IF NOT EXISTS idx_carts_sessionId ON carts("sessionId");
+          CREATE INDEX IF NOT EXISTS idx_carts_userId ON carts("userId");
         `);
       } catch (createError: any) {
         // Ignore if table already exists
-        if (createError?.code !== "ER_TABLE_EXISTS_ERROR" && !createError?.message?.includes("already exists") && !createError?.message?.includes("Duplicate")) {
+        if (createError?.code !== "42P07" && !createError?.message?.includes("already exists")) {
           logger.error("Error creating carts table:", createError);
         }
       }
       
       const cart = await getRow<any>(
-        "SELECT * FROM carts WHERE sessionId = ?",
+        "SELECT * FROM carts WHERE \"sessionId\" = ?",
         [sessionId]
       );
 
@@ -182,32 +182,32 @@ export async function POST(request: NextRequest) {
             id VARCHAR(255) PRIMARY KEY,
             "sessionId" VARCHAR(255) NOT NULL,
             "userId" VARCHAR(255),
-            items JSON NOT NULL DEFAULT '[]',
-            shippingMethod VARCHAR(50),
-            createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            UNIQUE(sessionId)
+            items JSONB NOT NULL DEFAULT '[]'::jsonb,
+            "shippingMethod" VARCHAR(50),
+            "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+            "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+            UNIQUE("sessionId")
           );
-          CREATE INDEX IF NOT EXISTS idx_carts_sessionId ON carts(sessionId);
-          CREATE INDEX IF NOT EXISTS idx_carts_userId ON carts(userId);
+          CREATE INDEX IF NOT EXISTS idx_carts_sessionId ON carts("sessionId");
+          CREATE INDEX IF NOT EXISTS idx_carts_userId ON carts("userId");
         `);
       } catch (createError: any) {
         // Ignore if table already exists
-        if (createError?.code !== "ER_TABLE_EXISTS_ERROR" && !createError?.message?.includes("already exists") && !createError?.message?.includes("Duplicate")) {
+        if (createError?.code !== "42P07" && !createError?.message?.includes("already exists")) {
           logger.error("Error creating carts table:", createError);
         }
       }
       
       // Check if cart exists
       const existingCart = await getRow<any>(
-        "SELECT * FROM carts WHERE sessionId = ?",
+        "SELECT * FROM carts WHERE \"sessionId\" = ?",
         [sessionId]
       );
 
       if (existingCart) {
         // Update existing cart
         const updateResult = await runQuery(
-          `UPDATE carts SET items = ?, shippingMethod = ?, updatedAt = ? WHERE sessionId = ?`,
+          `UPDATE carts SET items = ?::jsonb, "shippingMethod" = ?, "updatedAt" = ? WHERE "sessionId" = ?`,
           [JSON.stringify(items), shippingMethod || null, now, sessionId]
         );
         logger.debug("Cart updated in database:", { sessionId, itemCount: items.length });
@@ -215,8 +215,8 @@ export async function POST(request: NextRequest) {
         // Create new cart
         const cartId = `cart-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const insertResult = await runQuery(
-          `INSERT INTO carts (id, sessionId, items, shippingMethod, createdAt, updatedAt)
-           VALUES (?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO carts (id, "sessionId", items, "shippingMethod", "createdAt", "updatedAt")
+           VALUES (?, ?, ?::jsonb, ?, ?, ?)`,
           [cartId, sessionId, JSON.stringify(items), shippingMethod || null, now, now]
         );
         logger.debug("Cart created in database:", { cartId, sessionId, itemCount: items.length });
@@ -247,7 +247,7 @@ export async function POST(request: NextRequest) {
       });
       
       // Check if table doesn't exist
-      if (dbError?.message?.includes("doesn't exist") || dbError?.message?.includes("does not exist") || dbError?.code === "ER_NO_SUCH_TABLE") {
+      if (dbError?.message?.includes("does not exist") || dbError?.code === "42P01") {
         logger.error("Carts table does not exist. Please restart the server to create it.");
         return createErrorResponse(
           new AppError("جدول سبد خرید در دیتابیس وجود ندارد. لطفاً سرور را restart کنید.", 500, "TABLE_NOT_EXISTS")

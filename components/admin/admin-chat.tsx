@@ -858,7 +858,7 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
               <div ref={messagesEndRef} />
             </div>
 
-            <div className="relative">
+            <div className="relative flex-shrink-0">
               {/* Scroll to bottom button */}
               <AnimatePresence>
                 {showScrollToBottom && (

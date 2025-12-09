@@ -22,7 +22,7 @@ export async function GET(
       throw new AppError("سفارش یافت نشد", 404, "ORDER_NOT_FOUND");
     }
 
-    // Parse JSON fields (MySQL JSON returns objects, but may be strings in some cases)
+    // Parse JSON fields (PostgreSQL JSONB returns objects, not strings)
     const parsedOrder: Order = {
       ...order,
       items: Array.isArray(order.items) ? order.items : (typeof order.items === 'string' ? JSON.parse(order.items) : []),
@@ -76,7 +76,7 @@ export async function PUT(
 
     const updatedOrder = await getRow<any>("SELECT * FROM orders WHERE id = ?", [id]);
 
-    // Parse JSON fields (MySQL JSON returns objects, but may be strings in some cases)
+    // Parse JSON fields (PostgreSQL JSONB returns objects, not strings)
     const parsedOrder: Order = {
       ...updatedOrder,
       items: Array.isArray(updatedOrder.items) ? updatedOrder.items : (typeof updatedOrder.items === 'string' ? JSON.parse(updatedOrder.items) : []),
