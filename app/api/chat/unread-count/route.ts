@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
           const result = await getRow<{ count: string }>(
             `SELECT COUNT(*) as count 
              FROM chat_messages 
-             WHERE "chatId" = $1 
+             WHERE chatId = ? 
                AND sender = 'user' 
                AND (status IS NULL OR (status != 'read' AND status IN ('sent', 'delivered', 'sending')))`,
             [chat.id]

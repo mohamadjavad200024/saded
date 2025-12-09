@@ -629,7 +629,7 @@ export async function GET(request: NextRequest) {
           if (chatIds.length > 0) {
             try {
               // Use IN clause with GROUP BY to get all unread counts in one query
-              const placeholders = chatIds.map((_, i) => `$${i + 1}`).join(',');
+              const placeholders = chatIds.map(() => '?').join(',');
               const unreadCounts = await getRows<{ chatId: string; count: string }>(
                 `SELECT chatId, COUNT(*) as count 
                  FROM chat_messages 
