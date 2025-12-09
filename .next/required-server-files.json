@@ -113,7 +113,7 @@
         "transform": "lodash/{{member}}"
       }
     },
-    "outputFileTracingRoot": "C:\\Users\\MohamadJavad\\OneDrive\\Desktop\\saded - Copy (4)",
+    "outputFileTracingRoot": "D:\\سدیی انلاین بدون دیتا بیس\\saded - Copy (4)",
     "cacheComponents": false,
     "cacheLife": {
       "default": {
@@ -306,11 +306,11 @@
     "bundlePagesRouterDependencies": false,
     "configFileName": "next.config.js",
     "turbopack": {
-      "root": "C:\\Users\\MohamadJavad\\OneDrive\\Desktop\\saded - Copy (4)"
+      "root": "D:\\سدیی انلاین بدون دیتا بیس\\saded - Copy (4)"
     },
     "distDirRoot": ".next"
   },
-  "appDir": "C:\\Users\\MohamadJavad\\OneDrive\\Desktop\\saded - Copy (4)",
+  "appDir": "D:\\سدیی انلاین بدون دیتا بیس\\saded - Copy (4)",
   "relativeAppDir": "",
   "files": [
     ".next\\routes-manifest.json",
