@@ -4,7 +4,6 @@ import { HeroSection } from "@/components/home/hero-section";
 import { FeaturedStats } from "@/components/home/featured-stats";
 import { CategoryGrid } from "@/components/home/category-grid";
 import { FeaturedProducts } from "@/components/home/featured-products";
-import { OrderStatusBar } from "@/components/home/order-status-bar";
 
 export default function Home() {
   return (
@@ -17,7 +16,6 @@ export default function Home() {
         <FeaturedProducts />
       </main>
       <Footer />
-      <OrderStatusBar />
     </div>
   );
 }
