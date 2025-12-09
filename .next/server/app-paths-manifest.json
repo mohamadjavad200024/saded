@@ -42,6 +42,7 @@
   "/api/users/[id]/route": "app/api/users/[id]/route.js",
   "/api/users/route": "app/api/users/route.js",
   "/cart/page": "app/cart/page.js",
+  "/chat/page": "app/chat/page.js",
   "/checkout/page": "app/checkout/page.js",
   "/favicon.ico/route": "app/favicon.ico/route.js",
   "/order/success/page": "app/order/success/page.js",
