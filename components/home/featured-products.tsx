@@ -44,12 +44,7 @@ export function FeaturedProducts() {
   }, [apiProducts, isLoading, getEnabledProducts]);
 
   return (
-    <section className="py-8 sm:py-12 md:py-16 lg:py-20 bg-background relative overflow-hidden">
-      {/* Background Effects - Only on desktop */}
-      <div className="hidden md:block absolute inset-0 opacity-5">
-        <div className="absolute top-0 right-1/4 w-96 h-96 bg-accent rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-primary rounded-full blur-3xl" />
-      </div>
+    <section className="py-8 sm:py-12 md:py-16 lg:py-20 relative overflow-hidden">
 
       <div className="container px-4 sm:px-4 relative z-10">
         {/* Minimal Header */}
@@ -61,7 +56,7 @@ export function FeaturedProducts() {
           className="text-center mb-6 sm:mb-8 md:mb-12 lg:mb-16"
         >
           {/* Badge - Hidden on mobile */}
-          <div className="hidden sm:inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-accent/10 rounded-full border-[0.25px] border-accent/10 mb-3 sm:mb-4">
+          <div className="glass-morphism-light hidden sm:inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full mb-3 sm:mb-4">
             <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-accent" />
             <span className="text-xs sm:text-sm font-medium text-accent">محصولات ویژه</span>
           </div>
@@ -121,7 +116,7 @@ export function FeaturedProducts() {
                 whileHover={{ y: -4, scale: 1.01 }}
                 className="group"
               >
-                <Card className="h-full flex flex-col relative overflow-hidden border-[0.1px] border-border/2 sm:border-[0.1px] border-border/3 hover:border-border/4 sm:hover:border-border/5 bg-background sm:bg-gradient-to-br sm:from-background/90 sm:to-background/70 backdrop-blur-sm transition-all duration-300 hover:shadow-lg sm:hover:shadow-2xl">
+                <Card className="glass-morphism h-full flex flex-col relative overflow-hidden transition-all duration-300 hover:shadow-2xl group-hover:scale-105">
                   {/* Shine Effect - Only on desktop */}
                   <div className="hidden sm:block absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent z-10" />
                   
@@ -202,7 +197,7 @@ export function FeaturedProducts() {
             <Button 
               size="lg" 
               variant="outline" 
-              className="h-10 sm:h-12 md:h-14 px-6 sm:px-8 md:px-10 text-sm sm:text-base md:text-lg rounded-lg sm:rounded-xl border-[0.25px] border-border/2 text-foreground hover:bg-foreground/10 sm:hover:bg-foreground/20 hover:border-border/3 backdrop-blur-sm transition-all active:scale-95 sm:hover:scale-105 group"
+              className="glass-morphism-light h-10 sm:h-12 md:h-14 px-6 sm:px-8 md:px-10 text-sm sm:text-base md:text-lg rounded-lg sm:rounded-xl text-foreground hover:bg-foreground/10 sm:hover:bg-foreground/20 transition-all active:scale-95 sm:hover:scale-105 group"
             >
               <span className="hidden sm:inline">مشاهده همه محصولات</span>
               <span className="sm:hidden">همه محصولات</span>

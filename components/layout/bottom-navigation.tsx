@@ -1,0 +1,252 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { 
+  Home, 
+  Package, 
+  ShoppingCart, 
+  ShoppingBag, 
+  ChevronRight,
+  MessageCircle
+} from "lucide-react";
+import { useCartStore } from "@/store/cart-store";
+import { useEffect, useState } from "react";
+import { QuickBuyChat } from "@/components/chat/quick-buy-chat";
+
+const navigationItems = [
+  { 
+    name: "خانه", 
+    href: "/", 
+    icon: Home,
+    exact: true
+  },
+  { 
+    name: "محصولات", 
+    href: "/products", 
+    icon: Package 
+  },
+  { 
+    name: "سبد خرید", 
+    href: "/cart", 
+    icon: ShoppingCart 
+  },
+  { 
+    name: "سفارش‌ها", 
+    href: "/orders", 
+    icon: ShoppingBag 
+  },
+];
+
+export function BottomNavigation() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const { items } = useCartStore();
+  const [isMounted, setIsMounted] = useState(false);
+  const [canGoBack, setCanGoBack] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+
+  // Check if we're in admin section
+  const isAdminPage = pathname?.startsWith("/admin");
+
+  // Calculate cart item count
+  const itemCount = isMounted 
+    ? items.reduce((count, item) => count + item.quantity, 0)
+    : 0;
+
+  // Check if browser history allows going back
+  useEffect(() => {
+    setIsMounted(true);
+    // Check if there's history to go back to
+    setCanGoBack(window.history.length > 1);
+  }, []);
+
+  // Don't show on admin pages
+  if (isAdminPage) {
+    return null;
+  }
+
+  const handleBack = () => {
+    if (canGoBack) {
+      router.back();
+    } else {
+      router.push("/");
+    }
+  };
+
+  return (
+    <>
+      {/* Bottom Navigation Bar - Sticky/Floating */}
+      <div 
+        className="sticky bottom-0 left-0 right-0 z-[9999] flex justify-center md:hidden pointer-events-none mt-auto"
+        style={{
+          paddingBottom: "max(0.5rem, calc(env(safe-area-inset-bottom, 0px) + 0.25rem))",
+          paddingLeft: "1rem",
+          paddingRight: "1rem",
+        }}
+      >
+        <nav 
+          className={cn(
+            "w-full max-w-sm pointer-events-auto",
+            "bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/80",
+            "border-[0.25px] border-border/30",
+            "rounded-[8px]",
+            "shadow-[0_-2px_10px_rgba(0,0,0,0.05)] dark:shadow-[0_-2px_10px_rgba(0,0,0,0.3)]"
+          )}
+        >
+          <div className="px-1.5 pb-0.5 pt-1">
+            <div className="flex items-center justify-between h-10">
+            {/* Back Button */}
+            <button
+              onClick={handleBack}
+              className={cn(
+                "flex items-center justify-center",
+                "h-7 w-7 rounded-full",
+                "bg-muted hover:bg-accent",
+                "text-foreground",
+                "transition-colors duration-200",
+                "active:scale-95",
+                "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background"
+              )}
+              aria-label="بازگشت"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+
+            {/* Navigation Items */}
+            <div className="flex items-center justify-center flex-1 gap-0 px-0.5">
+              {navigationItems.map((item, index) => {
+                const Icon = item.icon;
+                const isActive = item.exact
+                  ? pathname === item.href
+                  : pathname?.startsWith(item.href);
+                
+                const isCart = item.href === "/cart";
+                const isHome = item.href === "/";
+                
+                return (
+                  <>
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={cn(
+                        "flex flex-col items-center justify-center",
+                        "flex-1 h-8 rounded-md",
+                        "transition-all duration-200",
+                        "relative",
+                        isActive
+                          ? "text-primary"
+                          : "text-muted-foreground hover:text-foreground",
+                        "active:scale-95"
+                      )}
+                      aria-label={item.name}
+                    >
+                      <div className="relative">
+                        <Icon 
+                          className={cn(
+                            "h-3.5 w-3.5 transition-transform duration-200",
+                            isActive && "scale-110"
+                          )} 
+                        />
+                        {isCart && itemCount > 0 && (
+                          <span 
+                            className={cn(
+                              "absolute -top-0.5 -right-0.5",
+                              "h-3 w-3 rounded-full",
+                              "bg-primary text-primary-foreground",
+                              "text-[8px] font-bold",
+                              "flex items-center justify-center",
+                              "min-w-[12px] px-0.5",
+                              "border border-background"
+                            )}
+                            aria-label={`${itemCount} آیتم در سبد خرید`}
+                          >
+                            {itemCount > 99 ? "99+" : itemCount}
+                          </span>
+                        )}
+                      </div>
+                      <span 
+                        className={cn(
+                          "text-[8px] font-medium mt-0 leading-tight",
+                          "transition-colors duration-200",
+                          isActive && "font-semibold"
+                        )}
+                      >
+                        {item.name}
+                      </span>
+                      {isActive && (
+                        <div 
+                          className={cn(
+                            "absolute top-0 left-1/2 -translate-x-1/2",
+                            "w-5 h-0.5 rounded-full",
+                            "bg-primary",
+                            "animate-in fade-in slide-in-from-top-1 duration-200"
+                          )}
+                        />
+                      )}
+                    </Link>
+                    
+                    {/* Chat Button - Right after Home */}
+                    {isHome && (
+                      <QuickBuyChat
+                        key="chat-button"
+                        isOpen={chatOpen}
+                        onOpenChange={setChatOpen}
+                        trigger={
+                          <button
+                            className={cn(
+                              "flex flex-col items-center justify-center",
+                              "flex-1 h-8 rounded-md",
+                              "transition-all duration-200",
+                              "relative",
+                              chatOpen
+                                ? "text-primary"
+                                : "text-muted-foreground hover:text-foreground",
+                              "active:scale-95"
+                            )}
+                            aria-label="چت"
+                          >
+                            <div className="relative">
+                              <MessageCircle 
+                                className={cn(
+                                  "h-3.5 w-3.5 transition-transform duration-200",
+                                  chatOpen && "scale-110"
+                                )} 
+                              />
+                            </div>
+                            <span 
+                              className={cn(
+                                "text-[8px] font-medium mt-0 leading-tight",
+                                "transition-colors duration-200",
+                                chatOpen && "font-semibold"
+                              )}
+                            >
+                              چت
+                            </span>
+                            {chatOpen && (
+                              <div 
+                                className={cn(
+                                  "absolute top-0 left-1/2 -translate-x-1/2",
+                                  "w-5 h-0.5 rounded-full",
+                                  "bg-primary",
+                                  "animate-in fade-in slide-in-from-top-1 duration-200"
+                                )}
+                              />
+                            )}
+                          </button>
+                        }
+                      />
+                    )}
+                  </>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </nav>
+      </div>
+    </>
+  );
+}
+

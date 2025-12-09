@@ -34,8 +34,6 @@ export function HeroSection() {
 
   return (
     <section className="relative min-h-[400px] sm:min-h-[500px] md:min-h-[600px] flex items-center justify-center overflow-hidden">
-      {/* Background - Pure solid color */}
-      <div className="absolute inset-0 bg-background" />
 
       {/* Minimal Grid Pattern - visible on all screens */}
       {/* Light mode grid */}
@@ -74,7 +72,7 @@ export function HeroSection() {
             transition={{ delay: 0.2, duration: 0.6 }}
             className="max-w-2xl sm:max-w-3xl md:max-w-4xl mx-auto"
           >
-            <div className="bg-foreground/10 backdrop-blur-md rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-6 border-[0.25px] border-border/30 shadow-lg">
+            <div className="glass-morphism-strong rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-6 shadow-2xl">
               <div className="flex gap-2 sm:gap-3">
                 <ProductSearch
                   initialQuery={searchQuery}
@@ -126,7 +124,7 @@ export function HeroSection() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-foreground hover:text-foreground hover:bg-foreground/20 border-[0.25px] border-border/30 text-[10px] sm:text-xs md:text-sm rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 h-auto backdrop-blur-sm transition-all"
+                              className="glass-morphism-light text-foreground hover:text-foreground hover:bg-foreground/20 text-[10px] sm:text-xs md:text-sm rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 h-auto transition-all"
                             >
                               <Icon className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 ml-1.5 sm:ml-2" />
                               <span className="whitespace-nowrap">{option.label}</span>
@@ -146,7 +144,7 @@ export function HeroSection() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-foreground hover:text-foreground hover:bg-foreground/20 border-[0.25px] border-border/30 text-[10px] sm:text-xs md:text-sm rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 h-auto backdrop-blur-sm transition-all"
+                        className="glass-morphism-light text-foreground hover:text-foreground hover:bg-foreground/20 text-[10px] sm:text-xs md:text-sm rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 h-auto transition-all"
                       >
                         <Icon className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 ml-1.5 sm:ml-2" />
                         <span className="whitespace-nowrap">{option.label}</span>
@@ -166,7 +164,7 @@ export function HeroSection() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-foreground hover:text-foreground hover:bg-foreground/20 border-[0.25px] border-border/30 text-[10px] sm:text-xs md:text-sm rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 h-auto backdrop-blur-sm transition-all"
+                        className="glass-morphism-light text-foreground hover:text-foreground hover:bg-foreground/20 text-[10px] sm:text-xs md:text-sm rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 h-auto transition-all"
                       >
                         <ShoppingBag className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 ml-1.5 sm:ml-2" />
                         <span className="whitespace-nowrap">خرید سریع</span>
@@ -197,7 +195,7 @@ export function HeroSection() {
               <Button 
                 size="default"
                 variant="outline" 
-                className="h-9 sm:h-10 md:h-11 px-4 sm:px-5 md:px-6 text-xs sm:text-sm rounded-lg sm:rounded-xl border-[0.25px] border-border/30 text-foreground hover:bg-foreground/10 hover:border-border/30 backdrop-blur-sm transition-all whitespace-nowrap"
+                className="glass-morphism-light h-9 sm:h-10 md:h-11 px-4 sm:px-5 md:px-6 text-xs sm:text-sm rounded-lg sm:rounded-xl text-foreground hover:bg-foreground/10 transition-all whitespace-nowrap"
               >
                 راهنمای خرید
               </Button>
@@ -206,8 +204,6 @@ export function HeroSection() {
         </motion.div>
       </div>
 
-      {/* Minimal Wave - Subtle */}
-      <div className="absolute bottom-0 left-0 right-0 h-8 sm:h-12 md:h-20 bg-gradient-to-t from-background via-background/90 to-transparent" />
     </section>
   );
 }

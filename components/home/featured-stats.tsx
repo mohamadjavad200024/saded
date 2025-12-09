@@ -48,12 +48,7 @@ export function FeaturedStats() {
   const isInView = useInView(ref, { once: true, margin: "-100px" });
 
   return (
-    <section className="py-8 sm:py-12 md:py-16 lg:py-20 bg-background relative overflow-hidden">
-      {/* Background Decoration - Only on desktop */}
-      <div className="hidden md:block absolute inset-0 opacity-5">
-        <div className="absolute top-0 left-0 w-96 h-96 bg-primary rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-0 w-96 h-96 bg-accent rounded-full blur-3xl" />
-      </div>
+    <section className="py-8 sm:py-12 md:py-16 lg:py-20 relative overflow-hidden">
 
       <div className="container px-3 sm:px-4 relative z-10" ref={ref}>
         {/* Minimal Header - Hidden on mobile */}
@@ -93,14 +88,8 @@ export function FeaturedStats() {
                 }}
                 className="group relative"
               >
-                {/* Ultra Minimal Card - Extremely compact on mobile */}
-                <div className={`
-                  relative bg-background sm:bg-gradient-to-br sm:${stat.bgGradient} 
-                  backdrop-blur-sm sm:backdrop-blur-md border-[0.25px] border-border/3 sm:border-[0.25px] sm:border-primary/10 
-                  rounded-lg sm:rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-4 lg:p-6 text-center 
-                  shadow-sm sm:shadow-md md:shadow-lg hover:shadow-xl transition-all duration-300
-                  hover:border-primary/20 sm:hover:border-primary/30 overflow-hidden
-                `}>
+                {/* Ultra Minimal Card - Glass Morphism */}
+                <div className="glass-morphism relative rounded-lg sm:rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-4 lg:p-6 text-center transition-all duration-300 hover:shadow-2xl overflow-hidden group-hover:scale-105">
                   {/* Animated Background - Only on desktop */}
                   <div className="hidden sm:block absolute inset-0 bg-gradient-to-br from-white/0 via-white/5 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                   
@@ -154,7 +143,7 @@ export function FeaturedStats() {
           transition={{ delay: 0.4 }}
           className="hidden sm:block text-center mt-6 sm:mt-8 md:mt-10 lg:mt-12"
         >
-          <div className="inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 bg-primary/10 rounded-full border-[0.25px] border-primary/10">
+          <div className="glass-morphism-light inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 rounded-full">
             <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
             <span className="text-xs sm:text-sm md:text-base text-foreground font-medium">
               رشد مستمر در رضایت مشتریان

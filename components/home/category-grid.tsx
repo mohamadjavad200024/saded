@@ -54,12 +54,7 @@ export function CategoryGrid() {
       });
   }, [categories]);
   return (
-    <section className="py-8 sm:py-12 md:py-16 lg:py-20 bg-background relative overflow-hidden">
-      {/* Background Effects - Only on desktop */}
-      <div className="hidden md:block absolute inset-0 opacity-5">
-        <div className="absolute top-1/4 left-0 w-72 h-72 bg-primary rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-0 w-72 h-72 bg-accent rounded-full blur-3xl" />
-      </div>
+    <section className="py-8 sm:py-12 md:py-16 lg:py-20 relative overflow-hidden">
 
       <div className="container px-3 sm:px-4 relative z-10">
         {/* Minimal Header */}
@@ -121,7 +116,7 @@ export function CategoryGrid() {
                 className="group relative"
               >
                 <Link href={category.href}>
-                  <Card className="h-full relative overflow-hidden border-[0.25px] border-border/3 sm:border-[0.25px] border-border/5 hover:border-border/8 sm:hover:border-border/10 bg-background sm:bg-gradient-to-br sm:from-background/80 sm:to-background/40 backdrop-blur-sm transition-all duration-300 hover:shadow-lg sm:hover:shadow-2xl cursor-pointer">
+                  <Card className="glass-morphism h-full relative overflow-hidden transition-all duration-300 hover:shadow-2xl cursor-pointer group-hover:scale-105">
                     {/* Animated Background Gradient - Only on desktop */}
                     <div className={`hidden sm:block absolute inset-0 bg-gradient-to-br ${category.bgGradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
                     
