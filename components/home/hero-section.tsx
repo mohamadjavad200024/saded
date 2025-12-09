@@ -3,11 +3,11 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Camera, Mic, Hash, Sparkles, ArrowLeft, ShoppingBag } from "lucide-react";
+import { Search, Sparkles, ArrowLeft, ShoppingBag } from "lucide-react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { VinSearch } from "@/components/product/vin-search";
 import { ProductSearch } from "@/components/product/product-search";
+import { MinimalCategoryGrid } from "@/components/home/category-grid";
 
 export function HeroSection() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -100,73 +100,15 @@ export function HeroSection() {
                 </div>
               </div>
 
-              {/* Search Options - Compact */}
-              <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-3 sm:mt-4 justify-center">
-                {[
-                  { icon: Mic, label: "جستجوی صوتی", component: null },
-                  { icon: Hash, label: "#جستجو با VIN", component: "vin" },
-                  { icon: Camera, label: "جستجوی تصویری", component: null },
-                ].map((option, index) => {
-                  const Icon = option.icon;
-                  
-                  // If it's VIN search, use VinSearch component
-                  if (option.component === "vin") {
-                    return (
-                      <motion.div
-                        key={index}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        <VinSearch
-                          trigger={
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="glass-morphism-light text-foreground hover:text-foreground hover:bg-foreground/20 text-[10px] sm:text-xs md:text-sm rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 h-auto transition-all"
-                            >
-                              <Icon className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 ml-1.5 sm:ml-2" />
-                              <span className="whitespace-nowrap">{option.label}</span>
-                            </Button>
-                          }
-                        />
-                      </motion.div>
-                    );
-                  }
-                  
-                  return (
-                    <motion.div
-                      key={index}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="glass-morphism-light text-foreground hover:text-foreground hover:bg-foreground/20 text-[10px] sm:text-xs md:text-sm rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 h-auto transition-all"
-                      >
-                        <Icon className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 ml-1.5 sm:ml-2" />
-                        <span className="whitespace-nowrap">{option.label}</span>
-                      </Button>
-                    </motion.div>
-                  );
-                })}
-                {/* دکمه خرید سریع */}
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <Link href="/chat">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="glass-morphism-light text-foreground hover:text-foreground hover:bg-foreground/20 text-[10px] sm:text-xs md:text-sm rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 h-auto transition-all"
-                    >
-                      <ShoppingBag className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 ml-1.5 sm:ml-2" />
-                      <span className="whitespace-nowrap">خرید سریع</span>
-                    </Button>
-                  </Link>
-                </motion.div>
-              </div>
+              {/* Minimal Category Grid - 2 rows, 3 columns */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.25, duration: 0.5 }}
+                className="mt-3 sm:mt-4"
+              >
+                <MinimalCategoryGrid />
+              </motion.div>
             </div>
           </motion.div>
 
@@ -192,6 +134,16 @@ export function HeroSection() {
                 className="glass-morphism-light h-9 sm:h-10 md:h-11 px-4 sm:px-5 md:px-6 text-xs sm:text-sm rounded-lg sm:rounded-xl text-foreground hover:bg-foreground/10 transition-all whitespace-nowrap"
               >
                 راهنمای خرید
+              </Button>
+            </Link>
+            <Link href="/chat">
+              <Button 
+                size="default"
+                variant="outline" 
+                className="glass-morphism-light h-9 sm:h-10 md:h-11 px-4 sm:px-5 md:px-6 text-xs sm:text-sm rounded-lg sm:rounded-xl text-foreground hover:bg-foreground/10 transition-all whitespace-nowrap flex items-center gap-1.5"
+              >
+                <ShoppingBag className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                خرید سریع
               </Button>
             </Link>
           </motion.div>
