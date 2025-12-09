@@ -42,7 +42,6 @@ import { OnlineStatusBadge } from "@/components/chat/online-status-badge";
 import { useAdminPresence } from "@/hooks/use-admin-presence";
 import { TypingIndicator } from "@/components/chat/typing-indicator";
 import { logger } from "@/lib/logger-client";
-import { Header } from "@/components/layout/header";
 
 type MessageStatus = "sending" | "sent" | "delivered" | "read";
 
@@ -685,10 +684,9 @@ export default function ChatPage() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <Header />
       <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="border-b border-border/40 px-4 sm:px-6 py-3 bg-background">
+        {/* Header - Sticky at top */}
+        <div className="sticky top-0 z-50 border-b border-border/40 px-4 sm:px-6 py-3 bg-background/95 backdrop-blur-sm">
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
@@ -1062,8 +1060,8 @@ export default function ChatPage() {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Input Area */}
-              <div className="border-t border-border/40 bg-background p-2 sm:p-3 space-y-2 relative flex-shrink-0">
+              {/* Input Area - Sticky at bottom */}
+              <div className="sticky bottom-0 z-40 border-t border-border/40 bg-background/95 backdrop-blur-sm p-2 sm:p-3 space-y-2 relative flex-shrink-0">
                 {/* Scroll to bottom button */}
                 <AnimatePresence>
                   {showScrollToBottom && (
