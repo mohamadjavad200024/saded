@@ -129,14 +129,14 @@ export function BottomNavigation() {
             "shadow-[0_-2px_10px_rgba(0,0,0,0.05)] dark:shadow-[0_-2px_10px_rgba(0,0,0,0.3)]"
           )}
         >
-          <div className="px-1.5 pb-0.5 pt-1">
-            <div className="flex items-center justify-between h-10">
+          <div className="px-2 pb-1 pt-1.5">
+            <div className="flex items-center justify-between h-14">
             {/* Back Button */}
             <button
               onClick={handleBack}
               className={cn(
                 "flex items-center justify-center",
-                "h-7 w-7 rounded-full",
+                "h-9 w-9 rounded-full",
                 "bg-muted hover:bg-accent",
                 "text-foreground",
                 "transition-colors duration-200",
@@ -145,7 +145,7 @@ export function BottomNavigation() {
               )}
               aria-label="بازگشت"
             >
-              <ChevronRight className="h-3.5 w-3.5" />
+              <ChevronRight className="h-5 w-5" />
             </button>
 
             {/* Navigation Items */}
@@ -166,7 +166,7 @@ export function BottomNavigation() {
                       href={item.href}
                       className={cn(
                         "flex flex-col items-center justify-center",
-                        "flex-1 h-8 rounded-md",
+                        "flex-1 h-12 rounded-md",
                         "transition-all duration-200",
                         "relative",
                         isActive
@@ -179,7 +179,7 @@ export function BottomNavigation() {
                       <div className="relative">
                         <Icon 
                           className={cn(
-                            "h-3.5 w-3.5 transition-transform duration-200",
+                            "h-5 w-5 transition-transform duration-200",
                             isActive && "scale-110"
                           )} 
                         />
@@ -187,11 +187,11 @@ export function BottomNavigation() {
                           <span 
                             className={cn(
                               "absolute -top-0.5 -right-0.5",
-                              "h-3 w-3 rounded-full",
+                              "h-4 w-4 rounded-full",
                               "bg-primary text-primary-foreground",
-                              "text-[8px] font-bold",
+                              "text-[9px] font-bold",
                               "flex items-center justify-center",
-                              "min-w-[12px] px-0.5",
+                              "min-w-[16px] px-0.5",
                               "border border-background"
                             )}
                             aria-label={`${itemCount} آیتم در سبد خرید`}
@@ -202,7 +202,7 @@ export function BottomNavigation() {
                       </div>
                       <span 
                         className={cn(
-                          "text-[8px] font-medium mt-0 leading-tight",
+                          "text-[10px] font-medium mt-1 leading-tight",
                           "transition-colors duration-200",
                           isActive && "font-semibold"
                         )}
@@ -213,7 +213,7 @@ export function BottomNavigation() {
                         <div 
                           className={cn(
                             "absolute top-0 left-1/2 -translate-x-1/2",
-                            "w-5 h-0.5 rounded-full",
+                            "w-6 h-0.5 rounded-full",
                             "bg-primary",
                             "animate-in fade-in slide-in-from-top-1 duration-200"
                           )}
@@ -228,7 +228,7 @@ export function BottomNavigation() {
                         href="/chat"
                         className={cn(
                           "flex flex-col items-center justify-center",
-                          "flex-1 h-8 rounded-md",
+                          "flex-1 h-12 rounded-md",
                           "transition-all duration-200",
                           "relative",
                           pathname === "/chat"
@@ -241,14 +241,14 @@ export function BottomNavigation() {
                         <div className="relative">
                           <MessageCircle 
                             className={cn(
-                              "h-3.5 w-3.5 transition-transform duration-200",
+                              "h-5 w-5 transition-transform duration-200",
                               pathname === "/chat" && "scale-110"
                             )} 
                           />
                         </div>
                         <span 
                           className={cn(
-                            "text-[8px] font-medium mt-0 leading-tight",
+                            "text-[10px] font-medium mt-1 leading-tight",
                             "transition-colors duration-200",
                             pathname === "/chat" && "font-semibold"
                           )}
@@ -259,7 +259,7 @@ export function BottomNavigation() {
                           <div 
                             className={cn(
                               "absolute top-0 left-1/2 -translate-x-1/2",
-                              "w-5 h-0.5 rounded-full",
+                              "w-6 h-0.5 rounded-full",
                               "bg-primary",
                               "animate-in fade-in slide-in-from-top-1 duration-200"
                             )}

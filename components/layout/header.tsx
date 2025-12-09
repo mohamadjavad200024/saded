@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { Search, ShoppingCart, User, Menu, X } from "lucide-react";
+import { Search, ShoppingCart, User, Menu, X, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Navigation } from "./navigation";
 import { useCartStore } from "@/store/cart-store";
+import { useAuthStore } from "@/store/auth-store";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useState, useEffect } from "react";
 import {
@@ -15,6 +16,13 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function Header() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -22,6 +30,7 @@ export function Header() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const { getItemCount, initializeSession, loadFromDatabase, items } = useCartStore();
+  const { user, isAuthenticated, logout } = useAuthStore();
   // Calculate item count - this will automatically update when items change
   const itemCount = items.reduce((count, item) => count + item.quantity, 0);
   
@@ -94,10 +103,46 @@ export function Header() {
           <ThemeToggle />
 
           {/* Desktop User */}
-          <Button variant="ghost" size="icon" className="hidden md:flex h-9 w-9">
-            <User className="h-5 w-5" />
-            <span className="sr-only">حساب کاربری</span>
-          </Button>
+          {isAuthenticated && user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="hidden md:flex h-9 w-9">
+                  <User className="h-5 w-5" />
+                  <span className="sr-only">حساب کاربری</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <div className="px-2 py-1.5">
+                  <p className="text-sm font-semibold">{user.name}</p>
+                  <p className="text-xs text-muted-foreground">{user.phone}</p>
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/profile" className="cursor-pointer">
+                    <User className="ml-2 h-4 w-4" />
+                    پروفایل
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    logout();
+                  }}
+                  className="cursor-pointer text-destructive focus:text-destructive"
+                >
+                  <LogOut className="ml-2 h-4 w-4" />
+                  خروج
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Link href="/auth">
+              <Button variant="ghost" size="icon" className="hidden md:flex h-9 w-9">
+                <User className="h-5 w-5" />
+                <span className="sr-only">حساب کاربری</span>
+              </Button>
+            </Link>
+          )}
 
           {/* Cart */}
           <Link href="/cart" aria-label={isMounted ? `سبد خرید با ${itemCount} آیتم` : "سبد خرید"}>
@@ -138,12 +183,38 @@ export function Header() {
                     <span className="text-sm text-muted-foreground">تم</span>
                     <ThemeToggle />
                   </div>
-                  <Link href="/profile">
-                    <Button variant="ghost" className="w-full justify-start" onClick={() => setMobileMenuOpen(false)}>
-                      <User className="h-4 w-4 ml-2" />
-                      حساب کاربری
-                    </Button>
-                  </Link>
+                  {isAuthenticated && user ? (
+                    <>
+                      <div className="px-2 py-1.5 border-b border-border/30">
+                        <p className="text-sm font-semibold">{user.name}</p>
+                        <p className="text-xs text-muted-foreground">{user.phone}</p>
+                      </div>
+                      <Link href="/profile">
+                        <Button variant="ghost" className="w-full justify-start" onClick={() => setMobileMenuOpen(false)}>
+                          <User className="h-4 w-4 ml-2" />
+                          پروفایل
+                        </Button>
+                      </Link>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-destructive hover:text-destructive"
+                        onClick={() => {
+                          logout();
+                          setMobileMenuOpen(false);
+                        }}
+                      >
+                        <LogOut className="h-4 w-4 ml-2" />
+                        خروج
+                      </Button>
+                    </>
+                  ) : (
+                    <Link href="/auth">
+                      <Button variant="ghost" className="w-full justify-start" onClick={() => setMobileMenuOpen(false)}>
+                        <User className="h-4 w-4 ml-2" />
+                        حساب کاربری
+                      </Button>
+                    </Link>
+                  )}
                 </div>
               </div>
             </SheetContent>

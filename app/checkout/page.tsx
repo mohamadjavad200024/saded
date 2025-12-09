@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useCartStore } from "@/store/cart-store";
 import { useOrderStore } from "@/store/order-store";
 import { useProductStore } from "@/store/product-store";
+import { useAuthStore } from "@/store/auth-store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +25,7 @@ export default function CheckoutPage() {
   const { items, getTotal, shippingMethod, clearCart } = useCartStore();
   const { addOrder } = useOrderStore();
   const { getProduct } = useProductStore();
+  const { user, isAuthenticated } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
 
@@ -50,30 +52,50 @@ export default function CheckoutPage() {
     },
   });
 
-  // بارگذاری اطلاعات checkout از localStorage (اگر وجود داشته باشد)
+  // بارگذاری اطلاعات checkout از localStorage یا auth store
   useEffect(() => {
-    const checkoutData = localStorage.getItem("checkoutData");
-    if (checkoutData) {
-      try {
-        const data = JSON.parse(checkoutData);
-        if (data.formData) {
-          reset({
-            firstName: data.formData.firstName || "",
-            lastName: data.formData.lastName || "",
-            phone: data.formData.phone || "",
-            email: data.formData.email || "",
-            address: data.formData.address || "",
-            city: data.formData.city || "",
-            postalCode: data.formData.postalCode || "",
-            province: data.formData.province || "",
-            notes: data.formData.notes || "",
-          });
+    if (isAuthenticated && user) {
+      // اگر کاربر لاگین است، از اطلاعات کاربر استفاده کن
+      const nameParts = user.name.split(" ");
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
+      
+      reset({
+        firstName,
+        lastName,
+        phone: user.phone || "",
+        email: "",
+        address: "",
+        city: "",
+        postalCode: "",
+        province: "",
+        notes: "",
+      });
+    } else {
+      // اگر لاگین نیست، از localStorage استفاده کن
+      const checkoutData = localStorage.getItem("checkoutData");
+      if (checkoutData) {
+        try {
+          const data = JSON.parse(checkoutData);
+          if (data.formData) {
+            reset({
+              firstName: data.formData.firstName || "",
+              lastName: data.formData.lastName || "",
+              phone: data.formData.phone || "",
+              email: data.formData.email || "",
+              address: data.formData.address || "",
+              city: data.formData.city || "",
+              postalCode: data.formData.postalCode || "",
+              province: data.formData.province || "",
+              notes: data.formData.notes || "",
+            });
+          }
+        } catch (error) {
+          console.error("Error loading checkout data:", error);
         }
-      } catch (error) {
-        console.error("Error loading checkout data:", error);
       }
     }
-  }, [reset]);
+  }, [reset, isAuthenticated, user]);
 
   const total = getTotal();
   
