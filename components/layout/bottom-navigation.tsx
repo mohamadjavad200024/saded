@@ -214,65 +214,64 @@ export function BottomNavigation() {
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
             className="fixed bottom-0 left-0 right-0 z-[9998] md:hidden pointer-events-none"
             style={{
-              paddingBottom: "max(0.5rem, calc(env(safe-area-inset-bottom, 0px) + 0.25rem))",
+              paddingBottom: `calc(max(0.5rem, env(safe-area-inset-bottom, 0px) + 0.25rem) + 3.5rem)`,
               paddingLeft: "1rem",
               paddingRight: "1rem",
             }}
           >
-            <div className="max-w-sm mx-auto pointer-events-auto">
+            <div className="max-w-sm mx-auto pointer-events-auto mb-1">
               <div
                 className={cn(
-                  "relative overflow-hidden rounded-lg border shadow-md backdrop-blur-xl",
-                  "bg-gradient-to-br from-background/95 to-background/90",
-                  statusInfo.color,
-                  "border"
+                  "relative overflow-hidden rounded-lg border shadow-lg backdrop-blur-xl",
+                  "bg-background/95 border-border/40",
+                  statusInfo.color
                 )}
               >
-                <div className="p-1.5">
-                  <div className="flex items-center gap-1.5">
+                <div className="p-2">
+                  <div className="flex items-center gap-2">
                     {/* Icon - Minimal */}
                     <div className={cn(
-                      "flex-shrink-0 w-6 h-6 rounded-md flex items-center justify-center",
-                      "bg-background/50 backdrop-blur-sm border",
+                      "flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center",
+                      "bg-background/50 backdrop-blur-sm border border-border/40",
                       statusInfo.color
                     )}>
-                      <StatusIcon className="h-3 w-3" />
+                      <StatusIcon className="h-3.5 w-3.5" />
                     </div>
 
                     {/* Content - Ultra Minimal */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5">
                         <Badge 
                           variant="outline" 
                           className={cn(
-                            "text-[9px] font-semibold border px-1 py-0 h-4",
+                            "text-[10px] font-semibold border px-1.5 py-0.5 h-5",
                             statusInfo.color
                           )}
                         >
                           {statusInfo.label}
                         </Badge>
-                        <p className="text-[9px] text-muted-foreground truncate font-mono">
+                        <p className="text-[10px] text-muted-foreground truncate font-mono font-semibold">
                           {activeOrder.orderNumber}
                         </p>
                       </div>
                     </div>
 
                     {/* Actions - Minimal */}
-                    <div className="flex items-center gap-0.5 flex-shrink-0">
+                    <div className="flex items-center gap-1 flex-shrink-0">
                       <Button
                         asChild
                         size="sm"
                         variant="ghost"
-                        className="h-5 w-5 p-0"
+                        className="h-6 w-6 p-0"
                       >
                         <Link href={`/order/track?orderNumber=${activeOrder.orderNumber}`}>
-                          <ExternalLink className="h-2.5 w-2.5" />
+                          <ExternalLink className="h-3 w-3" />
                         </Link>
                       </Button>
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-5 w-5 p-0"
+                        className="h-6 w-6 p-0"
                         onClick={() => {
                           if (activeOrder) {
                             setIsDismissed(activeOrder.id);
@@ -282,7 +281,7 @@ export function BottomNavigation() {
                           }
                         }}
                       >
-                        <X className="h-2.5 w-2.5" />
+                        <X className="h-3 w-3" />
                       </Button>
                     </div>
                   </div>
