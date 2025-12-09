@@ -3,6 +3,7 @@ import { Inter, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { BottomNavigation } from "@/components/layout/bottom-navigation";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -80,6 +81,13 @@ export const metadata: Metadata = {
     // Add Google Search Console verification code here when available
     // google: "your-google-verification-code",
   },
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 5,
+    userScalable: true,
+    viewportFit: "cover", // Support for safe-area-inset
+  },
 };
 
 export default function RootLayout({
@@ -115,6 +123,30 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        {/* Background with TV Static Effect - Global */}
+        <div className="fixed inset-0 -z-10 bg-background">
+          {/* Base background */}
+          <div className="absolute inset-0 bg-background" />
+          
+          {/* TV Static/Noise Effect - Layer 1 */}
+          <div 
+            className="absolute inset-0 opacity-[0.15] dark:opacity-[0.25]"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+              backgroundSize: '200px 200px',
+            }}
+          />
+          
+          {/* TV Static/Noise Effect - Layer 2 */}
+          <div 
+            className="absolute inset-0 opacity-[0.08] dark:opacity-[0.15] mix-blend-mode-overlay"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter2'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter2)'/%3E%3C/svg%3E")`,
+              backgroundSize: '150px 150px',
+            }}
+          />
+        </div>
+
         {/* Organization Schema.org structured data */}
         <script
           type="application/ld+json"
@@ -123,6 +155,7 @@ export default function RootLayout({
         <ErrorBoundary>
           <Providers>
             {children}
+            <BottomNavigation />
           </Providers>
         </ErrorBoundary>
       </body>

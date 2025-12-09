@@ -1307,7 +1307,7 @@ export function Loading({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
 
 **راه حل:**
 - ایجاد API Routes در Next.js
-- اتصال به Database (MySQL)
+- اتصال به Database (PostgreSQL/MongoDB)
 - استفاده از React Query برای data fetching
 
 #### 5.1.2 عدم وجود Backend

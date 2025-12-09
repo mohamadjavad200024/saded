@@ -8,9 +8,9 @@ import { OrderStatusBar } from "@/components/home/order-status-bar";
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col relative">
       <Header />
-      <main className="flex-1">
+      <main className="flex-1 relative z-0">
         <HeroSection />
         <FeaturedStats />
         <CategoryGrid />
