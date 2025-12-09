@@ -244,7 +244,7 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
 
     await runQuery(
-      `INSERT INTO orders (id, orderNumber, userId, customerName, customerPhone, customerEmail, items, total, shippingCost, shippingMethod, shippingAddress, status, paymentStatus, notes, createdAt, updatedAt)
+      `INSERT INTO orders (id, "orderNumber", "userId", "customerName", "customerPhone", "customerEmail", items, total, "shippingCost", "shippingMethod", "shippingAddress", status, "paymentStatus", notes, "createdAt", "updatedAt")
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
@@ -269,7 +269,7 @@ export async function POST(request: NextRequest) {
     // Fetch the saved order
     const savedOrder = await getRow<any>("SELECT * FROM orders WHERE id = ?", [id]);
 
-    // Parse JSON fields (MySQL JSON returns objects, but may be strings in some cases)
+    // Parse JSON fields (PostgreSQL JSONB returns objects, not strings)
     const parsedOrder = {
       ...savedOrder,
       items: Array.isArray(savedOrder.items) ? savedOrder.items : (typeof savedOrder.items === 'string' ? JSON.parse(savedOrder.items) : []),

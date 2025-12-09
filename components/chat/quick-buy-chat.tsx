@@ -1862,7 +1862,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
         </div>
       ) : (
         <>
-          <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-5 sm:p-6 md:p-8 space-y-5 sm:space-y-6 bg-gradient-to-b from-background via-background/95 to-muted/5 scroll-smooth">
+          <div ref={messagesContainerRef} className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-6 md:p-8 space-y-5 sm:space-y-6 bg-gradient-to-b from-background via-background/95 to-muted/5 scroll-smooth">
             {messages.length === 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -2089,7 +2089,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
             <div ref={messagesEndRef} />
           </div>
 
-          <div className="border-t border-border/40 bg-background p-2 sm:p-3 space-y-2 relative">
+          <div className="border-t border-border/40 bg-background p-2 sm:p-3 space-y-2 relative flex-shrink-0">
             {/* Scroll to bottom button */}
             <AnimatePresence>
               {showScrollToBottom && (

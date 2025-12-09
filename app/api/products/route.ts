@@ -2,7 +2,6 @@ import { NextRequest } from "next/server";
 import { getRows, getRow, runQuery } from "@/lib/db/index";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-route-helpers";
 import { AppError } from "@/lib/api-error-handler";
-import { parseProduct } from "@/lib/parsers";
 import type { Product, ProductFilters } from "@/types/product";
 import { cache, cacheKeys, withCache } from "@/lib/cache";
 import { rateLimit } from "@/lib/rate-limit";
@@ -85,10 +84,10 @@ export async function GET(request: NextRequest) {
 
       // If all=true, get all products, otherwise only enabled ones
       const productsQuery = includeAll
-        ? `SELECT * FROM products ORDER BY createdAt DESC LIMIT ? OFFSET ?`
-        : `SELECT * FROM products WHERE enabled = TRUE ORDER BY createdAt DESC LIMIT ? OFFSET ?`;
+        ? `SELECT * FROM products ORDER BY "createdAt" DESC LIMIT ? OFFSET ?`
+        : `SELECT * FROM products WHERE enabled = TRUE ORDER BY "createdAt" DESC LIMIT ? OFFSET ?`;
       
-      // Get paginated products
+      // Get paginated products (wrapper converts ? to $1, $2 for PostgreSQL)
       products = await getRows<Product>(productsQuery, [limit, offset]);
       
       // Cache the result for 5 minutes (increased from 30 seconds for better performance)
@@ -125,8 +124,27 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Parse products safely using helper function
-    const parsedProducts = products.map((p: any) => parseProduct(p));
+    // Parse JSON fields (PostgreSQL JSONB returns objects, not strings)
+    const parsedProducts = products.map((p: any) => ({
+      ...p,
+      images: Array.isArray(p.images) ? p.images : (typeof p.images === 'string' ? JSON.parse(p.images) : []),
+      tags: Array.isArray(p.tags) ? p.tags : (typeof p.tags === 'string' ? JSON.parse(p.tags) : []),
+      specifications: typeof p.specifications === 'object' && p.specifications !== null 
+        ? p.specifications 
+        : (typeof p.specifications === 'string' ? JSON.parse(p.specifications) : {}),
+      price: Number(p.price),
+      originalPrice: p.originalPrice ? Number(p.originalPrice) : undefined,
+      stockCount: Number(p.stockCount),
+      inStock: Boolean(p.inStock),
+      enabled: Boolean(p.enabled),
+      vinEnabled: Boolean(p.vinEnabled),
+      airShippingEnabled: Boolean(p.airShippingEnabled),
+      seaShippingEnabled: Boolean(p.seaShippingEnabled),
+      airShippingCost: p.airShippingCost !== null && p.airShippingCost !== undefined ? Number(p.airShippingCost) : null,
+      seaShippingCost: p.seaShippingCost !== null && p.seaShippingCost !== undefined ? Number(p.seaShippingCost) : null,
+      createdAt: p.createdAt instanceof Date ? p.createdAt : new Date(p.createdAt),
+      updatedAt: p.updatedAt instanceof Date ? p.updatedAt : new Date(p.updatedAt),
+    }));
 
     const totalPages = Math.ceil(total / limit);
 
@@ -217,18 +235,18 @@ export async function POST(request: NextRequest) {
         stockCount: Math.max(0, Math.round(stockCount || 0)),
         inStock: inStock !== false,
         enabled: enabled !== false,
-        images: images, // MySQL JSON accepts arrays directly
+        images: images, // PostgreSQL JSONB accepts arrays directly
         tags: tags && Array.isArray(tags) ? tags : [],
         specifications: specifications && typeof specifications === "object" ? specifications : {},
         createdAt: now,
         updatedAt: now,
       };
 
-      // Insert into database
+      // Insert into database (wrapper will convert ? to $1, $2, etc. for PostgreSQL)
       try {
         const insertResult = await runQuery(
-        `INSERT INTO products (id, name, description, price, originalPrice, brand, category, vin, vinEnabled, airShippingEnabled, seaShippingEnabled, airShippingCost, seaShippingCost, stockCount, inStock, enabled, images, tags, specifications, createdAt, updatedAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO products (id, name, description, price, "originalPrice", brand, category, vin, "vinEnabled", "airShippingEnabled", "seaShippingEnabled", "airShippingCost", "seaShippingCost", "stockCount", "inStock", enabled, images, tags, specifications, "createdAt", "updatedAt")
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb, ?, ?)`,
         [
           productData.id,
           productData.name,
@@ -272,8 +290,27 @@ export async function POST(request: NextRequest) {
         throw new AppError("محصول ایجاد شد اما پیدا نشد", 500, "PRODUCT_NOT_FOUND");
       }
 
-      // Parse product data safely
-      const parsedProduct: Product = parseProduct(newProduct);
+      // Parse JSON fields (PostgreSQL JSONB returns objects, not strings)
+      const parsedProduct: Product = {
+        ...newProduct,
+        images: Array.isArray(newProduct.images) ? newProduct.images : (typeof newProduct.images === 'string' ? JSON.parse(newProduct.images) : []),
+        tags: Array.isArray(newProduct.tags) ? newProduct.tags : (typeof newProduct.tags === 'string' ? JSON.parse(newProduct.tags) : []),
+        specifications: typeof newProduct.specifications === 'object' && newProduct.specifications !== null 
+          ? newProduct.specifications 
+          : (typeof newProduct.specifications === 'string' ? JSON.parse(newProduct.specifications) : {}),
+        price: Number(newProduct.price),
+        originalPrice: newProduct.originalPrice ? Number(newProduct.originalPrice) : undefined,
+        stockCount: Number(newProduct.stockCount),
+        inStock: Boolean(newProduct.inStock),
+        enabled: Boolean(newProduct.enabled),
+        vinEnabled: Boolean(newProduct.vinEnabled),
+        airShippingEnabled: Boolean(newProduct.airShippingEnabled),
+        seaShippingEnabled: Boolean(newProduct.seaShippingEnabled),
+        airShippingCost: newProduct.airShippingCost !== null && newProduct.airShippingCost !== undefined ? Number(newProduct.airShippingCost) : null,
+        seaShippingCost: newProduct.seaShippingCost !== null && newProduct.seaShippingCost !== undefined ? Number(newProduct.seaShippingCost) : null,
+        createdAt: newProduct.createdAt instanceof Date ? newProduct.createdAt : new Date(newProduct.createdAt),
+        updatedAt: newProduct.updatedAt instanceof Date ? newProduct.updatedAt : new Date(newProduct.updatedAt),
+      };
 
       return createSuccessResponse(parsedProduct, 201);
     }
@@ -330,12 +367,31 @@ export async function POST(request: NextRequest) {
     const countResult = await getRows<{ count: number }>(countQuery, params);
     const total = countResult[0]?.count || 0;
 
-    // Get paginated products
-    const dataQuery = `SELECT * FROM products ${whereClause} ORDER BY createdAt DESC LIMIT ? OFFSET ?`;
+    // Get paginated products (wrapper will convert ? to $1, $2, etc. for PostgreSQL)
+    const dataQuery = `SELECT * FROM products ${whereClause} ORDER BY "createdAt" DESC LIMIT ? OFFSET ?`;
     const products = await getRows<any>(dataQuery, [...params, limit, offset]);
 
-    // Parse products safely using helper function
-    const parsedProducts = products.map((p: any) => parseProduct(p));
+    // Parse JSON fields (PostgreSQL JSONB returns objects, not strings)
+    const parsedProducts = products.map((p: any) => ({
+      ...p,
+      images: Array.isArray(p.images) ? p.images : (typeof p.images === 'string' ? JSON.parse(p.images) : []),
+      tags: Array.isArray(p.tags) ? p.tags : (typeof p.tags === 'string' ? JSON.parse(p.tags) : []),
+      specifications: typeof p.specifications === 'object' && p.specifications !== null 
+        ? p.specifications 
+        : (typeof p.specifications === 'string' ? JSON.parse(p.specifications) : {}),
+      price: Number(p.price),
+      originalPrice: p.originalPrice ? Number(p.originalPrice) : undefined,
+      stockCount: Number(p.stockCount),
+      inStock: Boolean(p.inStock),
+      enabled: Boolean(p.enabled),
+      vinEnabled: Boolean(p.vinEnabled),
+      airShippingEnabled: Boolean(p.airShippingEnabled),
+      seaShippingEnabled: Boolean(p.seaShippingEnabled),
+      airShippingCost: p.airShippingCost !== null && p.airShippingCost !== undefined ? Number(p.airShippingCost) : null,
+      seaShippingCost: p.seaShippingCost !== null && p.seaShippingCost !== undefined ? Number(p.seaShippingCost) : null,
+      createdAt: p.createdAt instanceof Date ? p.createdAt : new Date(p.createdAt),
+      updatedAt: p.updatedAt instanceof Date ? p.updatedAt : new Date(p.updatedAt),
+    }));
 
     const totalPages = Math.ceil(total / limit);
 

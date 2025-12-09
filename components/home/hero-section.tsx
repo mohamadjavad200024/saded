@@ -8,13 +8,11 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { VinSearch } from "@/components/product/vin-search";
 import { ProductSearch } from "@/components/product/product-search";
-import { QuickBuyChat } from "@/components/chat/quick-buy-chat";
 
 export function HeroSection() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isMounted, setIsMounted] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
@@ -153,25 +151,21 @@ export function HeroSection() {
                   );
                 })}
                 {/* دکمه خرید سریع */}
-                <QuickBuyChat
-                  isOpen={chatOpen}
-                  onOpenChange={setChatOpen}
-                  trigger={
-                    <motion.div
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Link href="/chat">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="glass-morphism-light text-foreground hover:text-foreground hover:bg-foreground/20 text-[10px] sm:text-xs md:text-sm rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 h-auto transition-all"
                     >
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="glass-morphism-light text-foreground hover:text-foreground hover:bg-foreground/20 text-[10px] sm:text-xs md:text-sm rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 h-auto transition-all"
-                      >
-                        <ShoppingBag className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 ml-1.5 sm:ml-2" />
-                        <span className="whitespace-nowrap">خرید سریع</span>
-                      </Button>
-                    </motion.div>
-                  }
-                />
+                      <ShoppingBag className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 ml-1.5 sm:ml-2" />
+                      <span className="whitespace-nowrap">خرید سریع</span>
+                    </Button>
+                  </Link>
+                </motion.div>
               </div>
             </div>
           </motion.div>
