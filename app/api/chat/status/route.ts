@@ -24,8 +24,8 @@ export async function PATCH(request: NextRequest) {
 
     await runQuery(
       `UPDATE chat_messages 
-       SET status = ? 
-       WHERE id = ?`,
+       SET status = $1 
+       WHERE id = $2`,
       [status, messageId]
     );
 
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       await runQuery(
         `UPDATE chat_messages 
          SET status = 'delivered' 
-         WHERE chatId = ? AND sender = ? AND status NOT IN ('read', 'delivered')`,
+         WHERE "chatId" = $1 AND sender = $2 AND status NOT IN ('read', 'delivered')`,
         [chatId, oppositeSender]
       );
     } else {
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
       await runQuery(
         `UPDATE chat_messages 
          SET status = 'read' 
-         WHERE chatId = ? AND sender = ? AND status != 'read'`,
+         WHERE "chatId" = $1 AND sender = $2 AND status != 'read'`,
         [chatId, oppositeSender]
       );
     }
