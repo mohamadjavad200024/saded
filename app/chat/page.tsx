@@ -42,6 +42,7 @@ import { OnlineStatusBadge } from "@/components/chat/online-status-badge";
 import { useAdminPresence } from "@/hooks/use-admin-presence";
 import { TypingIndicator } from "@/components/chat/typing-indicator";
 import { logger } from "@/lib/logger-client";
+import { useAuthStore } from "@/store/auth-store";
 
 type MessageStatus = "sending" | "sent" | "delivered" | "read";
 
@@ -71,6 +72,7 @@ export default function ChatPage() {
     enabled: true,
     heartbeatInterval: 20000,
   });
+  const { user, isAuthenticated } = useAuthStore();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
@@ -84,10 +86,20 @@ export default function ChatPage() {
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [step, setStep] = useState<"info" | "chat">("info");
   
-  // Load customer info from localStorage
+  // Load customer info from auth store or localStorage
   const loadCustomerInfo = useCallback(() => {
     if (typeof window === "undefined") return { name: "", phone: "", email: "" };
     
+    // اگر کاربر لاگین است، از اطلاعات کاربر استفاده کن
+    if (isAuthenticated && user) {
+      return {
+        name: user.name || "",
+        phone: user.phone || "",
+        email: "",
+      };
+    }
+    
+    // در غیر این صورت از localStorage استفاده کن
     try {
       const stored = localStorage.getItem("quickBuyChat_customerInfo");
       if (stored) {
@@ -103,9 +115,24 @@ export default function ChatPage() {
       logger.error("Error loading customer info:", error);
     }
     return { name: "", phone: "", email: "" };
-  }, []);
+  }, [isAuthenticated, user]);
 
   const [customerInfo, setCustomerInfo] = useState(loadCustomerInfo);
+  
+  // Update customer info when auth state changes
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      setCustomerInfo({
+        name: user.name || "",
+        phone: user.phone || "",
+        email: "",
+      });
+      // اگر اطلاعات کامل است، مستقیماً به chat برو
+      if (user.name && user.phone) {
+        setStep("chat");
+      }
+    }
+  }, [isAuthenticated, user]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [showAttachmentOptions, setShowAttachmentOptions] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
