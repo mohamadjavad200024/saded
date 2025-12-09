@@ -69,14 +69,51 @@ export async function runQuery(
 /**
  * Convert SQL to MySQL SQL
  * - Converts double-quoted column names to backticks
+ * - Converts PostgreSQL $1, $2, etc. placeholders to MySQL ? placeholders
+ * - Converts ON CONFLICT to ON DUPLICATE KEY UPDATE
  * - MySQL uses ? placeholders (already correct)
  */
 function convertToMySQLSQL(sql: string): string {
   let mysqlSql = sql;
 
+  // Convert PostgreSQL $1, $2, etc. placeholders to MySQL ? placeholders
+  // First, extract all $N placeholders and their positions
+  const placeholderRegex = /\$(\d+)/g;
+  const placeholders: Array<{ index: number; position: number }> = [];
+  let match;
+  while ((match = placeholderRegex.exec(sql)) !== null) {
+    placeholders.push({
+      index: parseInt(match[1], 10),
+      position: match.index,
+    });
+  }
+
+  // Replace placeholders in reverse order to maintain positions
+  if (placeholders.length > 0) {
+    // Sort by position in reverse order
+    placeholders.sort((a, b) => b.position - a.position);
+    
+    // Replace each $N with ?
+    for (const placeholder of placeholders) {
+      mysqlSql = mysqlSql.substring(0, placeholder.position) + 
+                 '?' + 
+                 mysqlSql.substring(placeholder.position + `$${placeholder.index}`.length);
+    }
+  }
+
   // Convert double-quoted column names to backticks for MySQL
   // Match "columnName" and replace with `columnName`
   mysqlSql = mysqlSql.replace(/"([^"]+)"/g, '`$1`');
+
+  // Convert PostgreSQL ON CONFLICT to MySQL ON DUPLICATE KEY UPDATE
+  mysqlSql = mysqlSql.replace(
+    /ON CONFLICT\s*\(([^)]+)\)\s*DO UPDATE SET\s*(.+)/gi,
+    (match, conflictColumns, updateClause) => {
+      // Convert EXCLUDED.columnName to VALUES(columnName)
+      const convertedUpdate = updateClause.replace(/EXCLUDED\.(\w+)/gi, 'VALUES($1)');
+      return `ON DUPLICATE KEY UPDATE ${convertedUpdate}`;
+    }
+  );
 
   // Remove MySQL-incompatible syntax like ::jsonb (legacy PostgreSQL syntax)
   mysqlSql = mysqlSql.replace(/::jsonb/g, '');
