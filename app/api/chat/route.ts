@@ -371,9 +371,9 @@ export async function GET(request: NextRequest) {
       
       if (messageIds.length > 0) {
         // Use IN clause to get all attachments in one query
-        const placeholders = messageIds.map((_, i) => `$${i + 1}`).join(',');
+        const placeholders = messageIds.map(() => '?').join(',');
         allDbAttachments = await getRows<any>(
-          `SELECT * FROM chat_attachments WHERE "messageId" IN (${placeholders})`,
+          `SELECT * FROM chat_attachments WHERE messageId IN (${placeholders})`,
           messageIds
         );
       }
