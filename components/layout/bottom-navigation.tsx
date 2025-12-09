@@ -62,8 +62,8 @@ export function BottomNavigation() {
     setCanGoBack(window.history.length > 1);
   }, []);
 
-  // Don't show on admin pages
-  if (isAdminPage) {
+  // Don't show on admin pages or when chat is open
+  if (isAdminPage || chatOpen) {
     return null;
   }
 
