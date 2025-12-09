@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Sparkles, ArrowLeft, ShoppingBag } from "lucide-react";
 import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { ProductSearch } from "@/components/product/product-search";
 import { MinimalCategoryGrid } from "@/components/home/category-grid";
@@ -13,10 +14,18 @@ export function HeroSection() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isMounted, setIsMounted] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  // Close search when route changes
+  useEffect(() => {
+    if (searchOpen) {
+      setSearchOpen(false);
+    }
+  }, [pathname]);
 
   const handleSearchClick = () => {
     if (searchQuery.trim()) {

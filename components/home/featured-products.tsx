@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowUpRight, TrendingUp, Check, ArrowLeft, Package } from "lucide-react";
+import { TrendingUp, Check, ArrowLeft, Package } from "lucide-react";
 import Image from "next/image";
 import { useProductStore } from "@/store/product-store";
 import { useProducts } from "@/services/products";
@@ -116,69 +116,58 @@ export function FeaturedProducts() {
                 whileHover={{ y: -4, scale: 1.01 }}
                 className="group"
               >
-                <Card className="glass-morphism h-full flex flex-col relative overflow-hidden transition-all duration-300 hover:shadow-2xl group-hover:scale-105">
-                  {/* Shine Effect - Only on desktop */}
-                  <div className="hidden sm:block absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent z-10" />
-                  
-                  <CardHeader className="p-0 relative">
-                    <div className="relative h-20 sm:h-24 md:h-28 w-full bg-gradient-to-br from-primary/10 sm:from-primary/20 to-primary/5 sm:to-primary/10 rounded-t-lg sm:rounded-t-xl overflow-hidden">
-                      <Image
-                        src={product.images[0] || getPlaceholderImage(300, 300)}
-                        alt={`${product.name}${product.brand ? ` - برند ${product.brand}` : ''} - محصول پرفروش`}
-                        fill
-                        className="object-cover group-hover:scale-105 sm:group-hover:scale-110 transition-transform duration-500"
-                        loading={index < 3 ? "eager" : "lazy"}
-                        priority={index < 3}
-                        sizes="(max-width: 640px) 33vw, (max-width: 768px) 25vw, (max-width: 1024px) 20vw, (max-width: 1280px) 16vw, 14vw"
-                      />
-                      
-                      {/* Discount Badge - Smaller on mobile */}
-                      {product.originalPrice && product.originalPrice > product.price && (
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 bg-red-500 text-white text-[8px] sm:text-[9px] font-bold px-1 sm:px-1.5 py-0.5 rounded shadow-sm z-20"
-                        >
-                          {discount}%
-                        </motion.div>
-                      )}
-                    </div>
-                  </CardHeader>
-                  
-                  <CardContent className="flex-1 p-1.5 sm:p-2 relative z-10">
-                    <Link href={`/products/${product.id}`}>
+                <Link href={`/products/${product.id}`}>
+                  <Card className="glass-morphism h-full flex flex-col relative overflow-hidden transition-all duration-300 hover:shadow-2xl group-hover:scale-105 cursor-pointer">
+                    {/* Shine Effect - Only on desktop */}
+                    <div className="hidden sm:block absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent z-10" />
+                    
+                    <CardHeader className="p-0 relative">
+                      <div className="relative h-20 sm:h-24 md:h-28 w-full bg-gradient-to-br from-primary/10 sm:from-primary/20 to-primary/5 sm:to-primary/10 rounded-t-lg sm:rounded-t-xl overflow-hidden">
+                        <Image
+                          src={product.images[0] || getPlaceholderImage(300, 300)}
+                          alt={`${product.name}${product.brand ? ` - برند ${product.brand}` : ''} - محصول پرفروش`}
+                          fill
+                          className="object-cover group-hover:scale-105 sm:group-hover:scale-110 transition-transform duration-500"
+                          loading={index < 3 ? "eager" : "lazy"}
+                          priority={index < 3}
+                          sizes="(max-width: 640px) 33vw, (max-width: 768px) 25vw, (max-width: 1024px) 20vw, (max-width: 1280px) 16vw, 14vw"
+                        />
+                        
+                        {/* Discount Badge - Smaller on mobile */}
+                        {product.originalPrice && product.originalPrice > product.price && (
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 bg-red-500 text-white text-[8px] sm:text-[9px] font-bold px-1 sm:px-1.5 py-0.5 rounded shadow-sm z-20"
+                          >
+                            {discount}%
+                          </motion.div>
+                        )}
+                      </div>
+                    </CardHeader>
+                    
+                    <CardContent className="flex-1 p-1.5 sm:p-2 relative z-10">
                       <h3 className="font-medium mb-1 sm:mb-1.5 hover:text-primary transition-colors line-clamp-2 text-[10px] sm:text-xs leading-tight text-foreground group-hover:text-primary">
                         {product.name}
                       </h3>
-                    </Link>
-                    
-                    {/* Price - Minimal on mobile */}
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-[10px] sm:text-xs font-bold text-primary">
-                        {product.price.toLocaleString("fa-IR")} <span className="text-[8px] sm:text-[9px]">تومان</span>
-                      </span>
-                      {product.originalPrice && product.originalPrice > product.price && (
-                        <span className="text-[8px] sm:text-[9px] text-muted-foreground line-through">
-                          {product.originalPrice.toLocaleString("fa-IR")}
+                      
+                      {/* Price - Minimal on mobile */}
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[10px] sm:text-xs font-bold text-primary">
+                          {product.price.toLocaleString("fa-IR")} <span className="text-[8px] sm:text-[9px]">تومان</span>
                         </span>
-                      )}
-                    </div>
-                  </CardContent>
-                  
-                  {/* Arrow Button - Link to product */}
-                  <Link href={`/products/${product.id}`}>
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      className="absolute bottom-0 left-0 w-5 h-5 sm:w-6 sm:h-6 rounded-tl-md rounded-tr-none rounded-br-md rounded-bl-none flex items-center justify-center backdrop-blur-md border-t-[0.1px] border-r-[0.1px] border-b-0 border-l-0 border-border/2 transition-all z-20 bg-foreground/15 sm:bg-foreground/20 text-foreground hover:bg-foreground/25 sm:hover:bg-foreground/30"
-                    >
-                      <ArrowUpRight className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
-                    </motion.button>
-                  </Link>
-                  
-                  {/* Hover Border Effect - Only on desktop */}
-                  <div className="hidden sm:block absolute inset-0 border-[0.1px] border-primary/0 group-hover:border-primary/15 rounded-lg transition-all duration-300 pointer-events-none" />
-                </Card>
+                        {product.originalPrice && product.originalPrice > product.price && (
+                          <span className="text-[8px] sm:text-[9px] text-muted-foreground line-through">
+                            {product.originalPrice.toLocaleString("fa-IR")}
+                          </span>
+                        )}
+                      </div>
+                    </CardContent>
+                    
+                    {/* Hover Border Effect - Only on desktop */}
+                    <div className="hidden sm:block absolute inset-0 border-[0.1px] border-primary/0 group-hover:border-primary/15 rounded-lg transition-all duration-300 pointer-events-none" />
+                  </Card>
+                </Link>
               </motion.div>
             );
           })}

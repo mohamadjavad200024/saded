@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -127,6 +128,14 @@ export function ProductSearch({
       searchProducts(initialQuery);
     }
   }, [isOpen, initialQuery]);
+
+  // Close sheet when route changes
+  const pathname = usePathname();
+  useEffect(() => {
+    if (isOpen) {
+      setIsOpen(false);
+    }
+  }, [pathname]);
 
   const handleProductClick = (product: Product) => {
     if (onProductClick) {

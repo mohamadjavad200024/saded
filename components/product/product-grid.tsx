@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowUpRight, Grid, List, Package, ChevronRight, ChevronLeft, Filter, X } from "lucide-react";
+import { Grid, List, Package, ChevronRight, ChevronLeft, Filter, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useProductStore } from "@/store/product-store";
@@ -202,55 +202,46 @@ export function ProductGrid() {
       {viewMode === "grid" ? (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2 sm:gap-3 md:gap-4">
           {finalProducts.map((product) => (
-            <Card key={product.id} className="flex flex-col border-[0.1px] border-border/2 hover:border-border/4 hover:shadow-lg transition-all active:scale-95 relative overflow-hidden">
-              <CardHeader className="p-0 relative">
-                <div className="relative h-20 sm:h-24 md:h-28 w-full bg-muted rounded-t-lg overflow-hidden">
-                  <Image
-                    src={product.images[0] || getPlaceholderImage(300, 300)}
-                    alt={`${product.name}${product.brand ? ` - برند ${product.brand}` : ''}${product.category ? ` - دسته‌بندی ${product.category}` : ''}`}
-                    fill
-                    className="object-cover"
-                    loading="lazy"
-                    sizes="(max-width: 640px) 33vw, (max-width: 768px) 25vw, (max-width: 1024px) 20vw, (max-width: 1280px) 16vw, 14vw"
-                  />
-                  {product.originalPrice && product.originalPrice > product.price && (
-                    <div className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 bg-red-500 text-white text-[8px] sm:text-[9px] font-bold px-1 sm:px-1.5 py-0.5 rounded shadow-sm">
-                      {Math.round(
-                        ((product.originalPrice - product.price) /
-                          product.originalPrice) *
-                          100
-                      )}%
-                    </div>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="flex-1 p-1.5 sm:p-2">
-                <Link href={`/products/${product.id}`}>
+            <Link key={product.id} href={`/products/${product.id}`}>
+              <Card className="flex flex-col border-[0.1px] border-border/2 hover:border-border/4 hover:shadow-lg transition-all active:scale-95 relative overflow-hidden cursor-pointer h-full">
+                <CardHeader className="p-0 relative">
+                  <div className="relative h-20 sm:h-24 md:h-28 w-full bg-muted rounded-t-lg overflow-hidden">
+                    <Image
+                      src={product.images[0] || getPlaceholderImage(300, 300)}
+                      alt={`${product.name}${product.brand ? ` - برند ${product.brand}` : ''}${product.category ? ` - دسته‌بندی ${product.category}` : ''}`}
+                      fill
+                      className="object-cover"
+                      loading="lazy"
+                      sizes="(max-width: 640px) 33vw, (max-width: 768px) 25vw, (max-width: 1024px) 20vw, (max-width: 1280px) 16vw, 14vw"
+                    />
+                    {product.originalPrice && product.originalPrice > product.price && (
+                      <div className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 bg-red-500 text-white text-[8px] sm:text-[9px] font-bold px-1 sm:px-1.5 py-0.5 rounded shadow-sm">
+                        {Math.round(
+                          ((product.originalPrice - product.price) /
+                            product.originalPrice) *
+                            100
+                        )}%
+                      </div>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="flex-1 p-1.5 sm:p-2">
                   <h3 className="font-medium mb-1 sm:mb-1.5 hover:text-primary transition-colors line-clamp-2 text-[10px] sm:text-xs leading-tight">
                     {product.name}
                   </h3>
-                </Link>
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-[10px] sm:text-xs font-bold text-primary">
-                    {product.price.toLocaleString("fa-IR")} <span className="text-[8px] sm:text-[9px]">تومان</span>
-                  </span>
-                  {product.originalPrice && product.originalPrice > product.price && (
-                    <span className="text-[8px] sm:text-[9px] text-muted-foreground line-through">
-                      {product.originalPrice.toLocaleString("fa-IR")}
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[10px] sm:text-xs font-bold text-primary">
+                      {product.price.toLocaleString("fa-IR")} <span className="text-[8px] sm:text-[9px]">تومان</span>
                     </span>
-                  )}
-                </div>
-              </CardContent>
-              <Link href={`/products/${product.id}`}>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute bottom-0 left-0 bg-background/80 hover:bg-background h-5 w-5 sm:h-6 sm:w-6 z-10 rounded-tl-md rounded-tr-none rounded-br-md rounded-bl-none border-t-[0.1px] border-r-[0.1px] border-b-0 border-l-0"
-                >
-                  <ArrowUpRight className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
-                </Button>
-              </Link>
-            </Card>
+                    {product.originalPrice && product.originalPrice > product.price && (
+                      <span className="text-[8px] sm:text-[9px] text-muted-foreground line-through">
+                        {product.originalPrice.toLocaleString("fa-IR")}
+                      </span>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
       ) : (

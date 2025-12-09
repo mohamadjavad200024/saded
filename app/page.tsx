@@ -1,8 +1,6 @@
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { HeroSection } from "@/components/home/hero-section";
-import { FeaturedStats } from "@/components/home/featured-stats";
-import { CategoryGrid } from "@/components/home/category-grid";
 import { FeaturedProducts } from "@/components/home/featured-products";
 
 export default function Home() {
@@ -11,8 +9,6 @@ export default function Home() {
       <Header />
       <main className="flex-1 relative z-0">
         <HeroSection />
-        <FeaturedStats />
-        <CategoryGrid />
         <FeaturedProducts />
       </main>
       <Footer />
