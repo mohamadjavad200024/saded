@@ -57,31 +57,50 @@ export async function GET(request: NextRequest) {
       });
     } else if (getAll) {
       // Get unread counts for all chats
-      const chats = await getRows<{ id: string }>(
-        `SELECT DISTINCT chatId as id FROM chat_messages`
-      );
+      try {
+        const chats = await getRows<{ id: string }>(
+          `SELECT DISTINCT chatId as id FROM chat_messages`
+        );
 
-      const chatsWithUnreadCount = await Promise.all(
-        chats.map(async (chat) => {
-          const result = await getRow<{ count: string }>(
-            `SELECT COUNT(*) as count 
-             FROM chat_messages 
-             WHERE chatId = ? 
-               AND sender = 'user' 
-               AND (status IS NULL OR (status != 'read' AND status IN ('sent', 'delivered', 'sending')))`,
-            [chat.id]
-          );
+        const chatsWithUnreadCount = await Promise.all(
+          chats.map(async (chat) => {
+            try {
+              const result = await getRow<{ count: string }>(
+                `SELECT COUNT(*) as count 
+                 FROM chat_messages 
+                 WHERE chatId = ? 
+                   AND sender = 'user' 
+                   AND (status IS NULL OR (status != 'read' AND status IN ('sent', 'delivered', 'sending')))`,
+                [chat.id]
+              );
 
-          return {
-            id: chat.id,
-            unreadCount: parseInt(result?.count || "0", 10),
-          };
-        })
-      );
+              return {
+                id: chat.id,
+                unreadCount: parseInt(result?.count || "0", 10),
+              };
+            } catch (error) {
+              logger.error(`Error getting unread count for chat ${chat.id}:`, error);
+              return {
+                id: chat.id,
+                unreadCount: 0,
+              };
+            }
+          })
+        );
 
-      return createSuccessResponse({
-        chats: chatsWithUnreadCount,
-      });
+        return createSuccessResponse({
+          chats: chatsWithUnreadCount,
+        });
+      } catch (error: any) {
+        // If table doesn't exist, return empty array
+        if (error?.code === "ER_NO_SUCH_TABLE" || error?.message?.includes("doesn't exist") || error?.message?.includes("does not exist")) {
+          logger.warn("Chat messages table does not exist yet, returning empty chats list");
+          return createSuccessResponse({
+            chats: [],
+          });
+        }
+        throw error;
+      }
     } else {
       // No chatId and getAll not specified, return error
       throw new AppError("chatId or all parameter is required", 400, "MISSING_PARAMS");
