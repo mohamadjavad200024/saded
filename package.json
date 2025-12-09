@@ -11,12 +11,12 @@
     "lint": "eslint",
     "test": "jest",
     "test:watch": "jest --watch",
-    "setup-mysql": "node scripts/setup-mysql.js",
+    "migrate-postgres": "tsx scripts/migrate-json-to-postgres.ts",
+    "setup-postgres": "node scripts/setup-postgres.js",
+    "setup-postgres-retry": "node scripts/setup-postgres-with-retry.js",
     "setup-db-production": "node scripts/setup-db-production.js",
     "check-deployment": "node scripts/check-deployment.js",
-    "health-check": "node scripts/health-check.js",
-    "deploy:analyze": "node scripts/deploy-incremental.js",
-    "deploy:smart": "bash scripts/deploy-smart.sh"
+    "health-check": "node scripts/health-check.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",
@@ -41,7 +41,7 @@
     "@radix-ui/react-toast": "^1.2.1",
     "@radix-ui/react-tooltip": "^1.1.2",
     "@tanstack/react-query": "^5.17.0",
-    "mysql2": "^3.11.5",
+    "pg": "^8.11.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "date-fns": "^3.0.6",
@@ -55,13 +55,15 @@
     "react-hook-form": "^7.49.3",
     "tailwind-merge": "^2.2.0",
     "zod": "^3.22.4",
-    "zustand": "^4.5.0"
+    "zustand": "^4.5.0",
+    "bcryptjs": "^2.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.1.5",
     "@testing-library/react": "^16.0.0",
     "@testing-library/user-event": "^14.5.1",
+    "@types/pg": "^8.10.9",
     "@types/jest": "^30.0.0",
     "@types/node": "^20",
     "@types/react": "^19",
