@@ -65,7 +65,7 @@ export function getPool(): mysql.Pool {
 
     pool = mysql.createPool(DB_CONFIG);
 
-    // Handle pool errors
+    // Handle pool connection errors
     pool.on("connection", (connection) => {
       connection.on("error", (err: any) => {
         // Don't log ECONNRESET as error - it's expected when connections are idle
@@ -75,14 +75,6 @@ export function getPool(): mysql.Pool {
           logger.debug("MySQL connection reset (normal for idle connections)", err.code);
         }
       });
-    });
-
-    // Handle pool errors
-    pool.on("error", (err: any) => {
-      // Don't log ECONNRESET as error - it's expected when connections are idle
-      if (err.code !== 'ECONNRESET' && err.code !== 'PROTOCOL_CONNECTION_LOST') {
-        logger.error("MySQL pool error", err);
-      }
     });
   }
 
@@ -123,7 +115,7 @@ export async function query<T = any>(
       const isResultSetHeader = rows && typeof rows === 'object' && 'affectedRows' in rows;
       
       if (isResultSetHeader) {
-        const result = rows as mysql.ResultSetHeader;
+        const result = rows as unknown as mysql.ResultSetHeader;
         return {
           rows: [] as T[],
           rowCount: result.affectedRows || 0,
