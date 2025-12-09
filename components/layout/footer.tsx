@@ -5,9 +5,9 @@ export function Footer() {
   return (
     <footer className="border-t-[0.25px] border-border/30 bg-background">
       <div className="container py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8">
           {/* About */}
-          <div className="space-y-4">
+          <div className="space-y-4 col-span-2 md:col-span-1">
             <h3 className="text-lg font-semibold text-foreground">درباره ساد</h3>
             <p className="text-sm text-muted-foreground">
               فروشگاه آنلاین قطعات خودرو وارداتی با بهترین کیفیت و قیمت.
@@ -90,7 +90,7 @@ export function Footer() {
           </div>
 
           {/* Contact */}
-          <div className="space-y-4">
+          <div className="space-y-4 col-span-2 md:col-span-1">
             <h3 className="text-lg font-semibold text-foreground">تماس با ما</h3>
             <ul className="space-y-3 text-sm">
               <li className="flex items-center space-x-2 space-x-reverse">
