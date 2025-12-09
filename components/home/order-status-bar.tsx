@@ -133,19 +133,19 @@ export function OrderStatusBar() {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 100, opacity: 0 }}
           transition={{ type: "spring", damping: 25, stiffness: 200 }}
-          className="fixed bottom-0 left-0 right-0 z-50 p-2 sm:p-3 pointer-events-none"
+          className="fixed bottom-0 left-0 right-0 z-50 p-1.5 sm:p-3 pointer-events-none"
         >
           <div className="max-w-4xl mx-auto pointer-events-auto">
             <div
               className={cn(
-                "relative overflow-hidden rounded-lg border shadow-md backdrop-blur-xl",
+                "relative overflow-hidden rounded-md sm:rounded-lg border shadow-md backdrop-blur-xl",
                 "bg-gradient-to-br from-background/95 to-background/90",
                 statusInfo.color,
                 "border"
               )}
             >
-              {/* Progress bar */}
-              <div className="absolute top-0 left-0 right-0 h-0.5 bg-muted/20">
+              {/* Progress bar - Hidden on mobile, shown on desktop */}
+              <div className="hidden sm:block absolute top-0 left-0 right-0 h-0.5 bg-muted/20">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${statusInfo.progress}%` }}
@@ -154,38 +154,36 @@ export function OrderStatusBar() {
                 />
               </div>
 
-              <div className="p-2.5 sm:p-3">
-                <div className="flex items-center gap-2 sm:gap-3">
-                  {/* Icon - Minimal size */}
+              <div className="p-1.5 sm:p-3">
+                <div className="flex items-center gap-1.5 sm:gap-3">
+                  {/* Icon - Very minimal on mobile */}
                   <div className={cn(
-                    "flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center",
+                    "flex-shrink-0 w-6 h-6 sm:w-10 sm:h-10 rounded-md sm:rounded-lg flex items-center justify-center",
                     "bg-background/50 backdrop-blur-sm border",
                     statusInfo.color
                   )}>
-                    <StatusIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+                    <StatusIcon className="h-3 w-3 sm:h-5 sm:w-5" />
                   </div>
 
-                  {/* Content - Minimal */}
+                  {/* Content - Ultra minimal on mobile */}
                   <div className="flex-1 min-w-0">
-                    {/* Mobile: Only status badge and order number */}
-                    <div className="sm:hidden space-y-0.5">
-                      <div className="flex items-center gap-1.5">
-                        <Badge 
-                          variant="outline" 
-                          className={cn(
-                            "text-[10px] font-semibold border px-1.5 py-0",
-                            statusInfo.color
-                          )}
-                        >
-                          {statusInfo.label}
-                        </Badge>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground truncate">
-                        <span className="font-mono font-semibold">{activeOrder.orderNumber}</span>
+                    {/* Mobile: Ultra minimal - single line */}
+                    <div className="sm:hidden flex items-center gap-1.5">
+                      <Badge 
+                        variant="outline" 
+                        className={cn(
+                          "text-[9px] font-semibold border px-1 py-0 h-4 leading-none",
+                          statusInfo.color
+                        )}
+                      >
+                        {statusInfo.label}
+                      </Badge>
+                      <p className="text-[9px] text-muted-foreground truncate font-mono">
+                        {activeOrder.orderNumber}
                       </p>
                     </div>
 
-                    {/* Desktop: Minimal content */}
+                    {/* Desktop: Normal content */}
                     <div className="hidden sm:flex items-center gap-2">
                       <Badge 
                         variant="outline" 
@@ -202,22 +200,22 @@ export function OrderStatusBar() {
                     </div>
                   </div>
 
-                  {/* Actions - Minimal */}
-                  <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
+                  {/* Actions - Very minimal on mobile */}
+                  <div className="flex items-center gap-0.5 sm:gap-1.5 flex-shrink-0">
                     <Button
                       asChild
                       size="sm"
                       variant="ghost"
-                      className="h-7 w-7 sm:h-8 sm:w-8 p-0"
+                      className="h-5 w-5 sm:h-8 sm:w-8 p-0 rounded-md"
                     >
                       <Link href={`/order/track?orderNumber=${activeOrder.orderNumber}`}>
-                        <ExternalLink className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                        <ExternalLink className="h-2.5 w-2.5 sm:h-4 sm:w-4" />
                       </Link>
                     </Button>
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="h-7 w-7 sm:h-8 sm:w-8 p-0"
+                      className="h-5 w-5 sm:h-8 sm:w-8 p-0 rounded-md"
                       onClick={() => {
                         if (activeOrder) {
                           setIsDismissed(activeOrder.id);
@@ -229,7 +227,7 @@ export function OrderStatusBar() {
                         }
                       }}
                     >
-                      <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                      <X className="h-2.5 w-2.5 sm:h-4 sm:w-4" />
                     </Button>
                   </div>
                 </div>

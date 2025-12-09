@@ -178,3 +178,72 @@ export function CategoryGrid() {
   );
 }
 
+// Minimal Category Grid Component for Hero Section
+export function MinimalCategoryGrid() {
+  const { data: categories = [], isLoading } = useCategories();
+  
+  const displayCategories = useMemo(() => {
+    return (categories || [])
+      .filter((cat) => cat.isActive)
+      .slice(0, 6)
+      .map((category, index) => {
+        const Icon = iconMap[category.name] || Car;
+        const colors = colorMap[index % 3];
+        return {
+          ...category,
+          Icon,
+          ...colors,
+          href: `/categories/${category.id}`,
+        };
+      });
+  }, [categories]);
+
+  if (isLoading || displayCategories.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="grid grid-cols-3 gap-2 sm:gap-3">
+      {displayCategories.map((category, index) => {
+        const Icon = category.Icon;
+        return (
+          <motion.div
+            key={category.id || index}
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ 
+              delay: index * 0.05,
+              duration: 0.3,
+              type: "spring",
+              stiffness: 150
+            }}
+            whileHover={{ 
+              y: -2,
+              scale: 1.02,
+            }}
+            className="group relative"
+          >
+            <Link href={category.href}>
+              <div className="glass-morphism-light rounded-lg sm:rounded-xl p-2 sm:p-3 relative overflow-hidden transition-all duration-300 hover:shadow-lg cursor-pointer border border-border/30">
+                {/* Minimal Icon */}
+                <div className={`
+                  relative w-8 h-8 sm:w-10 sm:h-10 
+                  ${category.iconBg} rounded-md sm:rounded-lg flex items-center justify-center 
+                  mx-auto mb-1 sm:mb-1.5 transition-all duration-300
+                `}>
+                  <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${category.color} transition-transform duration-300`} />
+                </div>
+
+                {/* Category Name - Minimal */}
+                <h3 className="text-[9px] sm:text-[10px] md:text-xs font-medium text-center text-foreground group-hover:text-primary transition-colors duration-300 leading-tight line-clamp-2">
+                  {category.name}
+                </h3>
+              </div>
+            </Link>
+          </motion.div>
+        );
+      })}
+    </div>
+  );
+}
+
