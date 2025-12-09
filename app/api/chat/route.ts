@@ -170,23 +170,38 @@ export async function POST(request: NextRequest) {
       const messageStatus = message.status || (message.sender === "user" ? "sent" : null);
       
       // Save message using UPSERT to avoid duplicates
-      await runQuery(
-        `INSERT INTO chat_messages (id, chatId, text, sender, attachments, status, createdAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE
-           text = VALUES(text),
-           attachments = VALUES(attachments),
-           status = COALESCE(VALUES(status), chat_messages.status)`,
-        [
-          messageId,
-          chatId,
-          message.text || null,
-          message.sender,
-          JSON.stringify(validAttachments),
-          messageStatus,
-          messageCreatedAt,
-        ]
-      );
+      try {
+        await runQuery(
+          `INSERT INTO chat_messages (id, chatId, text, sender, attachments, status, createdAt)
+           VALUES (?, ?, ?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE
+             text = VALUES(text),
+             attachments = VALUES(attachments),
+             status = COALESCE(VALUES(status), chat_messages.status)`,
+          [
+            messageId,
+            chatId,
+            message.text || null,
+            message.sender,
+            JSON.stringify(validAttachments),
+            messageStatus,
+            messageCreatedAt,
+          ]
+        );
+      } catch (error: any) {
+        logger.error(`Error saving message ${messageId}:`, error);
+        // If foreign key constraint error, the chat might not exist
+        if (error?.code === "ER_NO_REFERENCED_ROW_2" || error?.message?.includes("foreign key constraint")) {
+          throw new AppError(`چت با شناسه ${chatId} یافت نشد`, 404, "CHAT_NOT_FOUND");
+        }
+        // If table doesn't exist, try to create it
+        if (error?.code === "ER_NO_SUCH_TABLE" || error?.message?.includes("doesn't exist") || error?.message?.includes("does not exist")) {
+          logger.warn("Chat messages table does not exist, attempting to create...");
+          // Table creation is already handled above, but if it failed, throw error
+          throw new AppError("خطا در ایجاد جدول پیام‌ها. لطفاً دیتابیس را راه‌اندازی کنید.", 500, "TABLE_CREATION_FAILED");
+        }
+        throw error;
+      }
 
       // ALWAYS save attachments, even if message already exists (important for images)
       if (validAttachments && Array.isArray(validAttachments) && validAttachments.length > 0) {
@@ -370,12 +385,23 @@ export async function GET(request: NextRequest) {
       let allDbAttachments: any[] = [];
       
       if (messageIds.length > 0) {
-        // Use IN clause to get all attachments in one query
-        const placeholders = messageIds.map(() => '?').join(',');
-        allDbAttachments = await getRows<any>(
-          `SELECT * FROM chat_attachments WHERE messageId IN (${placeholders})`,
-          messageIds
-        );
+        try {
+          // Use IN clause to get all attachments in one query
+          const placeholders = messageIds.map(() => '?').join(',');
+          allDbAttachments = await getRows<any>(
+            `SELECT * FROM chat_attachments WHERE messageId IN (${placeholders})`,
+            messageIds
+          );
+        } catch (error: any) {
+          // If table doesn't exist, continue with empty attachments
+          if (error?.code === "ER_NO_SUCH_TABLE" || error?.message?.includes("doesn't exist") || error?.message?.includes("does not exist")) {
+            logger.warn("Chat attachments table does not exist yet, continuing without attachments");
+            allDbAttachments = [];
+          } else {
+            logger.error("Error fetching attachments:", error);
+            allDbAttachments = [];
+          }
+        }
       }
       
       // Group attachments by messageId for O(1) lookup
@@ -502,12 +528,23 @@ export async function GET(request: NextRequest) {
           let allDbAttachments: any[] = [];
           
           if (messageIds.length > 0) {
-            // Use IN clause to get all attachments in one query
-            const placeholders = messageIds.map(() => '?').join(',');
-            allDbAttachments = await getRows<any>(
-              `SELECT * FROM chat_attachments WHERE messageId IN (${placeholders})`,
-              messageIds
-            );
+            try {
+              // Use IN clause to get all attachments in one query
+              const placeholders = messageIds.map(() => '?').join(',');
+              allDbAttachments = await getRows<any>(
+                `SELECT * FROM chat_attachments WHERE messageId IN (${placeholders})`,
+                messageIds
+              );
+            } catch (error: any) {
+              // If table doesn't exist, continue with empty attachments
+              if (error?.code === "ER_NO_SUCH_TABLE" || error?.message?.includes("doesn't exist") || error?.message?.includes("does not exist")) {
+                logger.warn("Chat attachments table does not exist yet, continuing without attachments");
+                allDbAttachments = [];
+              } else {
+                logger.error("Error fetching attachments:", error);
+                allDbAttachments = [];
+              }
+            }
           }
           
           // Group attachments by messageId for O(1) lookup
@@ -644,9 +681,11 @@ export async function GET(request: NextRequest) {
               unreadCounts.forEach((result) => {
                 unreadCountsMap.set(result.chatId, parseInt(result.count || "0", 10));
               });
-            } catch (error) {
-              // If error getting unread counts, log and continue with 0 counts
-              if (process.env.NODE_ENV === 'development') {
+            } catch (error: any) {
+              // If table doesn't exist or other error, continue with 0 counts
+              if (error?.code === "ER_NO_SUCH_TABLE" || error?.message?.includes("doesn't exist") || error?.message?.includes("does not exist")) {
+                logger.warn("Chat messages table does not exist yet, using 0 unread counts");
+              } else if (process.env.NODE_ENV === 'development') {
                 logger.error(`Error getting unread counts:`, error);
               }
             }
