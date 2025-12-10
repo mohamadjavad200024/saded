@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (filters.paymentStatus && filters.paymentStatus.length > 0) {
-      query += ` AND "paymentStatus" IN (${filters.paymentStatus.map(() => "?").join(",")})`;
+      query += ` AND \`paymentStatus\` IN (${filters.paymentStatus.map(() => "?").join(",")})`;
       params.push(...filters.paymentStatus);
     }
 

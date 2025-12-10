@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
       let insertResult: any;
       try {
         insertResult = await runQuery(
-          `INSERT INTO categories (id, name, description, slug, image, icon, enabled, "isActive", "createdAt", "updatedAt")
+          `INSERT INTO categories (id, name, description, slug, image, icon, enabled, \`isActive\`, \`createdAt\`, \`updatedAt\`)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [id, name.trim(), description || null, slug || null, image || null, icon || null, true, categoryIsActive, now, now]
         );

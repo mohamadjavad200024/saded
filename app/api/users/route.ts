@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
     let insertResult: any;
     try {
       insertResult = await runQuery(
-        `INSERT INTO users (id, email, password, name, role, phone, address, enabled, "createdAt", "updatedAt")
+        `INSERT INTO users (id, email, password, name, role, phone, address, enabled, \`createdAt\`, \`updatedAt\`)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id,
