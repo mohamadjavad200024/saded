@@ -10,6 +10,11 @@ git stash push -m "Backup local changes before pull"
 
 # 2. Reset فایل‌های مشکل‌دار
 echo "2️⃣ Reset فایل‌های مشکل‌دار..."
+# Force reset فایل‌های مشکل‌دار
+git checkout --ours HOST-RESTART-PM2.sh HOST-FIX-GIT-PULL.sh 2>/dev/null || true
+git checkout --theirs HOST-RESTART-PM2.sh HOST-FIX-GIT-PULL.sh 2>/dev/null || true
+git reset HEAD HOST-RESTART-PM2.sh HOST-FIX-GIT-PULL.sh 2>/dev/null || true
+rm -f HOST-RESTART-PM2.sh HOST-FIX-GIT-PULL.sh 2>/dev/null || true
 git checkout HEAD -- HOST-RESTART-PM2.sh HOST-FIX-GIT-PULL.sh 2>/dev/null || true
 
 # 3. Pull تغییرات جدید

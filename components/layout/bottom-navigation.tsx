@@ -112,6 +112,7 @@ export function BottomNavigation() {
   return (
     <>
       {/* Bottom Navigation Bar - Fixed/Floating - Always at bottom of viewport */}
+      {/* Using portal-like positioning to ensure it's always at viewport bottom */}
       <div 
         className="fixed bottom-0 left-0 right-0 z-[9999] flex justify-center items-end md:hidden pointer-events-none"
         style={{
@@ -119,12 +120,14 @@ export function BottomNavigation() {
           bottom: 0,
           left: 0,
           right: 0,
-          width: '100%',
+          width: '100vw',
+          maxWidth: '100vw',
           paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))",
           paddingLeft: "1rem",
           paddingRight: "1rem",
           transform: 'translateZ(0)',
           WebkitTransform: 'translateZ(0)',
+          willChange: 'transform',
         }}
       >
         <nav 
