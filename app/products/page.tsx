@@ -15,6 +15,37 @@ export default function ProductsPage() {
     loadCategoriesFromDB();
   }, [loadCategoriesFromDB]);
 
+  // Fix mobile black screen issue: Ensure body overflow is reset and no overlays are stuck
+  useEffect(() => {
+    // Reset body and html overflow on mount (in case it was set by another page)
+    document.body.style.overflow = "";
+    document.documentElement.style.overflow = "";
+    
+    // Remove any stuck overlays (Radix UI Dialog/Sheet overlays)
+    const overlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-portal]');
+    overlays.forEach((overlay) => {
+      const element = overlay as HTMLElement;
+      // Check if overlay is actually visible (not just in DOM)
+      if (element.style.display !== 'none' && !element.hasAttribute('data-state-closed')) {
+        // Force remove if it's stuck
+        const computedStyle = window.getComputedStyle(element);
+        if (computedStyle.display !== 'none' && computedStyle.opacity !== '0') {
+          // Only remove if it seems stuck (visible but should be closed)
+          const parent = element.parentElement;
+          if (parent && parent.getAttribute('data-state') === 'closed') {
+            element.remove();
+          }
+        }
+      }
+    });
+
+    // Cleanup on unmount
+    return () => {
+      document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
+    };
+  }, []);
+
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
