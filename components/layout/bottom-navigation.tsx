@@ -113,9 +113,9 @@ export function BottomNavigation() {
     <>
       {/* Bottom Navigation Bar - Fixed/Floating */}
       <div 
-        className="fixed bottom-0 left-0 right-0 z-[9999] flex justify-center md:hidden pointer-events-none"
+        className="fixed bottom-0 left-0 right-0 z-[9999] flex justify-center items-end md:hidden pointer-events-none"
         style={{
-          paddingBottom: "max(0.5rem, calc(env(safe-area-inset-bottom, 0px) + 0.25rem))",
+          paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))",
           paddingLeft: "1rem",
           paddingRight: "1rem",
         }}
