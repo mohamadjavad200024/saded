@@ -573,32 +573,63 @@ export default function ChatPage() {
     sendTypingStatus(false);
 
     try {
-      const response = await fetch("/api/chat/message", {
+      // Prepare message for API
+      const messageToSave = {
+        id: tempId,
+        text: message,
+        sender: "user",
+        timestamp: newMessage.timestamp.toISOString(),
+        attachments: attachments.filter((att) => {
+          const url = att.url;
+          return url && 
+                 !url.startsWith('blob:') && 
+                 !url.startsWith('data:') &&
+                 (url.startsWith('http') || url.startsWith('/'));
+        }),
+        status: "sent",
+      };
+
+      const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           chatId,
-          text: message,
-          attachments: attachments,
-          replyingTo: replyingTo?.id,
+          customerInfo: {
+            name: customerInfo.name,
+            phone: customerInfo.phone,
+            email: customerInfo.email || undefined,
+          },
+          messages: [messageToSave],
         }),
       });
 
-      if (!response.ok) throw new Error("خطا در ارسال پیام");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "خطا در ارسال پیام");
+      }
 
       const data = await response.json();
-      if (data.success && data.data) {
+      if (data.success && data.data?.messages && data.data.messages.length > 0) {
+        const savedMessage = data.data.messages[0];
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === tempId
               ? {
                   ...msg,
-                  id: data.data.id,
-                  status: "sent",
+                  id: savedMessage.id,
+                  status: savedMessage.status || "sent",
                 }
               : msg
           )
         );
+        
+        // Update chatId if provided
+        if (data.data.chatId && data.data.chatId !== chatId) {
+          setChatId(data.data.chatId);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("quickBuyChat_chatId", data.data.chatId);
+          }
+        }
       }
     } catch (error) {
       logger.error("Error sending message:", error);
