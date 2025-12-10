@@ -692,7 +692,7 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
       >
         {!selectedChat ? (
           <>
-            <SheetHeader className="px-4 sm:px-6 py-2 border-b border-border/40">
+            <SheetHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border/40 px-4 sm:px-6 py-2">
               <SheetTitle className="flex items-center gap-2 text-base font-semibold">
                 <MessageCircle className="h-5 w-5" />
                 چت‌های کاربران
@@ -711,7 +711,7 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
               </div>
             </SheetHeader>
 
-            <div className="flex-1 overflow-y-auto bg-gradient-to-b from-background to-muted/5">
+            <div className="flex-1 min-h-0 overflow-y-auto bg-gradient-to-b from-background to-muted/5">
               {isLoading ? (
                 <div className="flex items-center justify-center h-full">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -792,7 +792,7 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
           </>
         ) : (
           <>
-            <SheetHeader className="px-4 sm:px-6 py-2 border-b border-border/40">
+            <SheetHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border/40 px-4 sm:px-6 py-2">
               <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
@@ -820,7 +820,7 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
               </div>
             </SheetHeader>
 
-            <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 sm:p-5 md:p-6 space-y-4 sm:space-y-5 bg-gradient-to-b from-background via-background to-muted/5">
+            <div ref={messagesContainerRef} className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 md:p-6 space-y-4 sm:space-y-5 bg-gradient-to-b from-background via-background to-muted/5">
               {isLoading ? (
                 <div className="flex items-center justify-center h-full">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -858,7 +858,7 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
               <div ref={messagesEndRef} />
             </div>
 
-            <div className="relative flex-shrink-0">
+            <div className="sticky bottom-0 z-10 bg-background/95 backdrop-blur-sm border-t border-border/40 flex-shrink-0 relative">
               {/* Scroll to bottom button */}
               <AnimatePresence>
                 {showScrollToBottom && (
