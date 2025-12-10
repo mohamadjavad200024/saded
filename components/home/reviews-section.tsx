@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Star, MessageSquare, Send, User, Calendar } from "lucide-react";
+import { Star, MessageSquare, Send, User, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Review {
@@ -106,31 +106,34 @@ export function ReviewsSection() {
     }
   };
 
+  // Duplicate reviews for seamless loop
+  const duplicatedReviews = reviews.length > 0 ? [...reviews, ...reviews] : [];
+
   return (
-    <section className="py-8 sm:py-12 md:py-16 lg:py-20 relative overflow-hidden">
+    <section className="py-6 sm:py-8 md:py-10 relative overflow-hidden">
       <div className="container px-4 sm:px-4 relative z-10">
-        {/* Header */}
+        {/* Minimal Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="text-center mb-6 sm:mb-8 md:mb-12"
+          className="text-center mb-4 sm:mb-6"
         >
-          <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-primary/10 mb-3 sm:mb-4">
-            <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
-            <span className="text-xs sm:text-sm font-medium text-primary">نظرات مشتریان</span>
+          <div className="inline-flex items-center gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full bg-primary/10 mb-2 sm:mb-3">
+            <MessageSquare className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-primary" />
+            <span className="text-xs font-medium text-primary">نظرات مشتریان</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 sm:mb-3 text-foreground">
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2 text-foreground">
             نظرات <span className="text-primary">مشتریان</span>
           </h2>
           {reviews.length > 0 && (
-            <div className="flex items-center justify-center gap-2 mt-2">
-              <div className="flex items-center gap-1">
+            <div className="flex items-center justify-center gap-2 mt-1">
+              <div className="flex items-center gap-0.5">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <Star
                     key={star}
-                    className={`h-4 w-4 sm:h-5 sm:w-5 ${
+                    className={`h-3 w-3 sm:h-4 sm:w-4 ${
                       star <= Math.round(averageRating)
                         ? "fill-yellow-400 text-yellow-400"
                         : "text-muted-foreground"
@@ -138,27 +141,29 @@ export function ReviewsSection() {
                   />
                 ))}
               </div>
-              <span className="text-sm sm:text-base text-muted-foreground">
+              <span className="text-xs sm:text-sm text-muted-foreground">
                 ({averageRating.toFixed(1)}) از {reviews.length} نظر
               </span>
             </div>
           )}
         </motion.div>
 
-        {/* Add Review Button */}
+        {/* Add Review Button - Minimal */}
         {!showForm && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.2 }}
-            className="text-center mb-6 sm:mb-8"
+            className="text-center mb-4 sm:mb-6"
           >
             <Button
               onClick={() => setShowForm(true)}
-              className="glass-morphism-light h-10 sm:h-12 px-6 sm:px-8 text-sm sm:text-base rounded-lg sm:rounded-xl"
+              variant="outline"
+              size="sm"
+              className="glass-morphism-light h-9 sm:h-10 px-4 sm:px-6 text-xs sm:text-sm rounded-lg"
             >
-              <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5 ml-2" />
+              <MessageSquare className="h-3.5 w-3.5 sm:h-4 sm:w-4 ml-1.5" />
               افزودن نظر
             </Button>
           </motion.div>
@@ -250,81 +255,88 @@ export function ReviewsSection() {
           </motion.div>
         )}
 
-        {/* Reviews List */}
+        {/* Reviews Carousel - Minimal & Smooth Loop */}
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-            {[1, 2].map((i) => (
-              <Card key={i} className="glass-morphism animate-pulse">
-                <CardContent className="p-4 sm:p-6">
-                  <div className="h-4 bg-muted rounded mb-3 w-1/3" />
-                  <div className="h-4 bg-muted rounded mb-2" />
-                  <div className="h-4 bg-muted rounded w-2/3" />
-                </CardContent>
-              </Card>
-            ))}
+          <div className="flex items-center justify-center py-6">
+            <div className="w-6 h-6 border-3 border-primary border-t-transparent rounded-full animate-spin" />
           </div>
         ) : reviews.length === 0 ? (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-center py-12 sm:py-16"
+            className="text-center py-6 sm:py-8"
           >
-            <MessageSquare className="h-12 w-12 sm:h-16 sm:w-16 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground text-sm sm:text-base">
+            <MessageSquare className="h-8 w-8 sm:h-10 sm:w-10 text-muted-foreground mx-auto mb-2" />
+            <p className="text-muted-foreground text-xs sm:text-sm">
               هنوز نظری ثبت نشده است. اولین نظر را شما بگذارید!
             </p>
           </motion.div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-            {reviews.map((review, index) => (
+          <div className="relative overflow-hidden">
+            {/* Smooth Infinite Scrolling Carousel */}
+            <div className="overflow-hidden">
               <motion.div
-                key={review.id}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
+                className="flex gap-3 sm:gap-4"
+                animate={{
+                  x: ["0%", "-50%"],
+                }}
+                transition={{
+                  x: {
+                    repeat: Infinity,
+                    repeatType: "loop",
+                    duration: duplicatedReviews.length * 20, // Slow, smooth scroll (20 seconds per review)
+                    ease: "linear",
+                  },
+                }}
+                style={{
+                  width: "max-content",
+                }}
               >
-                <Card className="glass-morphism h-full hover:shadow-lg transition-all duration-300 border-border/30">
-                  <CardContent className="p-4 sm:p-6">
-                    <div className="flex items-start justify-between mb-3 sm:mb-4">
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                          <User className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-sm sm:text-base">{review.name}</h3>
-                          <div className="flex items-center gap-1 mt-1">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                              <Star
-                                key={star}
-                                className={`h-3 w-3 sm:h-4 sm:w-4 ${
-                                  star <= review.rating
-                                    ? "fill-yellow-400 text-yellow-400"
-                                    : "text-muted-foreground"
-                                }`}
-                              />
-                            ))}
+                {duplicatedReviews.map((review, index) => (
+                  <div
+                    key={`${review.id}-${index}`}
+                    className="flex-shrink-0 w-[280px] sm:w-[320px] md:w-[360px]"
+                  >
+                    <Card className="glass-morphism h-full border-border/20 hover:border-border/40 transition-all duration-300">
+                      <CardContent className="p-3 sm:p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <User className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-xs sm:text-sm truncate">{review.name}</h3>
+                            <div className="flex items-center gap-0.5 mt-0.5">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  className={`h-2.5 w-2.5 sm:h-3 sm:w-3 ${
+                                    star <= review.rating
+                                      ? "fill-yellow-400 text-yellow-400"
+                                      : "text-muted-foreground"
+                                  }`}
+                                />
+                              ))}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground">
-                        <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
-                        <span>
-                          {new Date(review.createdAt).toLocaleDateString("fa-IR", {
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          })}
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-sm sm:text-base text-foreground leading-relaxed">
-                      {review.comment}
-                    </p>
-                  </CardContent>
-                </Card>
+                        <p className="text-xs sm:text-sm text-foreground leading-relaxed line-clamp-3 mb-2">
+                          {review.comment}
+                        </p>
+                        <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground">
+                          <Calendar className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                          <span>
+                            {new Date(review.createdAt).toLocaleDateString("fa-IR", {
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                ))}
               </motion.div>
-            ))}
+            </div>
           </div>
         )}
       </div>
