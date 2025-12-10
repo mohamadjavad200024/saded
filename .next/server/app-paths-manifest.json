@@ -40,6 +40,7 @@
   "/api/placeholder/[...params]/route": "app/api/placeholder/[...params]/route.js",
   "/api/products/[id]/route": "app/api/products/[id]/route.js",
   "/api/products/route": "app/api/products/route.js",
+  "/api/reviews/route": "app/api/reviews/route.js",
   "/api/users/[id]/route": "app/api/users/[id]/route.js",
   "/api/users/route": "app/api/users/route.js",
   "/auth/page": "app/auth/page.js",

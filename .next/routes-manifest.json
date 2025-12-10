@@ -319,6 +319,12 @@
       "namedRegex": "^/api/products(?:/)?$"
     },
     {
+      "page": "/api/reviews",
+      "regex": "^/api/reviews(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/reviews(?:/)?$"
+    },
+    {
       "page": "/api/users",
       "regex": "^/api/users(?:/)?$",
       "routeKeys": {},
