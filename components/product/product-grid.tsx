@@ -138,7 +138,7 @@ export function ProductGrid() {
       
       <div className="space-y-4 sm:space-y-6">
         {/* Mobile Filter Button and View Toggle */}
-        <div className="flex items-center justify-between px-2 sm:px-0">
+        <div className="flex items-center justify-between px-1 sm:px-0 mb-3 sm:mb-4">
           <div className="text-xs sm:text-sm text-muted-foreground">
             {isLoading ? (
               "در حال بارگذاری..."
@@ -146,20 +146,20 @@ export function ProductGrid() {
               `نمایش ${finalProducts.length} از ${total} محصول`
             )}
           </div>
-          <div className="flex items-center gap-1 sm:gap-2">
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* Mobile Filter Button */}
             <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
               <SheetTrigger asChild>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="lg:hidden flex items-center gap-2 h-8 w-auto sm:h-9 px-2 sm:px-3"
+                  className="lg:hidden flex items-center gap-2 h-9 w-auto sm:h-10 px-3 sm:px-4 text-xs sm:text-sm"
                 >
-                  <Filter className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <Filter className="h-4 w-4 sm:h-4 sm:w-4" />
                   <span className="text-xs sm:text-sm">فیلترها</span>
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-[85vw] sm:w-[400px] overflow-y-auto">
+              <SheetContent side="right" className="w-[85vw] sm:w-[400px] overflow-y-auto max-h-screen">
                 <SheetHeader>
                   <SheetTitle className="flex items-center justify-between">
                     <span>فیلتر محصولات</span>
@@ -182,40 +182,40 @@ export function ProductGrid() {
           <Button
             variant={viewMode === "grid" ? "default" : "outline"}
             size="icon"
-            className="h-8 w-8 sm:h-9 sm:w-9"
+            className="h-9 w-9 sm:h-10 sm:w-10"
             onClick={() => setViewMode("grid")}
           >
-            <Grid className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <Grid className="h-4 w-4 sm:h-5 sm:w-5" />
           </Button>
           <Button
             variant={viewMode === "list" ? "default" : "outline"}
             size="icon"
-            className="h-8 w-8 sm:h-9 sm:w-9"
+            className="h-9 w-9 sm:h-10 sm:w-10"
             onClick={() => setViewMode("list")}
           >
-            <List className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <List className="h-4 w-4 sm:h-5 sm:w-5" />
           </Button>
         </div>
       </div>
 
       {/* Products Grid */}
       {viewMode === "grid" ? (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2 sm:gap-3 md:gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-5">
           {finalProducts.map((product) => (
             <Link key={product.id} href={`/products/${product.id}`}>
-              <Card className="flex flex-col border-[0.1px] border-border/2 hover:border-border/4 hover:shadow-lg transition-all active:scale-95 relative overflow-hidden cursor-pointer h-full">
+              <Card className="flex flex-col border border-border/30 hover:border-border/50 hover:shadow-lg transition-all active:scale-95 relative overflow-hidden cursor-pointer h-full">
                 <CardHeader className="p-0 relative">
-                  <div className="relative h-20 sm:h-24 md:h-28 w-full bg-muted rounded-t-lg overflow-hidden">
+                  <div className="relative h-32 sm:h-36 md:h-40 lg:h-44 w-full bg-muted rounded-t-lg overflow-hidden">
                     <Image
                       src={product.images[0] || getPlaceholderImage(300, 300)}
                       alt={`${product.name}${product.brand ? ` - برند ${product.brand}` : ''}${product.category ? ` - دسته‌بندی ${product.category}` : ''}`}
                       fill
                       className="object-cover"
                       loading="lazy"
-                      sizes="(max-width: 640px) 33vw, (max-width: 768px) 25vw, (max-width: 1024px) 20vw, (max-width: 1280px) 16vw, 14vw"
+                      sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, (max-width: 1280px) 20vw, 16vw"
                     />
                     {product.originalPrice && product.originalPrice > product.price && (
-                      <div className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 bg-red-500 text-white text-[8px] sm:text-[9px] font-bold px-1 sm:px-1.5 py-0.5 rounded shadow-sm">
+                      <div className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 bg-red-500 text-white text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded shadow-sm">
                         {Math.round(
                           ((product.originalPrice - product.price) /
                             product.originalPrice) *
@@ -225,16 +225,16 @@ export function ProductGrid() {
                     )}
                   </div>
                 </CardHeader>
-                <CardContent className="flex-1 p-1.5 sm:p-2">
-                  <h3 className="font-medium mb-1 sm:mb-1.5 hover:text-primary transition-colors line-clamp-2 text-[10px] sm:text-xs leading-tight">
+                <CardContent className="flex-1 p-2 sm:p-3 md:p-4">
+                  <h3 className="font-medium mb-2 sm:mb-2.5 hover:text-primary transition-colors line-clamp-2 text-xs sm:text-sm md:text-base leading-snug">
                     {product.name}
                   </h3>
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-[10px] sm:text-xs font-bold text-primary">
-                      {product.price.toLocaleString("fa-IR")} <span className="text-[8px] sm:text-[9px]">تومان</span>
+                  <div className="flex flex-col gap-1 sm:gap-1.5">
+                    <span className="text-xs sm:text-sm md:text-base font-bold text-primary">
+                      {product.price.toLocaleString("fa-IR")} <span className="text-[10px] sm:text-xs">تومان</span>
                     </span>
                     {product.originalPrice && product.originalPrice > product.price && (
-                      <span className="text-[8px] sm:text-[9px] text-muted-foreground line-through">
+                      <span className="text-[10px] sm:text-xs text-muted-foreground line-through">
                         {product.originalPrice.toLocaleString("fa-IR")}
                       </span>
                     )}
