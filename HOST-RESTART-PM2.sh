@@ -26,17 +26,22 @@ echo "✅ مسیر PM2: $PM2_PATH"
 export PATH=/opt/alt/alt-nodejs20/root/usr/bin:$PATH
 
 # 3. بررسی وجود Node.js
-if [ ! -f "/opt/alt/alt-nodejs20/root/usr/bin/node" ]; then
-    echo "❌ Node.js در مسیر /opt/alt/alt-nodejs20/root/usr/bin/node یافت نشد."
+NODE_PATH=""
+if [ -f "/opt/alt/alt-nodejs20/root/usr/bin/node" ]; then
+    NODE_PATH="/opt/alt/alt-nodejs20/root/usr/bin/node"
+    echo "✅ Node.js یافت شد: $NODE_PATH"
+elif [ -f "/opt/alt/alt-nodejs18/root/usr/bin/node" ]; then
+    NODE_PATH="/opt/alt/alt-nodejs18/root/usr/bin/node"
+    echo "✅ Node.js یافت شد: $NODE_PATH"
+else
     echo "💡 در حال جستجوی Node.js در مسیرهای دیگر..."
-    NODE_PATH=$(which node 2>/dev/null || find /opt -name "node" -type f 2>/dev/null | head -1)
+    NODE_PATH=$(find /opt/alt -name "node" -type f 2>/dev/null | head -1)
     if [ -z "$NODE_PATH" ]; then
         echo "❌ Node.js یافت نشد."
+        echo "💡 لطفاً مسیر Node.js را به صورت دستی مشخص کنید."
         exit 1
     fi
     echo "✅ Node.js یافت شد: $NODE_PATH"
-else
-    NODE_PATH="/opt/alt/alt-nodejs20/root/usr/bin/node"
 fi
 
 # 4. Restart PM2
