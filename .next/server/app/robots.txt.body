@@ -1,0 +1,9 @@
+User-Agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /checkout/
+Disallow: /payment/
+Disallow: /order/
+
+Sitemap: https://saded.ir/sitemap.xml
