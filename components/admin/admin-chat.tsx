@@ -688,7 +688,7 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
     >
       <SheetContent
         side="left"
-        className="w-full sm:w-[500px] md:w-[600px] p-0 flex flex-col shadow-2xl"
+        className="w-full sm:w-[500px] md:w-[600px] p-0 flex flex-col shadow-2xl h-full max-h-screen"
       >
         {!selectedChat ? (
           <>

@@ -521,6 +521,17 @@ export default function ChatPage() {
 
     if (!message.trim() && attachments.length === 0) return;
 
+    // Ensure customerInfo is available
+    if (!customerInfo.name || !customerInfo.phone) {
+      toast({
+        title: "خطا",
+        description: "لطفاً ابتدا اطلاعات خود را وارد کنید",
+        variant: "destructive",
+      });
+      setStep("info");
+      return;
+    }
+
     // If editing, update the message
     if (editingMessage) {
       try {
