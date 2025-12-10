@@ -1,0 +1,3 @@
+module.exports=[24361,(o,e,s)=>{e.exports=o.x("util",()=>require("util"))},40911,o=>{"use strict";let e=new class{isDevelopment=!1;isProduction=!0;shouldLog(o){return"error"===o||"warn"===o||this.isDevelopment}log(...o){this.shouldLog("log")&&console.log(...o)}error(...o){console.error(...o)}warn(...o){console.warn(...o)}info(...o){this.shouldLog("info")&&console.info(...o)}debug(...o){this.shouldLog("debug")&&console.debug(...o)}dbQuery(o,e){this.isDevelopment&&console.log("[DB Query]",o.substring(0,100),e?`[${e.length} params]`:"")}apiRequest(o,e,s){this.isDevelopment&&console.log(`[API] ${o} ${e}${s?` ${s}`:""}`)}};o.s(["logger",0,e])},54799,(o,e,s)=>{e.exports=o.x("crypto",()=>require("crypto"))}];
+
+//# sourceMappingURL=%5Broot-of-the-server%5D__53b25ef0._.js.map
