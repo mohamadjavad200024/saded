@@ -125,8 +125,14 @@ html {
 
 /* Add padding-bottom to main content on mobile to account for fixed bottom navigation */
 @media (max-width: 768px) {
-  body > div:first-child {
+  /* Ensure body has proper padding for fixed bottom nav */
+  body {
     padding-bottom: calc(5.5rem + max(0.5rem, env(safe-area-inset-bottom, 0px)));
+  }
+  
+  /* Also add padding to main container */
+  main {
+    padding-bottom: calc(1rem + max(0.5rem, env(safe-area-inset-bottom, 0px)));
   }
 }
 
