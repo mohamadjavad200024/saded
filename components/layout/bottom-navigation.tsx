@@ -111,10 +111,14 @@ export function BottomNavigation() {
 
   return (
     <>
-      {/* Bottom Navigation Bar - Fixed/Floating */}
+      {/* Bottom Navigation Bar - Fixed/Floating - Always at bottom of viewport */}
       <div 
         className="fixed bottom-0 left-0 right-0 z-[9999] flex justify-center items-end md:hidden pointer-events-none"
         style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
           paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))",
           paddingLeft: "1rem",
           paddingRight: "1rem",
