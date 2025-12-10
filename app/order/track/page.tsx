@@ -391,7 +391,7 @@ function TrackOrderContent() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {order.items.map((item: any) => {
+                  {Array.isArray(order.items) ? order.items.map((item: any) => {
                     // Get image from item first, then from product store
                     const product = getProduct(item.productId || item.id);
                     let imageUrl = item.image && item.image.trim() !== "" ? item.image : "";
@@ -431,7 +431,12 @@ function TrackOrderContent() {
                         </div>
                       </div>
                     );
-                  })}
+                  }) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>محصولات سفارش در دسترس نیست</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
