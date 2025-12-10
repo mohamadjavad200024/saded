@@ -80,13 +80,20 @@ export async function POST(request: NextRequest) {
       error?.message?.includes("not available") ||
       error?.code === "DATABASE_NOT_AVAILABLE" ||
       error?.code === "ECONNREFUSED" ||
-      error?.message?.includes("connect")
+      error?.code === "ETIMEDOUT" ||
+      error?.code === "ECONNRESET" ||
+      error?.message?.includes("connect") ||
+      error?.message?.includes("timeout")
     ) {
       return createErrorResponse(
         new AppError("دیتابیس در دسترس نیست", 503, "DATABASE_NOT_AVAILABLE")
       );
     }
 
-    return createErrorResponse(error);
+    // Handle other errors with proper message
+    const errorMessage = error?.message || "خطا در ورود";
+    return createErrorResponse(
+      new AppError(errorMessage, 500, "LOGIN_ERROR")
+    );
   }
 }
