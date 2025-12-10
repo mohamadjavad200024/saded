@@ -123,6 +123,13 @@ html {
   overflow-x: hidden;
 }
 
+/* Add padding-bottom to main content on mobile to account for fixed bottom navigation */
+@media (max-width: 768px) {
+  body > div:first-child {
+    padding-bottom: calc(5rem + max(0.5rem, env(safe-area-inset-bottom, 0px)));
+  }
+}
+
 /* Safe area insets for mobile devices */
 @supports (padding: max(0px)) {
   :root {
