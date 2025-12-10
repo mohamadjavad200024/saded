@@ -39,7 +39,7 @@ app.prepare().then(() => {
       res.statusCode = 500;
       res.end('internal server error');
     }
-  }).listen(port, hostname, (err) => {
+  }).listen(port, '0.0.0.0', (err) => {
     if (err) {
       console.error('Failed to start server:', err);
       process.exit(1);

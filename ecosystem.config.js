@@ -13,20 +13,21 @@ module.exports = {
   apps: [
     {
       name: 'saded',
-      script: 'index.js',
-      cwd: '/home/shop1111/repositories/saded',
+      script: 'server.js',
+      cwd: '/home/shop1111/public_html/saded',
       instances: 1,
       exec_mode: 'fork',
       env: {
         NODE_ENV: 'production',
         PORT: 3001,
+        HOSTNAME: '0.0.0.0',
         NODE_OPTIONS: '--max-old-space-size=4096',
         DB_HOST: 'localhost',
-        DB_PORT: '5432',
-        DB_NAME: 'saded',
+        DB_PORT: '3306',
+        DB_NAME: 'shop1111_saded',
         DB_USER: 'shop1111_saded_user',
         DB_PASSWORD: 'goul77191336',
-        DB_SSL: 'true'
+        DB_SSL: 'false'
       },
       error_file: './logs/pm2-error.log',
       out_file: './logs/pm2-out.log',
