@@ -16,12 +16,12 @@ const nextConfig = {
         hostname: 'placehold.co',
       },
     ],
-    unoptimized: true, // Disable image optimization to avoid WebAssembly
+    unoptimized: false,
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
-    // Disable image optimization formats to avoid WebAssembly
-    formats: [], // Empty array to disable format optimization
+    // Enable image optimization and lazy loading
+    formats: ['image/avif', 'image/webp'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
     minimumCacheTTL: 60,
@@ -41,18 +41,6 @@ const nextConfig = {
   turbopack: {},
   // Webpack configuration
   webpack: (config, { isServer, webpack }) => {
-    // Disable WebAssembly to avoid memory issues
-    config.experiments = {
-      ...config.experiments,
-      asyncWebAssembly: false,
-      layers: false,
-      topLevelAwait: false,
-    };
-    // Disable WebAssembly modules
-    config.resolve.fallback = {
-      ...config.resolve.fallback,
-      wasm: false,
-    };
     return config;
   },
 };

@@ -1,7 +1,7 @@
 /**
- * Production Database Setup Script (MySQL)
+ * Production Database Setup Script
  * 
- * این اسکریپت برای راه‌اندازی دیتابیس MySQL در محیط production استفاده می‌شود
+ * این اسکریپت برای راه‌اندازی دیتابیس در محیط production استفاده می‌شود
  * 
  * استفاده:
  * 1. مطمئن شوید که فایل .env.production با اطلاعات دیتابیس تنظیم شده است
@@ -21,14 +21,14 @@ try {
   console.log('Note: dotenv not found, using environment variables directly');
 }
 
-const mysql = require('mysql2/promise');
+const { Pool } = require('pg');
 
 // Database configuration from environment variables
 const DB_CONFIG = {
   host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '3306'),
+  port: parseInt(process.env.DB_PORT || '5432'),
   database: process.env.DB_NAME || 'saded',
-  user: process.env.DB_USER || 'root',
+  user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || '',
 };
 
@@ -39,7 +39,7 @@ if (!DB_CONFIG.password) {
   process.exit(1);
 }
 
-console.log('🚀 Production Database Setup Script (MySQL)\n');
+console.log('🚀 Production Database Setup Script\n');
 console.log('='.repeat(60));
 console.log(`📊 Database: ${DB_CONFIG.database}`);
 console.log(`🔗 Host: ${DB_CONFIG.host}:${DB_CONFIG.port}`);
@@ -47,11 +47,12 @@ console.log(`👤 User: ${DB_CONFIG.user}`);
 console.log('='.repeat(60));
 
 // Create connection pool
-const pool = mysql.createPool({
-  ...DB_CONFIG,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
+const pool = new Pool(DB_CONFIG);
+
+// Handle pool errors
+pool.on('error', (err) => {
+  console.error('❌ Unexpected error on idle PostgreSQL client', err);
+  process.exit(1);
 });
 
 /**
@@ -65,24 +66,24 @@ async function initializeTables() {
       name VARCHAR(255) NOT NULL,
       description TEXT NOT NULL,
       price BIGINT NOT NULL,
-      originalPrice BIGINT,
+      "originalPrice" BIGINT,
       brand VARCHAR(255) NOT NULL,
       category VARCHAR(255) NOT NULL,
       vin VARCHAR(255),
-      vinEnabled BOOLEAN DEFAULT FALSE,
-      airShippingEnabled BOOLEAN DEFAULT TRUE,
-      seaShippingEnabled BOOLEAN DEFAULT TRUE,
-      airShippingCost BIGINT,
-      seaShippingCost BIGINT,
-      stockCount INTEGER DEFAULT 0,
-      inStock BOOLEAN DEFAULT TRUE,
+      "vinEnabled" BOOLEAN DEFAULT FALSE,
+      "airShippingEnabled" BOOLEAN DEFAULT TRUE,
+      "seaShippingEnabled" BOOLEAN DEFAULT TRUE,
+      "airShippingCost" BIGINT,
+      "seaShippingCost" BIGINT,
+      "stockCount" INTEGER DEFAULT 0,
+      "inStock" BOOLEAN DEFAULT TRUE,
       enabled BOOLEAN DEFAULT TRUE,
-      images JSON NOT NULL DEFAULT '[]',
-      tags JSON DEFAULT '[]',
-      specifications JSON DEFAULT '{}',
-      createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      images JSONB NOT NULL DEFAULT '[]'::jsonb,
+      tags JSONB DEFAULT '[]'::jsonb,
+      specifications JSONB DEFAULT '{}'::jsonb,
+      "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+      "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW()
+    );
 
     -- Categories table
     CREATE TABLE IF NOT EXISTS categories (
@@ -93,30 +94,30 @@ async function initializeTables() {
       image VARCHAR(255),
       icon VARCHAR(255),
       enabled BOOLEAN DEFAULT TRUE,
-      isActive BOOLEAN DEFAULT TRUE,
-      createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      "isActive" BOOLEAN DEFAULT TRUE,
+      "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+      "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW()
+    );
 
     -- Orders table
     CREATE TABLE IF NOT EXISTS orders (
       id VARCHAR(255) PRIMARY KEY,
-      orderNumber VARCHAR(255) UNIQUE NOT NULL,
-      userId VARCHAR(255),
-      customerName VARCHAR(255) NOT NULL,
-      customerPhone VARCHAR(255) NOT NULL,
-      customerEmail VARCHAR(255),
-      items JSON NOT NULL DEFAULT '[]',
+      "orderNumber" VARCHAR(255) UNIQUE NOT NULL,
+      "userId" VARCHAR(255),
+      "customerName" VARCHAR(255) NOT NULL,
+      "customerPhone" VARCHAR(255) NOT NULL,
+      "customerEmail" VARCHAR(255),
+      items JSONB NOT NULL DEFAULT '[]'::jsonb,
       total BIGINT NOT NULL,
-      shippingCost BIGINT NOT NULL,
-      shippingMethod VARCHAR(50) NOT NULL,
-      shippingAddress JSON NOT NULL DEFAULT '{}',
+      "shippingCost" BIGINT NOT NULL,
+      "shippingMethod" VARCHAR(50) NOT NULL,
+      "shippingAddress" JSONB NOT NULL DEFAULT '{}'::jsonb,
       status VARCHAR(50) NOT NULL DEFAULT 'pending',
-      paymentStatus VARCHAR(50) NOT NULL DEFAULT 'pending',
+      "paymentStatus" VARCHAR(50) NOT NULL DEFAULT 'pending',
       notes TEXT,
-      createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+      "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW()
+    );
 
     -- Users table
     CREATE TABLE IF NOT EXISTS users (
@@ -128,79 +129,68 @@ async function initializeTables() {
       phone VARCHAR(255),
       address TEXT,
       enabled BOOLEAN DEFAULT TRUE,
-      createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+      "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW()
+    );
 
     -- Carts table
     CREATE TABLE IF NOT EXISTS carts (
       id VARCHAR(255) PRIMARY KEY,
-      sessionId VARCHAR(255) NOT NULL UNIQUE,
-      userId VARCHAR(255),
-      items JSON NOT NULL DEFAULT '[]',
-      shippingMethod VARCHAR(50),
-      createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      "sessionId" VARCHAR(255) NOT NULL,
+      "userId" VARCHAR(255),
+      items JSONB NOT NULL DEFAULT '[]'::jsonb,
+      "shippingMethod" VARCHAR(50),
+      "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+      "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+      UNIQUE("sessionId")
+    );
 
     -- Quick Buy Chats table
     CREATE TABLE IF NOT EXISTS quick_buy_chats (
       id VARCHAR(255) PRIMARY KEY,
-      customerName VARCHAR(255) NOT NULL,
-      customerPhone VARCHAR(255) NOT NULL,
-      customerEmail VARCHAR(255),
+      "customerName" VARCHAR(255) NOT NULL,
+      "customerPhone" VARCHAR(255) NOT NULL,
+      "customerEmail" VARCHAR(255),
       status VARCHAR(50) NOT NULL DEFAULT 'active',
-      createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+      "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW()
+    );
 
     -- Chat Messages table
     CREATE TABLE IF NOT EXISTS chat_messages (
       id VARCHAR(255) PRIMARY KEY,
-      chatId VARCHAR(255) NOT NULL,
+      "chatId" VARCHAR(255) NOT NULL REFERENCES quick_buy_chats(id) ON DELETE CASCADE,
       text TEXT,
       sender VARCHAR(50) NOT NULL,
-      attachments JSON DEFAULT '[]',
-      status VARCHAR(50) DEFAULT 'sent',
-      createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (chatId) REFERENCES quick_buy_chats(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      attachments JSONB DEFAULT '[]'::jsonb,
+      "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+      FOREIGN KEY ("chatId") REFERENCES quick_buy_chats(id) ON DELETE CASCADE
+    );
 
     -- Chat Attachments table
     CREATE TABLE IF NOT EXISTS chat_attachments (
       id VARCHAR(255) PRIMARY KEY,
-      messageId VARCHAR(255) NOT NULL,
+      "messageId" VARCHAR(255) NOT NULL REFERENCES chat_messages(id) ON DELETE CASCADE,
       type VARCHAR(50) NOT NULL,
-      filePath VARCHAR(500),
-      fileName VARCHAR(255),
-      fileSize BIGINT,
-      fileUrl VARCHAR(500),
-      createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (messageId) REFERENCES chat_messages(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      "filePath" VARCHAR(500),
+      "fileName" VARCHAR(255),
+      "fileSize" BIGINT,
+      "fileUrl" VARCHAR(500),
+      "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+      FOREIGN KEY ("messageId") REFERENCES chat_messages(id) ON DELETE CASCADE
+    );
 
     -- Admin Presence table
     CREATE TABLE IF NOT EXISTS admin_presence (
-      adminId VARCHAR(255) PRIMARY KEY,
-      isOnline BOOLEAN DEFAULT FALSE,
-      lastSeen TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      "adminId" VARCHAR(255) PRIMARY KEY,
+      "isOnline" BOOLEAN DEFAULT FALSE,
+      "lastSeen" TIMESTAMP NOT NULL DEFAULT NOW(),
+      "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW()
+    );
   `;
 
   try {
-    // MySQL doesn't support multiple statements in one query by default
-    // Split by semicolon and execute each statement
-    const statements = createTables
-      .split(';')
-      .map(s => s.trim())
-      .filter(s => s.length > 0 && !s.startsWith('--'));
-
-    for (const statement of statements) {
-      if (statement.trim()) {
-        await pool.execute(statement);
-      }
-    }
+    await pool.query(createTables);
     console.log('✅ جداول دیتابیس ایجاد شدند');
   } catch (error) {
     console.error('❌ خطا در ایجاد جداول:', error.message);
@@ -219,58 +209,43 @@ async function createIndexes() {
     CREATE INDEX IF NOT EXISTS idx_products_brand ON products(brand);
     CREATE INDEX IF NOT EXISTS idx_products_enabled_category ON products(enabled, category);
     CREATE INDEX IF NOT EXISTS idx_products_enabled_price ON products(enabled, price);
-    CREATE INDEX IF NOT EXISTS idx_products_vin_enabled ON products(vin, vinEnabled);
-    CREATE INDEX IF NOT EXISTS idx_products_enabled_inStock ON products(enabled, inStock);
+    CREATE INDEX IF NOT EXISTS idx_products_vin_enabled ON products(vin, "vinEnabled") WHERE "vinEnabled" = TRUE;
+    CREATE INDEX IF NOT EXISTS idx_products_enabled_inStock ON products(enabled, "inStock");
     
     -- Orders indexes
-    CREATE INDEX IF NOT EXISTS idx_orders_userId ON orders(userId);
+    CREATE INDEX IF NOT EXISTS idx_orders_userId ON orders("userId");
     CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
-    CREATE INDEX IF NOT EXISTS idx_orders_paymentStatus ON orders(paymentStatus);
-    CREATE INDEX IF NOT EXISTS idx_orders_status_paymentStatus ON orders(status, paymentStatus);
-    CREATE INDEX IF NOT EXISTS idx_orders_createdAt ON orders(createdAt DESC);
+    CREATE INDEX IF NOT EXISTS idx_orders_paymentStatus ON orders("paymentStatus");
+    CREATE INDEX IF NOT EXISTS idx_orders_status_paymentStatus ON orders(status, "paymentStatus");
+    CREATE INDEX IF NOT EXISTS idx_orders_createdAt ON orders("createdAt" DESC);
     
     -- Categories indexes
     CREATE INDEX IF NOT EXISTS idx_categories_enabled ON categories(enabled);
-    CREATE INDEX IF NOT EXISTS idx_categories_enabled_active ON categories(enabled, isActive);
+    CREATE INDEX IF NOT EXISTS idx_categories_enabled_active ON categories(enabled, "isActive");
     
     -- Carts indexes
-    CREATE INDEX IF NOT EXISTS idx_carts_sessionId ON carts(sessionId);
-    CREATE INDEX IF NOT EXISTS idx_carts_userId ON carts(userId);
+    CREATE INDEX IF NOT EXISTS idx_carts_sessionId ON carts("sessionId");
+    CREATE INDEX IF NOT EXISTS idx_carts_userId ON carts("userId");
     
     -- Chat indexes
-    CREATE INDEX IF NOT EXISTS idx_chat_messages_chatId ON chat_messages(chatId);
-    CREATE INDEX IF NOT EXISTS idx_chat_messages_createdAt ON chat_messages(createdAt);
-    CREATE INDEX IF NOT EXISTS idx_chat_messages_chatId_createdAt ON chat_messages(chatId, createdAt DESC);
-    CREATE INDEX IF NOT EXISTS idx_chat_attachments_messageId ON chat_attachments(messageId);
+    CREATE INDEX IF NOT EXISTS idx_chat_messages_chatId ON chat_messages("chatId");
+    CREATE INDEX IF NOT EXISTS idx_chat_messages_createdAt ON chat_messages("createdAt");
+    CREATE INDEX IF NOT EXISTS idx_chat_messages_chatId_createdAt ON chat_messages("chatId", "createdAt" DESC);
+    CREATE INDEX IF NOT EXISTS idx_chat_attachments_messageId ON chat_attachments("messageId");
     CREATE INDEX IF NOT EXISTS idx_quick_buy_chats_status ON quick_buy_chats(status);
-    CREATE INDEX IF NOT EXISTS idx_quick_buy_chats_createdAt ON quick_buy_chats(createdAt DESC);
-    CREATE INDEX IF NOT EXISTS idx_quick_buy_chats_customerPhone ON quick_buy_chats(customerPhone);
+    CREATE INDEX IF NOT EXISTS idx_quick_buy_chats_createdAt ON quick_buy_chats("createdAt" DESC);
+    CREATE INDEX IF NOT EXISTS idx_quick_buy_chats_customerPhone ON quick_buy_chats("customerPhone");
     
     -- Admin presence index
-    CREATE INDEX IF NOT EXISTS idx_admin_presence_isOnline ON admin_presence(isOnline);
+    CREATE INDEX IF NOT EXISTS idx_admin_presence_isOnline ON admin_presence("isOnline");
   `;
 
   try {
-    const indexStatements = indexes
-      .split(';')
-      .map(s => s.trim())
-      .filter(s => s.length > 0 && !s.startsWith('--'));
-
-    for (const statement of indexStatements) {
-      if (statement.trim()) {
-        try {
-          await pool.execute(statement);
-        } catch (indexError) {
-          // Ignore "Duplicate key name" errors
-          if (!indexError.message.includes("Duplicate key name")) {
-            console.warn('⚠️  هشدار در ایجاد index:', statement.substring(0, 50), indexError.message);
-          }
-        }
-      }
-    }
+    await pool.query(indexes);
     console.log('✅ Index ها ایجاد شدند');
   } catch (error) {
-    console.warn('⚠️  هشدار در ایجاد Index ها:', error.message);
+    console.error('❌ خطا در ایجاد Index ها:', error.message);
+    throw error;
   }
 }
 
@@ -278,30 +253,17 @@ async function createIndexes() {
  * Add missing columns to existing tables
  */
 async function addMissingColumns() {
-  // MySQL doesn't support IF NOT EXISTS in ALTER TABLE
-  // We'll check if columns exist first
+  const addColumns = `
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS "airShippingCost" BIGINT;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS "seaShippingCost" BIGINT;
+  `;
+
   try {
-    const [columns] = await pool.execute(`
-      SELECT COLUMN_NAME 
-      FROM INFORMATION_SCHEMA.COLUMNS 
-      WHERE TABLE_SCHEMA = ? 
-        AND TABLE_NAME = 'products' 
-        AND COLUMN_NAME IN ('airShippingCost', 'seaShippingCost')
-    `, [DB_CONFIG.database]);
-
-    const existingColumns = columns.map((col: any) => col.COLUMN_NAME);
-
-    if (!existingColumns.includes('airShippingCost')) {
-      await pool.execute('ALTER TABLE products ADD COLUMN airShippingCost BIGINT');
-    }
-    if (!existingColumns.includes('seaShippingCost')) {
-      await pool.execute('ALTER TABLE products ADD COLUMN seaShippingCost BIGINT');
-    }
-
+    await pool.query(addColumns);
     console.log('✅ ستون‌های اضافی بررسی شدند');
   } catch (error) {
     // Ignore if table doesn't exist yet
-    if (!error.message.includes("doesn't exist") && !error.message.includes("does not exist")) {
+    if (!error.message.includes('does not exist')) {
       console.warn('⚠️  هشدار در بررسی ستون‌ها:', error.message);
     }
   }
@@ -312,10 +274,10 @@ async function addMissingColumns() {
  */
 async function testConnection() {
   try {
-    const [rows] = await pool.execute('SELECT NOW() as now');
+    const result = await pool.query('SELECT NOW()');
     console.log('✅ اتصال به دیتابیس موفق بود');
     return true;
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ خطا در اتصال به دیتابیس:', error.message);
     return false;
   }
@@ -358,3 +320,4 @@ async function main() {
 
 // Run main function
 main();
+

@@ -18,7 +18,7 @@ function question(query) {
 async function main() {
   const envPath = path.join(__dirname, '..', '.env');
   
-  console.log('🔐 Enter your MySQL password:');
+  console.log('🔐 Enter your PostgreSQL password:');
   const password = await question('Password: ');
   
   // Read existing .env

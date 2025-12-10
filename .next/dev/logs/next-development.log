@@ -1,23 +1,601 @@
-[00:00:14.875] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:00:14.876] Browser LOG     [Notification Center] Total notifications: 0, Persistent: 0, Open chat: none
-[00:00:14.876] Browser LOG     [Notification Center] Total notifications: 0, Persistent: 0, Open chat: none
-[00:00:14.876] Browser DEBUG   Global polling: Starting polling for chatId: chat-1764758358653-fpsoki805
-[00:00:14.876] Browser DEBUG   [Admin Polling] Starting initial poll...
-[00:00:14.876] Browser LOG     [Notification Center] Total notifications: 0, Persistent: 0, Open chat: none
-[00:00:14.876] Browser LOG     [Notification Center] Total notifications: 0, Persistent: 0, Open chat: none
-[00:00:14.876] Browser DEBUG   Global polling: Starting polling for chatId: chat-1764758358653-fpsoki805
-[00:00:14.876] Browser DEBUG   [Admin Polling] Starting initial poll...
-[00:00:26.233] Browser ERROR   Failed to load orders: 500
-[00:00:26.233] Browser ERROR   Failed to check admin status: connect ETIMEDOUT {"adminId":"admin-1","status":500}
-[00:00:26.233] Browser ERROR   Error fetching categories: {}
-[00:00:26.233] Browser LOG     Fetched products: 0
-[00:00:36.232] Browser DEBUG   Cart loaded from database: {"itemCount":0,"sessionId":"session-1764760653569-pr4tee8n4"}
-[00:01:02.228] Browser ERROR   Failed to fetch chat messages: 500
-[00:01:38.225] Browser ERROR   Failed to fetch chat messages: 500
-[00:02:38.240] Browser ERROR   Failed to fetch chat messages: 500
-[00:03:36.235] Browser ERROR   Failed to fetch chat messages: 500
-[00:09:52.229] Browser ERROR   Failed to fetch chat messages: 500
-[00:10:02.239] Browser ERROR   Failed to fetch chat messages: 500
-[00:10:38.226] Browser ERROR   Failed to fetch chat messages: 500
-[00:11:38.236] Browser ERROR   Failed to fetch chat messages: 500
-[00:12:38.237] Browser ERROR   Failed to fetch chat messages: 500
+[00:00:14.250] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:15.465] Browser ERROR   Each child in a list should have a unique "key" prop.%s%s See https://react.dev/link/warning-keys for more information. 
+
+Check the render method of `BottomNavigation`. 
+[00:00:15.466] Browser LOG     [Notification Center] Total notifications: 0, Persistent: 0, Open chat: none
+[00:00:15.466] Browser LOG     [Notification Center] Total notifications: 0, Persistent: 0, Open chat: none
+[00:00:15.466] Browser DEBUG   Global polling: Starting polling for chatId: chat-1764758358653-fpsoki805
+[00:00:15.466] Browser DEBUG   [Admin Polling] Starting initial poll...
+[00:00:15.466] Browser LOG     [Notification Center] Total notifications: 0, Persistent: 0, Open chat: none
+[00:00:15.466] Browser LOG     [Notification Center] Total notifications: 0, Persistent: 0, Open chat: none
+[00:00:15.466] Browser DEBUG   Global polling: Starting polling for chatId: chat-1764758358653-fpsoki805
+[00:00:15.466] Browser DEBUG   [Admin Polling] Starting initial poll...
+[00:00:28.116] Browser LOG     Fetched products: 0
+[00:00:48.110] Browser ERROR   Error fetching categories: {}
+[00:01:09.120] Browser ERROR   Failed to check admin status: connect ETIMEDOUT {"adminId":"admin-1","status":500}
+[00:01:19.115] Browser DEBUG   Cart loaded from database: {"itemCount":0,"sessionId":"session-1764760653569-pr4tee8n4"}
+[00:02:09.107] Browser DEBUG   Cart loaded from database: {"itemCount":0,"sessionId":"session-1764760653569-pr4tee8n4"}
+[00:02:09.107] Browser DEBUG   Cart loaded from database: {"itemCount":0,"sessionId":"session-1764760653569-pr4tee8n4"}
+[00:02:36.106] Browser ERROR   Failed to fetch chat messages: 500
+[00:03:36.118] Browser ERROR   Failed to fetch chat messages: 500
+[00:03:47.162] Browser LOG     [Notification Center] Total notifications: 0, Persistent: 0, Open chat: none
+[00:03:47.162] Browser LOG     [Notification Center] Total notifications: 0, Persistent: 0, Open chat: none
+[00:03:47.162] Browser DEBUG   Global polling: Starting polling for chatId: chat-1764758358653-fpsoki805
+[00:03:47.162] Browser DEBUG   [Admin Polling] Starting initial poll...
+[00:03:47.162] Browser LOG     [Notification Center] Total notifications: 0, Persistent: 0, Open chat: none
+[00:03:47.162] Browser LOG     [Notification Center] Total notifications: 0, Persistent: 0, Open chat: none
+[00:03:59.733] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:04:02.116] Browser ERROR   [ErrorBoundary] useOrderStore is not defined {}
+[00:04:02.116] Browser ERROR   [ErrorBoundary - ErrorInfo] خطای نامشخص رخ داد {}
+[00:27:37.122] Browser ERROR   ./components/home/category-grid.tsx:249:1
+Parsing ecmascript source code failed
+  247 |   );
+  248 | }
+> 249 | }
+      | ^
+  250 |
+  251 |
+
+Expression expected
+
+Import trace:
+  Server Component:
+    ./components/home/category-grid.tsx
+    ./app/page.tsx
+[00:27:46.115] Browser ERROR   ./components/home/category-grid.tsx:249:1
+Parsing ecmascript source code failed
+  247 |   );
+  248 | }
+> 249 | }
+      | ^
+  250 |
+  251 |
+
+Expression expected
+
+Import trace:
+  Server Component:
+    ./components/home/category-grid.tsx
+    ./app/page.tsx
+[00:27:58.107] Browser ERROR   ./components/home/category-grid.tsx:249:1
+Parsing ecmascript source code failed
+  247 |   );
+  248 | }
+> 249 | }
+      | ^
+  250 |
+  251 |
+
+Expression expected
+
+Import trace:
+  Server Component:
+    ./components/home/category-grid.tsx
+    ./app/page.tsx
+[00:27:58.107] Browser ERROR   ./components/home/hero-section.tsx:11:1
+Export MinimalCategoryGrid doesn't exist in target module
+   9 | import { VinSearch } from "@/components/product/vin-search";
+  10 | import { ProductSearch } from "@/components/product/product-search";
+> 11 | import { MinimalCategoryGrid } from "@/components/home/category-grid";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  12 |
+  13 | export function HeroSection() {
+  14 |   const [searchQuery, setSearchQuery] = useState("");
+
+The export MinimalCategoryGrid was not found in module [project]/components/home/category-grid.tsx [app-client] (ecmascript).
+Did you mean to import CategoryGrid?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import trace:
+  Server Component:
+    ./components/home/hero-section.tsx
+    ./app/page.tsx
+[00:27:58.107] Browser ERROR   ./components/home/hero-section.tsx:11:1
+Export MinimalCategoryGrid doesn't exist in target module
+   9 | import { VinSearch } from "@/components/product/vin-search";
+  10 | import { ProductSearch } from "@/components/product/product-search";
+> 11 | import { MinimalCategoryGrid } from "@/components/home/category-grid";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  12 |
+  13 | export function HeroSection() {
+  14 |   const [searchQuery, setSearchQuery] = useState("");
+
+The export MinimalCategoryGrid was not found in module [project]/components/home/category-grid.tsx [app-ssr] (ecmascript).
+Did you mean to import CategoryGrid?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import trace:
+  Server Component:
+    ./components/home/hero-section.tsx
+    ./app/page.tsx
+[00:28:01.106] Browser ERROR   ./components/home/category-grid.tsx:249:1
+Parsing ecmascript source code failed
+  247 |   );
+  248 | }
+> 249 | }
+      | ^
+  250 |
+  251 |
+
+Expression expected
+
+Import trace:
+  Server Component:
+    ./components/home/category-grid.tsx
+    ./app/page.tsx
+[00:28:01.107] Browser ERROR   ./components/home/hero-section.tsx:11:1
+Export MinimalCategoryGrid doesn't exist in target module
+   9 | import { VinSearch } from "@/components/product/vin-search";
+  10 | import { ProductSearch } from "@/components/product/product-search";
+> 11 | import { MinimalCategoryGrid } from "@/components/home/category-grid";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  12 |
+  13 | export function HeroSection() {
+  14 |   const [searchQuery, setSearchQuery] = useState("");
+
+The export MinimalCategoryGrid was not found in module [project]/components/home/category-grid.tsx [app-client] (ecmascript).
+Did you mean to import CategoryGrid?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import trace:
+  Server Component:
+    ./components/home/hero-section.tsx
+    ./app/page.tsx
+[00:28:01.107] Browser ERROR   ./components/home/hero-section.tsx:11:1
+Export MinimalCategoryGrid doesn't exist in target module
+   9 | import { VinSearch } from "@/components/product/vin-search";
+  10 | import { ProductSearch } from "@/components/product/product-search";
+> 11 | import { MinimalCategoryGrid } from "@/components/home/category-grid";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  12 |
+  13 | export function HeroSection() {
+  14 |   const [searchQuery, setSearchQuery] = useState("");
+
+The export MinimalCategoryGrid was not found in module [project]/components/home/category-grid.tsx [app-ssr] (ecmascript).
+Did you mean to import CategoryGrid?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import trace:
+  Server Component:
+    ./components/home/hero-section.tsx
+    ./app/page.tsx
+[00:28:10.119] Browser ERROR   ./components/home/category-grid.tsx:249:1
+Parsing ecmascript source code failed
+  247 |   );
+  248 | }
+> 249 | }
+      | ^
+  250 |
+  251 |
+
+Expression expected
+
+Import trace:
+  Server Component:
+    ./components/home/category-grid.tsx
+    ./app/page.tsx
+[00:28:10.119] Browser ERROR   ./components/home/hero-section.tsx:10:1
+Export MinimalCategoryGrid doesn't exist in target module
+   8 | import Link from "next/link";
+   9 | import { ProductSearch } from "@/components/product/product-search";
+> 10 | import { MinimalCategoryGrid } from "@/components/home/category-grid";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  11 |
+  12 | export function HeroSection() {
+  13 |   const [searchQuery, setSearchQuery] = useState("");
+
+The export MinimalCategoryGrid was not found in module [project]/components/home/category-grid.tsx [app-client] (ecmascript).
+Did you mean to import CategoryGrid?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import trace:
+  Server Component:
+    ./components/home/hero-section.tsx
+    ./app/page.tsx
+[00:28:10.119] Browser ERROR   ./components/home/hero-section.tsx:10:1
+Export MinimalCategoryGrid doesn't exist in target module
+   8 | import Link from "next/link";
+   9 | import { ProductSearch } from "@/components/product/product-search";
+> 10 | import { MinimalCategoryGrid } from "@/components/home/category-grid";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  11 |
+  12 | export function HeroSection() {
+  13 |   const [searchQuery, setSearchQuery] = useState("");
+
+The export MinimalCategoryGrid was not found in module [project]/components/home/category-grid.tsx [app-ssr] (ecmascript).
+Did you mean to import CategoryGrid?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import trace:
+  Server Component:
+    ./components/home/hero-section.tsx
+    ./app/page.tsx
+[00:28:22.115] Browser ERROR   ./components/home/category-grid.tsx:249:1
+Parsing ecmascript source code failed
+  247 |   );
+  248 | }
+> 249 | }
+      | ^
+  250 |
+  251 |
+
+Expression expected
+
+Import trace:
+  Server Component:
+    ./components/home/category-grid.tsx
+    ./app/page.tsx
+[00:28:22.115] Browser ERROR   ./components/home/hero-section.tsx:10:1
+Export MinimalCategoryGrid doesn't exist in target module
+   8 | import Link from "next/link";
+   9 | import { ProductSearch } from "@/components/product/product-search";
+> 10 | import { MinimalCategoryGrid } from "@/components/home/category-grid";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  11 |
+  12 | export function HeroSection() {
+  13 |   const [searchQuery, setSearchQuery] = useState("");
+
+The export MinimalCategoryGrid was not found in module [project]/components/home/category-grid.tsx [app-client] (ecmascript).
+Did you mean to import CategoryGrid?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import trace:
+  Server Component:
+    ./components/home/hero-section.tsx
+    ./app/page.tsx
+[00:28:22.115] Browser ERROR   ./components/home/hero-section.tsx:10:1
+Export MinimalCategoryGrid doesn't exist in target module
+   8 | import Link from "next/link";
+   9 | import { ProductSearch } from "@/components/product/product-search";
+> 10 | import { MinimalCategoryGrid } from "@/components/home/category-grid";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  11 |
+  12 | export function HeroSection() {
+  13 |   const [searchQuery, setSearchQuery] = useState("");
+
+The export MinimalCategoryGrid was not found in module [project]/components/home/category-grid.tsx [app-ssr] (ecmascript).
+Did you mean to import CategoryGrid?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import trace:
+  Server Component:
+    ./components/home/hero-section.tsx
+    ./app/page.tsx
+[00:28:27.446] Browser ERROR   ./components/home/category-grid.tsx:249:1
+Parsing ecmascript source code failed
+  247 |   );
+  248 | }
+> 249 | }
+      | ^
+  250 |
+  251 |
+
+Expression expected
+
+Import trace:
+  Server Component:
+    ./components/home/category-grid.tsx
+    ./app/page.tsx
+[00:28:27.446] Browser ERROR   ./components/home/hero-section.tsx:10:1
+Export MinimalCategoryGrid doesn't exist in target module
+   8 | import Link from "next/link";
+   9 | import { ProductSearch } from "@/components/product/product-search";
+> 10 | import { MinimalCategoryGrid } from "@/components/home/category-grid";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  11 |
+  12 | export function HeroSection() {
+  13 |   const [searchQuery, setSearchQuery] = useState("");
+
+The export MinimalCategoryGrid was not found in module [project]/components/home/category-grid.tsx [app-client] (ecmascript).
+Did you mean to import CategoryGrid?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import trace:
+  Server Component:
+    ./components/home/hero-section.tsx
+    ./app/page.tsx
+[00:28:27.446] Browser ERROR   ./components/home/hero-section.tsx:10:1
+Export MinimalCategoryGrid doesn't exist in target module
+   8 | import Link from "next/link";
+   9 | import { ProductSearch } from "@/components/product/product-search";
+> 10 | import { MinimalCategoryGrid } from "@/components/home/category-grid";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  11 |
+  12 | export function HeroSection() {
+  13 |   const [searchQuery, setSearchQuery] = useState("");
+
+The export MinimalCategoryGrid was not found in module [project]/components/home/category-grid.tsx [app-ssr] (ecmascript).
+Did you mean to import CategoryGrid?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import trace:
+  Server Component:
+    ./components/home/hero-section.tsx
+    ./app/page.tsx
+[00:28:28.398] Browser ERROR   ./components/home/category-grid.tsx:249:1
+Parsing ecmascript source code failed
+  247 |   );
+  248 | }
+> 249 | }
+      | ^
+  250 |
+  251 |
+
+Expression expected
+
+Import trace:
+  Server Component:
+    ./components/home/category-grid.tsx
+    ./app/page.tsx
+[00:28:28.398] Browser ERROR   ./components/home/hero-section.tsx:10:1
+Export MinimalCategoryGrid doesn't exist in target module
+   8 | import Link from "next/link";
+   9 | import { ProductSearch } from "@/components/product/product-search";
+> 10 | import { MinimalCategoryGrid } from "@/components/home/category-grid";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  11 |
+  12 | export function HeroSection() {
+  13 |   const [searchQuery, setSearchQuery] = useState("");
+
+The export MinimalCategoryGrid was not found in module [project]/components/home/category-grid.tsx [app-client] (ecmascript).
+Did you mean to import CategoryGrid?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import trace:
+  Server Component:
+    ./components/home/hero-section.tsx
+    ./app/page.tsx
+[00:28:28.398] Browser ERROR   ./components/home/hero-section.tsx:10:1
+Export MinimalCategoryGrid doesn't exist in target module
+   8 | import Link from "next/link";
+   9 | import { ProductSearch } from "@/components/product/product-search";
+> 10 | import { MinimalCategoryGrid } from "@/components/home/category-grid";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  11 |
+  12 | export function HeroSection() {
+  13 |   const [searchQuery, setSearchQuery] = useState("");
+
+The export MinimalCategoryGrid was not found in module [project]/components/home/category-grid.tsx [app-ssr] (ecmascript).
+Did you mean to import CategoryGrid?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import trace:
+  Server Component:
+    ./components/home/hero-section.tsx
+    ./app/page.tsx
+[00:28:28.813] Browser ERROR   ./components/home/category-grid.tsx:249:1
+Parsing ecmascript source code failed
+  247 |   );
+  248 | }
+> 249 | }
+      | ^
+  250 |
+  251 |
+
+Expression expected
+
+Import trace:
+  Server Component:
+    ./components/home/category-grid.tsx
+    ./app/page.tsx
+[00:28:28.813] Browser ERROR   ./components/home/hero-section.tsx:10:1
+Export MinimalCategoryGrid doesn't exist in target module
+   8 | import Link from "next/link";
+   9 | import { ProductSearch } from "@/components/product/product-search";
+> 10 | import { MinimalCategoryGrid } from "@/components/home/category-grid";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  11 |
+  12 | export function HeroSection() {
+  13 |   const [searchQuery, setSearchQuery] = useState("");
+
+The export MinimalCategoryGrid was not found in module [project]/components/home/category-grid.tsx [app-client] (ecmascript).
+Did you mean to import CategoryGrid?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import trace:
+  Server Component:
+    ./components/home/hero-section.tsx
+    ./app/page.tsx
+[00:28:28.813] Browser ERROR   ./components/home/hero-section.tsx:10:1
+Export MinimalCategoryGrid doesn't exist in target module
+   8 | import Link from "next/link";
+   9 | import { ProductSearch } from "@/components/product/product-search";
+> 10 | import { MinimalCategoryGrid } from "@/components/home/category-grid";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  11 |
+  12 | export function HeroSection() {
+  13 |   const [searchQuery, setSearchQuery] = useState("");
+
+The export MinimalCategoryGrid was not found in module [project]/components/home/category-grid.tsx [app-ssr] (ecmascript).
+Did you mean to import CategoryGrid?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import trace:
+  Server Component:
+    ./components/home/hero-section.tsx
+    ./app/page.tsx
+[00:28:29.817] Browser ERROR   ./components/home/category-grid.tsx:249:1
+Parsing ecmascript source code failed
+  247 |   );
+  248 | }
+> 249 | }
+      | ^
+  250 |
+  251 |
+
+Expression expected
+
+Import trace:
+  Server Component:
+    ./components/home/category-grid.tsx
+    ./app/page.tsx
+[00:28:29.817] Browser ERROR   ./components/home/hero-section.tsx:10:1
+Export MinimalCategoryGrid doesn't exist in target module
+   8 | import Link from "next/link";
+   9 | import { ProductSearch } from "@/components/product/product-search";
+> 10 | import { MinimalCategoryGrid } from "@/components/home/category-grid";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  11 |
+  12 | export function HeroSection() {
+  13 |   const [searchQuery, setSearchQuery] = useState("");
+
+The export MinimalCategoryGrid was not found in module [project]/components/home/category-grid.tsx [app-client] (ecmascript).
+Did you mean to import CategoryGrid?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import trace:
+  Server Component:
+    ./components/home/hero-section.tsx
+    ./app/page.tsx
+[00:28:29.817] Browser ERROR   ./components/home/hero-section.tsx:10:1
+Export MinimalCategoryGrid doesn't exist in target module
+   8 | import Link from "next/link";
+   9 | import { ProductSearch } from "@/components/product/product-search";
+> 10 | import { MinimalCategoryGrid } from "@/components/home/category-grid";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  11 |
+  12 | export function HeroSection() {
+  13 |   const [searchQuery, setSearchQuery] = useState("");
+
+The export MinimalCategoryGrid was not found in module [project]/components/home/category-grid.tsx [app-ssr] (ecmascript).
+Did you mean to import CategoryGrid?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import trace:
+  Server Component:
+    ./components/home/hero-section.tsx
+    ./app/page.tsx
+[00:28:30.450] Browser ERROR   uncaughtError: Error: ./components/home/category-grid.tsx:249:1
+Parsing ecmascript source code failed
+  247 |   );
+  248 | }
+> 249 | }
+      | ^
+  250 |
+  251 |
+
+Expression expected
+
+Import trace:
+  Server Component:
+    ./components/home/category-grid.tsx
+    ./app/page.tsx
+
+
+[00:28:30.558] Browser ERROR   ./components/home/category-grid.tsx:249:1
+Parsing ecmascript source code failed
+  247 |   );
+  248 | }
+> 249 | }
+      | ^
+  250 |
+  251 |
+
+Expression expected
+
+Import trace:
+  Server Component:
+    ./components/home/category-grid.tsx
+    ./app/page.tsx
+[00:28:30.558] Browser ERROR   ./components/home/hero-section.tsx:10:1
+Export MinimalCategoryGrid doesn't exist in target module
+   8 | import Link from "next/link";
+   9 | import { ProductSearch } from "@/components/product/product-search";
+> 10 | import { MinimalCategoryGrid } from "@/components/home/category-grid";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  11 |
+  12 | export function HeroSection() {
+  13 |   const [searchQuery, setSearchQuery] = useState("");
+
+The export MinimalCategoryGrid was not found in module [project]/components/home/category-grid.tsx [app-client] (ecmascript).
+Did you mean to import CategoryGrid?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import trace:
+  Server Component:
+    ./components/home/hero-section.tsx
+    ./app/page.tsx
+[00:28:30.558] Browser ERROR   ./components/home/hero-section.tsx:10:1
+Export MinimalCategoryGrid doesn't exist in target module
+   8 | import Link from "next/link";
+   9 | import { ProductSearch } from "@/components/product/product-search";
+> 10 | import { MinimalCategoryGrid } from "@/components/home/category-grid";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  11 |
+  12 | export function HeroSection() {
+  13 |   const [searchQuery, setSearchQuery] = useState("");
+
+The export MinimalCategoryGrid was not found in module [project]/components/home/category-grid.tsx [app-ssr] (ecmascript).
+Did you mean to import CategoryGrid?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import trace:
+  Server Component:
+    ./components/home/hero-section.tsx
+    ./app/page.tsx
+[00:28:30.869] Browser ERROR   ./components/home/category-grid.tsx:249:1
+Parsing ecmascript source code failed
+  247 |   );
+  248 | }
+> 249 | }
+      | ^
+  250 |
+  251 |
+
+Expression expected
+
+Import trace:
+  Server Component:
+    ./components/home/category-grid.tsx
+    ./app/page.tsx
+[00:28:30.869] Browser ERROR   ./components/home/hero-section.tsx:10:1
+Export MinimalCategoryGrid doesn't exist in target module
+   8 | import Link from "next/link";
+   9 | import { ProductSearch } from "@/components/product/product-search";
+> 10 | import { MinimalCategoryGrid } from "@/components/home/category-grid";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  11 |
+  12 | export function HeroSection() {
+  13 |   const [searchQuery, setSearchQuery] = useState("");
+
+The export MinimalCategoryGrid was not found in module [project]/components/home/category-grid.tsx [app-client] (ecmascript).
+Did you mean to import CategoryGrid?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import trace:
+  Server Component:
+    ./components/home/hero-section.tsx
+    ./app/page.tsx
+[00:28:30.869] Browser ERROR   ./components/home/hero-section.tsx:10:1
+Export MinimalCategoryGrid doesn't exist in target module
+   8 | import Link from "next/link";
+   9 | import { ProductSearch } from "@/components/product/product-search";
+> 10 | import { MinimalCategoryGrid } from "@/components/home/category-grid";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  11 |
+  12 | export function HeroSection() {
+  13 |   const [searchQuery, setSearchQuery] = useState("");
+
+The export MinimalCategoryGrid was not found in module [project]/components/home/category-grid.tsx [app-ssr] (ecmascript).
+Did you mean to import CategoryGrid?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import trace:
+  Server Component:
+    ./components/home/hero-section.tsx
+    ./app/page.tsx
+[00:29:11.168] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:29:11.923] Browser ERROR   Each child in a list should have a unique "key" prop.%s%s See https://react.dev/link/warning-keys for more information. 
+
+Check the render method of `BottomNavigation`. 
+[00:29:11.923] Browser LOG     [Notification Center] Total notifications: 0, Persistent: 0, Open chat: none
+[00:29:11.923] Browser LOG     [Notification Center] Total notifications: 0, Persistent: 0, Open chat: none
+[00:29:11.923] Browser DEBUG   Global polling: Starting polling for chatId: chat-1764758358653-fpsoki805
+[00:29:11.924] Browser DEBUG   [Admin Polling] Starting initial poll...
+[00:29:11.924] Browser LOG     [Notification Center] Total notifications: 0, Persistent: 0, Open chat: none
+[00:29:11.924] Browser LOG     [Notification Center] Total notifications: 0, Persistent: 0, Open chat: none
+[00:29:11.924] Browser DEBUG   Global polling: Starting polling for chatId: chat-1764758358653-fpsoki805
+[00:29:11.924] Browser DEBUG   [Admin Polling] Starting initial poll...
+[00:29:21.896] Browser LOG     Fetched products: 0
+[00:29:42.204] Browser ERROR   Error fetching categories: {}
+[00:30:13.117] Browser DEBUG   Cart loaded from database: {"itemCount":0,"sessionId":"session-1764760653569-pr4tee8n4"}

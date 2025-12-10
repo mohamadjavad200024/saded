@@ -10,24 +10,24 @@
 
 require('dotenv').config({ path: process.env.NODE_ENV === 'production' ? '.env.production' : '.env.local' });
 
-const mysql = require('mysql2/promise');
+const { Pool } = require('pg');
 
 const DB_CONFIG = {
   host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '3306'),
+  port: parseInt(process.env.DB_PORT || '5432'),
   database: process.env.DB_NAME || 'saded',
-  user: process.env.DB_USER || 'root',
+  user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || '',
 };
 
 async function checkDatabase() {
-  const connection = await mysql.createConnection(DB_CONFIG);
+  const pool = new Pool(DB_CONFIG);
   try {
-    await connection.execute('SELECT NOW()');
-    await connection.end();
+    const result = await pool.query('SELECT NOW()');
+    await pool.end();
     return { status: 'ok', message: 'Database connection successful' };
-  } catch (error: any) {
-    await connection.end();
+  } catch (error) {
+    await pool.end();
     return { status: 'error', message: error.message };
   }
 }
