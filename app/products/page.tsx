@@ -25,45 +25,66 @@ export default function ProductsPage() {
     
     // Remove ALL stuck overlays (Radix UI Dialog/Sheet overlays) - more aggressive approach
     const removeStuckOverlays = () => {
-      // Find all overlay elements
-      const overlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-portal], [role="dialog"]');
-      overlays.forEach((overlay) => {
-        const element = overlay as HTMLElement;
-        const computedStyle = window.getComputedStyle(element);
-        
-        // Check if overlay is visible and blocking
-        if (
-          computedStyle.display !== 'none' && 
-          computedStyle.opacity !== '0' &&
-          computedStyle.visibility !== 'hidden' &&
-          (computedStyle.zIndex === '50' || computedStyle.zIndex === '40' || computedStyle.zIndex === '30')
-        ) {
-          // Check if it's a stuck overlay (has bg-black/80 or similar)
-          const bgColor = computedStyle.backgroundColor;
-          const isBlackOverlay = bgColor.includes('rgba(0, 0, 0') || bgColor.includes('rgb(0, 0, 0');
-          
-          if (isBlackOverlay) {
-            // Force remove stuck overlay
-            element.style.display = 'none';
-            element.style.opacity = '0';
-            element.style.visibility = 'hidden';
-            element.remove();
-          }
+      // Find all overlay elements - more comprehensive selector
+      const selectors = [
+        '[data-radix-dialog-overlay]',
+        '[data-radix-portal]',
+        '[role="dialog"]',
+        '.fixed[style*="z-index"]',
+        '[class*="fixed"][class*="z-50"]',
+        '[class*="fixed"][class*="z-40"]'
+      ];
+      
+      selectors.forEach(selector => {
+        try {
+          const overlays = document.querySelectorAll(selector);
+          overlays.forEach((overlay) => {
+            const element = overlay as HTMLElement;
+            if (!element) return;
+            
+            const computedStyle = window.getComputedStyle(element);
+            const bgColor = computedStyle.backgroundColor;
+            
+            // Check if it's a black overlay that's blocking
+            const isBlackOverlay = (
+              bgColor.includes('rgba(0, 0, 0') || 
+              bgColor.includes('rgb(0, 0, 0') ||
+              element.classList.contains('bg-black') ||
+              element.classList.contains('bg-black/80')
+            );
+            
+            // Check if overlay is visible and blocking
+            const isVisible = (
+              computedStyle.display !== 'none' && 
+              computedStyle.opacity !== '0' &&
+              computedStyle.visibility !== 'hidden' &&
+              computedStyle.pointerEvents !== 'none'
+            );
+            
+            const hasHighZIndex = (
+              parseInt(computedStyle.zIndex) >= 30 ||
+              element.classList.contains('z-50') ||
+              element.classList.contains('z-40')
+            );
+            
+            if (isBlackOverlay && isVisible && hasHighZIndex) {
+              // Force remove stuck overlay
+              element.style.cssText = 'display: none !important; opacity: 0 !important; visibility: hidden !important; pointer-events: none !important;';
+              setTimeout(() => {
+                if (element.parentNode) {
+                  element.remove();
+                }
+              }, 0);
+            }
+          });
+        } catch (e) {
+          // Ignore selector errors
         }
       });
       
-      // Also remove any fixed elements with high z-index that might be blocking
-      const fixedElements = document.querySelectorAll('[style*="position: fixed"][style*="z-index"]');
-      fixedElements.forEach((el) => {
-        const element = el as HTMLElement;
-        const zIndex = window.getComputedStyle(element).zIndex;
-        if (parseInt(zIndex) >= 40) {
-          const bgColor = window.getComputedStyle(element).backgroundColor;
-          if (bgColor.includes('rgba(0, 0, 0') || bgColor.includes('rgb(0, 0, 0')) {
-            element.remove();
-          }
-        }
-      });
+      // Also force remove any body classes that might be blocking
+      document.body.classList.remove('overflow-hidden', 'pointer-events-none');
+      document.documentElement.classList.remove('overflow-hidden', 'pointer-events-none');
     };
     
     // Remove immediately
