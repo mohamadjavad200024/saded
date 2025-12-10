@@ -119,9 +119,12 @@ export function BottomNavigation() {
           bottom: 0,
           left: 0,
           right: 0,
+          width: '100%',
           paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))",
           paddingLeft: "1rem",
           paddingRight: "1rem",
+          transform: 'translateZ(0)',
+          WebkitTransform: 'translateZ(0)',
         }}
       >
         <nav 
