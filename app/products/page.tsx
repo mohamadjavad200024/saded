@@ -106,18 +106,26 @@ export default function ProductsPage() {
       });
       
       // Remove any fixed elements with high z-index that might be blocking
+      // BUT preserve the bottom navigation (z-index 9999)
       const allFixedElements = document.querySelectorAll('*');
       allFixedElements.forEach((el) => {
         const element = el as HTMLElement;
         if (!element) return;
+        
+        // Skip bottom navigation - it should always be visible
+        if (element.closest('[class*="bottom-navigation"]') || 
+            element.getAttribute('data-bottom-nav') === 'true' ||
+            element.classList.contains('fixed') && element.classList.contains('bottom-0') && parseInt(window.getComputedStyle(element).zIndex) >= 9999) {
+          return;
+        }
         
         const computedStyle = window.getComputedStyle(element);
         const position = computedStyle.position;
         const zIndex = parseInt(computedStyle.zIndex) || 0;
         const bgColor = computedStyle.backgroundColor;
         
-        // Check if it's a blocking overlay
-        if (position === 'fixed' && zIndex >= 30) {
+        // Check if it's a blocking overlay (but not bottom nav)
+        if (position === 'fixed' && zIndex >= 30 && zIndex < 9999) {
           const isDarkOverlay = (
             bgColor.includes('rgba(0, 0, 0') || 
             bgColor.includes('rgb(0, 0, 0') ||
@@ -132,6 +140,12 @@ export default function ProductsPage() {
           }
         }
       });
+      
+      // Ensure bottom navigation is visible
+      const bottomNav = document.querySelector('[class*="bottom-navigation"], [data-bottom-nav="true"]') as HTMLElement;
+      if (bottomNav) {
+        bottomNav.style.cssText = 'display: block !important; opacity: 1 !important; visibility: visible !important; pointer-events: auto !important; z-index: 9999 !important; position: fixed !important; bottom: 0 !important;';
+      }
       
       // Force remove any body classes that might be blocking
       document.body.classList.remove('overflow-hidden', 'pointer-events-none', 'fixed');
