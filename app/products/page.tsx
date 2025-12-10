@@ -113,7 +113,7 @@ export default function ProductsPage() {
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
-      <main className="flex-1 container py-4 sm:py-6 md:py-8 px-3 sm:px-4">
+      <main className="flex-1 container py-4 sm:py-6 md:py-8 px-2 sm:px-3 md:px-4">
         <div className="mb-4 sm:mb-6 md:mb-8 hidden lg:block">
           <div className="flex items-center justify-between mb-1 sm:mb-2">
             <div>
@@ -130,7 +130,7 @@ export default function ProductsPage() {
           <aside className="hidden lg:block lg:col-span-1">
             <ProductFilters />
           </aside>
-          <div className="lg:col-span-3">
+          <div className="lg:col-span-3 w-full">
             <ProductGrid />
             {/* Alternative: <ProductList /> for list view */}
           </div>
