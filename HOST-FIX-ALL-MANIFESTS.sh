@@ -15,6 +15,7 @@ MANIFEST_FILES=(
     ".next/fallback-build-manifest.json"
     ".next/images-manifest.json"
     ".next/app-path-routes-manifest.json"
+    ".next/required-server-files.json"
     ".next/server/pages-manifest.json"
     ".next/server/next-font-manifest.json"
     ".next/server/server-reference-manifest.json"
