@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { Car, Wrench, Settings, Sparkles, Zap, Shield, ArrowLeft } from "lucide-react";
+import { Car, Wrench, Settings, Sparkles, Zap, Shield, ArrowLeft, ChevronDown, ChevronUp } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useCategories } from "@/services/categories";
 
@@ -181,11 +181,11 @@ export function CategoryGrid() {
 // Minimal Category Grid Component for Hero Section
 export function MinimalCategoryGrid() {
   const { data: categories = [], isLoading } = useCategories();
+  const [showAll, setShowAll] = useState(false);
   
-  const displayCategories = useMemo(() => {
+  const allCategories = useMemo(() => {
     return (categories || [])
       .filter((cat) => cat.isActive)
-      .slice(0, 6)
       .map((category, index) => {
         const Icon = iconMap[category.name] || Car;
         const colors = colorMap[index % 3];
@@ -198,51 +198,91 @@ export function MinimalCategoryGrid() {
       });
   }, [categories]);
 
-  if (isLoading || displayCategories.length === 0) {
+  const displayCategories = useMemo(() => {
+    if (showAll) {
+      return allCategories;
+    }
+    return allCategories.slice(0, 6);
+  }, [allCategories, showAll]);
+
+  const hasMoreCategories = allCategories.length > 6;
+
+  if (isLoading || allCategories.length === 0) {
     return null;
   }
 
   return (
-    <div className="grid grid-cols-3 gap-2 sm:gap-3">
-      {displayCategories.map((category, index) => {
-        const Icon = category.Icon;
-        return (
-          <motion.div
-            key={category.id || index}
-            initial={{ opacity: 0, y: 10, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ 
-              delay: index * 0.05,
-              duration: 0.3,
-              type: "spring",
-              stiffness: 150
-            }}
-            whileHover={{ 
-              y: -2,
-              scale: 1.02,
-            }}
-            className="group relative"
-          >
-            <Link href={category.href}>
-              <div className="glass-morphism-light rounded-lg sm:rounded-xl p-2 sm:p-3 relative overflow-hidden transition-all duration-300 hover:shadow-lg cursor-pointer border border-border/30 flex items-center justify-between gap-3 sm:gap-4">
-                {/* Icon - Right side */}
-                <div className={`
-                  relative w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0
-                  ${category.iconBg} rounded-md sm:rounded-lg flex items-center justify-center 
-                  transition-all duration-300
-                `}>
-                  <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${category.color} transition-transform duration-300`} />
-                </div>
+    <div className="space-y-3 sm:space-y-4">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        {displayCategories.map((category, index) => {
+          const Icon = category.Icon;
+          return (
+            <motion.div
+              key={category.id || index}
+              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ 
+                delay: index * 0.05,
+                duration: 0.3,
+                type: "spring",
+                stiffness: 150
+              }}
+              whileHover={{ 
+                y: -2,
+                scale: 1.02,
+              }}
+              className="group relative"
+            >
+              <Link href={category.href}>
+                <div className="glass-morphism-light rounded-lg sm:rounded-xl p-2 sm:p-3 relative overflow-hidden transition-all duration-300 hover:shadow-lg cursor-pointer border border-border/30 flex items-center justify-between gap-3 sm:gap-4">
+                  {/* Icon - Right side */}
+                  <div className={`
+                    relative w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0
+                    ${category.iconBg} rounded-md sm:rounded-lg flex items-center justify-center 
+                    transition-all duration-300
+                  `}>
+                    <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${category.color} transition-transform duration-300`} />
+                  </div>
 
-                {/* Category Name - Left side */}
-                <h3 className="text-[10px] sm:text-xs md:text-sm font-medium text-right text-foreground group-hover:text-primary transition-colors duration-300 leading-tight line-clamp-2 flex-1 min-w-0">
-                  {category.name}
-                </h3>
-              </div>
-            </Link>
-          </motion.div>
-        );
-      })}
+                  {/* Category Name - Left side */}
+                  <h3 className="text-[10px] sm:text-xs md:text-sm font-medium text-right text-foreground group-hover:text-primary transition-colors duration-300 leading-tight line-clamp-2 flex-1 min-w-0">
+                    {category.name}
+                  </h3>
+                </div>
+              </Link>
+            </motion.div>
+          );
+        })}
+      </div>
+
+      {/* Show More/Less Button */}
+      {hasMoreCategories && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="flex justify-center pt-2 sm:pt-3"
+        >
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className="flex items-center gap-2 px-3 py-1.5 sm:py-2 rounded-lg bg-muted/50 hover:bg-muted border border-border/30 hover:border-border/50 transition-all duration-200 group"
+          >
+            <span className="text-xs sm:text-sm font-medium text-foreground group-hover:text-primary transition-colors duration-200">
+              {showAll 
+                ? 'نمایش کمتر' 
+                : `مشاهده همه دسته‌ها (${allCategories.length - 6} مورد دیگر)`
+              }
+            </span>
+            <motion.div
+              animate={{ rotate: showAll ? 180 : 0 }}
+              transition={{ duration: 0.3 }}
+              className="text-muted-foreground group-hover:text-primary transition-colors duration-200"
+            >
+              <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5" />
+            </motion.div>
+          </button>
+        </motion.div>
+      )}
     </div>
   );
 }
