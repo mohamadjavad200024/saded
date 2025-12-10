@@ -9,8 +9,11 @@ export default function Home() {
     <div className="flex min-h-screen flex-col relative">
       <Header />
       <main className="flex-1 relative z-0">
-        <HeroVideo />
-        <HeroSection />
+        {/* Video with overlay content */}
+        <div className="relative">
+          <HeroVideo />
+          <HeroSection />
+        </div>
         <FeaturedProducts />
       </main>
       <Footer />

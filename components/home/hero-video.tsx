@@ -12,8 +12,13 @@ export function HeroVideo() {
     const video = videoRef.current;
     if (!video) return;
 
+    // Set playback rate to slower (0.7 = 70% speed, 0.5 = 50% speed)
+    video.playbackRate = 0.7;
+
     const handleLoadedData = () => {
       setIsLoaded(true);
+      // Ensure playback rate is set after video loads
+      video.playbackRate = 0.7;
       // Auto-play video when loaded
       video.play().catch((error) => {
         console.error("Error playing video:", error);
@@ -67,8 +72,10 @@ export function HeroVideo() {
         </video>
       </motion.div>
 
-      {/* Overlay gradient for better content visibility */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-background/80 pointer-events-none" />
+      {/* Overlay gradient for better content visibility - stronger at bottom 20% */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/60 pointer-events-none" />
+      {/* Additional gradient overlay for bottom 20% */}
+      <div className="absolute bottom-0 left-0 right-0 h-[20%] bg-gradient-to-t from-background/90 via-background/70 to-transparent pointer-events-none" />
 
       {/* Loading placeholder */}
       {!isLoaded && (
