@@ -1,6 +1,7 @@
 {
   "/_global-error/page": "/_global-error",
   "/_not-found/page": "/_not-found",
+  "/about/page": "/about",
   "/admin/categories/[id]/page": "/admin/categories/[id]",
   "/admin/categories/new/page": "/admin/categories/new",
   "/admin/categories/page": "/admin/categories",
@@ -42,9 +43,12 @@
   "/api/users/[id]/route": "/api/users/[id]",
   "/api/users/route": "/api/users",
   "/auth/page": "/auth",
+  "/blog/page": "/blog",
   "/cart/page": "/cart",
   "/chat/page": "/chat",
   "/checkout/page": "/checkout",
+  "/contact/page": "/contact",
+  "/faq/page": "/faq",
   "/favicon.ico/route": "/favicon.ico",
   "/order/success/page": "/order/success",
   "/order/track/page": "/order/track",
@@ -53,6 +57,9 @@
   "/payment/verify/page": "/payment/verify",
   "/products/[id]/page": "/products/[id]",
   "/products/page": "/products",
+  "/returns/page": "/returns",
   "/robots.txt/route": "/robots.txt",
-  "/sitemap.xml/route": "/sitemap.xml"
+  "/shipping/page": "/shipping",
+  "/sitemap.xml/route": "/sitemap.xml",
+  "/warranty/page": "/warranty"
 }

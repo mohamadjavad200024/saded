@@ -1,6 +1,7 @@
 {
   "/_global-error/page": "app/_global-error/page.js",
   "/_not-found/page": "app/_not-found/page.js",
+  "/about/page": "app/about/page.js",
   "/admin/categories/[id]/page": "app/admin/categories/[id]/page.js",
   "/admin/categories/new/page": "app/admin/categories/new/page.js",
   "/admin/categories/page": "app/admin/categories/page.js",
@@ -42,9 +43,12 @@
   "/api/users/[id]/route": "app/api/users/[id]/route.js",
   "/api/users/route": "app/api/users/route.js",
   "/auth/page": "app/auth/page.js",
+  "/blog/page": "app/blog/page.js",
   "/cart/page": "app/cart/page.js",
   "/chat/page": "app/chat/page.js",
   "/checkout/page": "app/checkout/page.js",
+  "/contact/page": "app/contact/page.js",
+  "/faq/page": "app/faq/page.js",
   "/favicon.ico/route": "app/favicon.ico/route.js",
   "/order/success/page": "app/order/success/page.js",
   "/order/track/page": "app/order/track/page.js",
@@ -53,6 +57,9 @@
   "/payment/verify/page": "app/payment/verify/page.js",
   "/products/[id]/page": "app/products/[id]/page.js",
   "/products/page": "app/products/page.js",
+  "/returns/page": "app/returns/page.js",
   "/robots.txt/route": "app/robots.txt/route.js",
-  "/sitemap.xml/route": "app/sitemap.xml/route.js"
+  "/shipping/page": "app/shipping/page.js",
+  "/sitemap.xml/route": "app/sitemap.xml/route.js",
+  "/warranty/page": "app/warranty/page.js"
 }
