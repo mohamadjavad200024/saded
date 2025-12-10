@@ -224,18 +224,18 @@ export function MinimalCategoryGrid() {
             className="group relative"
           >
             <Link href={category.href}>
-              <div className="glass-morphism-light rounded-lg sm:rounded-xl p-2 sm:p-3 relative overflow-hidden transition-all duration-300 hover:shadow-lg cursor-pointer border border-border/30">
-                {/* Minimal Icon */}
+              <div className="glass-morphism-light rounded-lg sm:rounded-xl p-2 sm:p-3 relative overflow-hidden transition-all duration-300 hover:shadow-lg cursor-pointer border border-border/30 flex items-center justify-between gap-3 sm:gap-4">
+                {/* Icon - Right side */}
                 <div className={`
-                  relative w-8 h-8 sm:w-10 sm:h-10 
+                  relative w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0
                   ${category.iconBg} rounded-md sm:rounded-lg flex items-center justify-center 
-                  mx-auto mb-1 sm:mb-1.5 transition-all duration-300
+                  transition-all duration-300
                 `}>
                   <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${category.color} transition-transform duration-300`} />
                 </div>
 
-                {/* Category Name - Minimal */}
-                <h3 className="text-[9px] sm:text-[10px] md:text-xs font-medium text-center text-foreground group-hover:text-primary transition-colors duration-300 leading-tight line-clamp-2">
+                {/* Category Name - Left side */}
+                <h3 className="text-[10px] sm:text-xs md:text-sm font-medium text-right text-foreground group-hover:text-primary transition-colors duration-300 leading-tight line-clamp-2 flex-1 min-w-0">
                   {category.name}
                 </h3>
               </div>

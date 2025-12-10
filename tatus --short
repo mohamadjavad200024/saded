@@ -1,0 +1,128 @@
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.next/build/chunks/[root-of-the-server]__51225daf._.js.map', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.next/dev/build-manifest.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.next/dev/fallback-build-manifest.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.next/dev/logs/next-development.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.next/dev/prerender-manifest.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.next/dev/server/chunks/[root-of-the-server]__d53b1080._.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.next/dev/server/middleware-build-manifest.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.next/dev/server/next-font-manifest.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.next/dev/static/chunks/app_layout_tsx_78cdd4a3._.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.next/dev/static/development/_buildManifest.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.next/dev/trace', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.next/trace', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.next/trace-build', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/admin/presence/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/cart/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/categories/[id]/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/categories/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/orders/[id]/payment-status/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/orders/[id]/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/orders/[id]/status/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/orders/create/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/orders/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/products/[id]/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/products/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/users/[id]/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/users/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/globals.css', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/layout.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/page.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'components/admin/category-form.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'components/home/SYSTEM_DOCUMENTATION.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'components/home/category-grid.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'components/home/featured-products.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'components/home/hero-section.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'ecosystem.config.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'env.production.template', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/db/mysql.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'next.config.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scripts/health-check.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scripts/setup-db-production.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scripts/test-db-connection.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scripts/update-env-password.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'server.js', LF will be replaced by CRLF the next time Git touches it
+.gitignore
+.htaccess
+.next/build/chunks/[root-of-the-server]__51225daf._.js.map
+.next/build/chunks/[turbopack-node]_transforms_postcss_ts_72275c55._.js.map
+.next/build/chunks/node_modules__pnpm_56ec7204._.js.map
+.next/cache/.tsbuildinfo
+.next/dev/build-manifest.json
+.next/dev/fallback-build-manifest.json
+.next/dev/logs/next-development.log
+.next/dev/prerender-manifest.json
+.next/dev/server/middleware-build-manifest.js
+.next/dev/server/next-font-manifest.js
+.next/dev/server/next-font-manifest.json
+.next/dev/server/pages-manifest.json
+.next/dev/static/chunks/app_layout_tsx_78cdd4a3._.js
+.next/dev/static/development/_buildManifest.js
+.next/dev/trace
+.next/trace
+.next/trace-build
+CHANGELOG-MYSQL.md
+COMPLETION-REPORT.md
+CPANEL-GIT-VS-TERMINAL.md
+DEPLOY-TO-HOST.md
+DEPLOYMENT-COMPLETE-GUIDE.md
+DEPLOYMENT.md
+FIND-NPM-SOLUTION.md
+FIX-NPM-PATH.md
+HOST-CHECK-ERRORS.sh
+HOST-DEPLOY-COMMANDS.sh
+MIGRATION-CHECKLIST.md
+MIGRATION-SUMMARY.md
+MYSQL-CONNECTION-HELP.md
+OPTIMIZATIONS.md
+PM2-COMMANDS.md
+QUICK-DEPLOY-SCRIPT.sh
+QUICK-START-MYSQL.md
+README-MYSQL.md
+README.md
+SETUP-INSTRUCTIONS.md
+SETUP-WEBSERVER.md
+START-HERE.md
+app/api/admin/presence/route.ts
+app/api/cart/route.ts
+app/api/categories/[id]/route.ts
+app/api/categories/route.ts
+app/api/orders/[id]/payment-status/route.ts
+app/api/orders/[id]/route.ts
+app/api/orders/[id]/status/route.ts
+app/api/orders/create/route.ts
+app/api/orders/route.ts
+app/api/products/[id]/route.ts
+app/api/products/route.ts
+app/api/users/[id]/route.ts
+app/api/users/route.ts
+app/globals.css
+app/layout.tsx
+app/page.tsx
+components/admin/category-form.tsx
+components/home/SYSTEM_DOCUMENTATION.md
+components/home/category-grid.tsx
+components/home/featured-products.tsx
+components/home/featured-stats.tsx
+components/home/hero-section.tsx
+components/ui/dialog.tsx
+components/ui/popover.tsx
+components/ui/sheet.tsx
+components/ui/toast.tsx
+ecosystem.config.js
+env-template.txt
+env.production.template
+lib/api-route-helpers.ts
+lib/parsers.ts
+next.config.js
+package.json
+scripts/deploy-incremental.js
+scripts/deploy-smart.sh
+scripts/health-check.js
+scripts/setup-db-production.js
+scripts/setup-mysql.js
+scripts/test-db-connection.js
+scripts/update-env-password.js
+server.js

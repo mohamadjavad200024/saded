@@ -10,7 +10,13 @@
 /coverage
 
 # next.js
-/.next/
+# Ignore cache, dev, and diagnostic files but allow essential build files
+/.next/cache/
+/.next/dev/
+/.next/diagnostics/
+/.next/trace
+/.next/trace-build
+/.next/turbopack/
 /out/
 
 # production

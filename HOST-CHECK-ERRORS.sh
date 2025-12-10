@@ -35,3 +35,4 @@ echo "بررسی وضعیت PM2:"
 echo "=========================================="
 /opt/alt/alt-nodejs20/root/usr/bin/node ~/.npm-global/lib/node_modules/pm2/bin/pm2 status
 
+
