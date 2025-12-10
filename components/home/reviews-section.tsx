@@ -106,8 +106,10 @@ export function ReviewsSection() {
     }
   };
 
-  // Duplicate reviews for seamless loop
-  const duplicatedReviews = reviews.length > 0 ? [...reviews, ...reviews] : [];
+  // Duplicate reviews multiple times for seamless infinite loop (like a ring)
+  const duplicatedReviews = reviews.length > 0 
+    ? [...reviews, ...reviews, ...reviews, ...reviews] // 4x duplication for smoother loop
+    : [];
 
   return (
     <section className="py-6 sm:py-8 md:py-10 relative overflow-hidden">
@@ -255,7 +257,7 @@ export function ReviewsSection() {
           </motion.div>
         )}
 
-        {/* Reviews Carousel - Minimal & Smooth Loop */}
+        {/* Reviews Carousel - Seamless Infinite Loop (Marquee Style) */}
         {isLoading ? (
           <div className="flex items-center justify-center py-6">
             <div className="w-6 h-6 border-3 border-primary border-t-transparent rounded-full animate-spin" />
@@ -273,18 +275,18 @@ export function ReviewsSection() {
           </motion.div>
         ) : (
           <div className="relative overflow-hidden">
-            {/* Smooth Infinite Scrolling Carousel */}
+            {/* Seamless Infinite Scrolling Carousel - No Gaps, Ring Style */}
             <div className="overflow-hidden">
               <motion.div
-                className="flex gap-3 sm:gap-4"
+                className="flex"
                 animate={{
-                  x: ["0%", "-50%"],
+                  x: ["0%", "-25%"], // Move by 25% (one set of reviews) for seamless loop
                 }}
                 transition={{
                   x: {
                     repeat: Infinity,
                     repeatType: "loop",
-                    duration: duplicatedReviews.length * 20, // Slow, smooth scroll (20 seconds per review)
+                    duration: reviews.length * 3, // Much faster speed (3 seconds per review)
                     ease: "linear",
                   },
                 }}
@@ -296,8 +298,9 @@ export function ReviewsSection() {
                   <div
                     key={`${review.id}-${index}`}
                     className="flex-shrink-0 w-[280px] sm:w-[320px] md:w-[360px]"
+                    style={{ marginRight: 0 }} // No gap between cards
                   >
-                    <Card className="glass-morphism h-full border-border/20 hover:border-border/40 transition-all duration-300">
+                    <Card className="glass-morphism h-full border-border/20 hover:border-border/40 transition-all duration-300 rounded-lg sm:rounded-xl">
                       <CardContent className="p-3 sm:p-4">
                         <div className="flex items-center gap-2 mb-2">
                           <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
