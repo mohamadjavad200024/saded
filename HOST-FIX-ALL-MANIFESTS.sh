@@ -20,6 +20,7 @@ MANIFEST_FILES=(
     ".next/server/server-reference-manifest.json"
     ".next/server/middleware-manifest.json"
     ".next/server/middleware-build-manifest.js"
+    ".next/server/app-paths-manifest.json"
 )
 
 # دریافت هر فایل از Git
