@@ -20,29 +20,65 @@ export default function ProductsPage() {
     // Reset body and html overflow on mount (in case it was set by another page)
     document.body.style.overflow = "";
     document.documentElement.style.overflow = "";
+    document.body.style.position = "";
+    document.documentElement.style.position = "";
     
-    // Remove any stuck overlays (Radix UI Dialog/Sheet overlays)
-    const overlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-portal]');
-    overlays.forEach((overlay) => {
-      const element = overlay as HTMLElement;
-      // Check if overlay is actually visible (not just in DOM)
-      if (element.style.display !== 'none' && !element.hasAttribute('data-state-closed')) {
-        // Force remove if it's stuck
+    // Remove ALL stuck overlays (Radix UI Dialog/Sheet overlays) - more aggressive approach
+    const removeStuckOverlays = () => {
+      // Find all overlay elements
+      const overlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-portal], [role="dialog"]');
+      overlays.forEach((overlay) => {
+        const element = overlay as HTMLElement;
         const computedStyle = window.getComputedStyle(element);
-        if (computedStyle.display !== 'none' && computedStyle.opacity !== '0') {
-          // Only remove if it seems stuck (visible but should be closed)
-          const parent = element.parentElement;
-          if (parent && parent.getAttribute('data-state') === 'closed') {
+        
+        // Check if overlay is visible and blocking
+        if (
+          computedStyle.display !== 'none' && 
+          computedStyle.opacity !== '0' &&
+          computedStyle.visibility !== 'hidden' &&
+          (computedStyle.zIndex === '50' || computedStyle.zIndex === '40' || computedStyle.zIndex === '30')
+        ) {
+          // Check if it's a stuck overlay (has bg-black/80 or similar)
+          const bgColor = computedStyle.backgroundColor;
+          const isBlackOverlay = bgColor.includes('rgba(0, 0, 0') || bgColor.includes('rgb(0, 0, 0');
+          
+          if (isBlackOverlay) {
+            // Force remove stuck overlay
+            element.style.display = 'none';
+            element.style.opacity = '0';
+            element.style.visibility = 'hidden';
             element.remove();
           }
         }
-      }
-    });
-
+      });
+      
+      // Also remove any fixed elements with high z-index that might be blocking
+      const fixedElements = document.querySelectorAll('[style*="position: fixed"][style*="z-index"]');
+      fixedElements.forEach((el) => {
+        const element = el as HTMLElement;
+        const zIndex = window.getComputedStyle(element).zIndex;
+        if (parseInt(zIndex) >= 40) {
+          const bgColor = window.getComputedStyle(element).backgroundColor;
+          if (bgColor.includes('rgba(0, 0, 0') || bgColor.includes('rgb(0, 0, 0')) {
+            element.remove();
+          }
+        }
+      });
+    };
+    
+    // Remove immediately
+    removeStuckOverlays();
+    
+    // Also remove after a short delay (in case they're added dynamically)
+    const timeout = setTimeout(removeStuckOverlays, 100);
+    
     // Cleanup on unmount
     return () => {
+      clearTimeout(timeout);
       document.body.style.overflow = "";
       document.documentElement.style.overflow = "";
+      document.body.style.position = "";
+      document.documentElement.style.position = "";
     };
   }, []);
 
