@@ -38,7 +38,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   
   try {
     const products = await getRows<any>(
-      "SELECT id, \"updatedAt\" FROM products WHERE enabled = TRUE ORDER BY \"updatedAt\" DESC LIMIT 10000"
+      "SELECT id, `updatedAt` FROM products WHERE enabled = TRUE ORDER BY `updatedAt` DESC LIMIT 10000"
     );
 
     productPages = products.map((product: any) => ({
