@@ -115,6 +115,7 @@ export function BottomNavigation() {
       {/* Using portal-like positioning to ensure it's always at viewport bottom */}
       <div 
         className="fixed bottom-0 left-0 right-0 z-[9999] flex justify-center items-end md:hidden pointer-events-none"
+        data-bottom-nav="true"
         style={{
           position: 'fixed',
           bottom: 0,
@@ -128,6 +129,9 @@ export function BottomNavigation() {
           transform: 'translateZ(0)',
           WebkitTransform: 'translateZ(0)',
           willChange: 'transform',
+          display: 'flex',
+          visibility: 'visible',
+          opacity: 1,
         }}
       >
         <nav 
