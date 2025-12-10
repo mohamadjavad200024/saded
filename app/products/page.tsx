@@ -15,8 +15,60 @@ export default function ProductsPage() {
     loadCategoriesFromDB();
   }, [loadCategoriesFromDB]);
 
-  // Fix mobile black screen issue: Ensure body overflow is reset and no overlays are stuck
+  // Fix mobile zoom issue: Prevent automatic zoom and ensure proper viewport scaling
   useEffect(() => {
+    // Prevent automatic zoom on mobile by ensuring viewport is properly set
+    const preventZoom = () => {
+      // Set viewport meta tag if not already set
+      let viewport = document.querySelector('meta[name="viewport"]');
+      if (!viewport) {
+        viewport = document.createElement('meta');
+        viewport.setAttribute('name', 'viewport');
+        document.getElementsByTagName('head')[0].appendChild(viewport);
+      }
+      viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
+      
+      // Prevent horizontal overflow
+      document.body.style.overflowX = 'hidden';
+      document.documentElement.style.overflowX = 'hidden';
+      document.body.style.width = '100%';
+      document.body.style.maxWidth = '100vw';
+      document.documentElement.style.width = '100%';
+      document.documentElement.style.maxWidth = '100vw';
+      
+      // Ensure main container doesn't exceed viewport
+      const mainElement = document.querySelector('main');
+      if (mainElement) {
+        (mainElement as HTMLElement).style.maxWidth = '100%';
+        (mainElement as HTMLElement).style.overflowX = 'hidden';
+      }
+      
+      // Prevent any element from causing horizontal scroll
+      const allElements = document.querySelectorAll('*');
+      allElements.forEach((el) => {
+        const element = el as HTMLElement;
+        if (element) {
+          const computedStyle = window.getComputedStyle(element);
+          const width = computedStyle.width;
+          const maxWidth = computedStyle.maxWidth;
+          
+          // If element has fixed width that might exceed viewport, adjust it
+          if (width && !width.includes('%') && !width.includes('vw') && !width.includes('auto')) {
+            const widthValue = parseFloat(width);
+            if (widthValue > window.innerWidth) {
+              element.style.maxWidth = '100%';
+            }
+          }
+        }
+      });
+    };
+    
+    // Execute immediately
+    preventZoom();
+    
+    // Also execute after a short delay to catch dynamically loaded content
+    const preventZoomTimeout = setTimeout(preventZoom, 100);
+    
     // Reset body and html overflow on mount (in case it was set by another page)
     document.body.style.overflow = "";
     document.documentElement.style.overflow = "";
@@ -102,18 +154,24 @@ export default function ProductsPage() {
     
     // Cleanup on unmount
     return () => {
-      clearTimeout(timeout);
+      clearTimeout(preventZoomTimeout);
       document.body.style.overflow = "";
       document.documentElement.style.overflow = "";
       document.body.style.position = "";
       document.documentElement.style.position = "";
+      document.body.style.overflowX = "";
+      document.documentElement.style.overflowX = "";
+      document.body.style.width = "";
+      document.body.style.maxWidth = "";
+      document.documentElement.style.width = "";
+      document.documentElement.style.maxWidth = "";
     };
   }, []);
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col w-full max-w-full overflow-x-hidden">
       <Header />
-      <main className="flex-1 container py-4 sm:py-6 md:py-8 px-2 sm:px-3 md:px-4">
+      <main className="flex-1 container py-4 sm:py-6 md:py-8 px-2 sm:px-3 md:px-4 w-full max-w-full overflow-x-hidden">
         <div className="mb-4 sm:mb-6 md:mb-8 hidden lg:block">
           <div className="flex items-center justify-between mb-1 sm:mb-2">
             <div>
