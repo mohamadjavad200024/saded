@@ -15,6 +15,10 @@ MANIFEST_FILES=(
     ".next/fallback-build-manifest.json"
     ".next/images-manifest.json"
     ".next/app-path-routes-manifest.json"
+    ".next/server/pages-manifest.json"
+    ".next/server/next-font-manifest.json"
+    ".next/server/server-reference-manifest.json"
+    ".next/server/middleware-manifest.json"
 )
 
 # دریافت هر فایل از Git
