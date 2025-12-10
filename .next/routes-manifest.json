@@ -109,6 +109,14 @@
       "namedRegex": "^/api/users/(?<nxtPid>[^/]+?)(?:/)?$"
     },
     {
+      "page": "/categories/[id]",
+      "regex": "^/categories/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/categories/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
       "page": "/products/[id]",
       "regex": "^/products/([^/]+?)(?:/)?$",
       "routeKeys": {
@@ -363,6 +371,12 @@
       "regex": "^/favicon\\.ico(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/favicon\\.ico(?:/)?$"
+    },
+    {
+      "page": "/guide",
+      "regex": "^/guide(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/guide(?:/)?$"
     },
     {
       "page": "/order/success",
