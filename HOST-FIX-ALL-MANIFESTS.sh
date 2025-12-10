@@ -19,6 +19,7 @@ MANIFEST_FILES=(
     ".next/server/next-font-manifest.json"
     ".next/server/server-reference-manifest.json"
     ".next/server/middleware-manifest.json"
+    ".next/server/middleware-build-manifest.js"
 )
 
 # دریافت هر فایل از Git
