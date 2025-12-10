@@ -572,6 +572,9 @@ export default function ChatPage() {
       status: "sending",
     };
 
+    // Save message text before clearing
+    const messageText = message;
+    
     setMessages((prev) => [...prev, newMessage]);
     setMessage("");
     setAttachments([]);
@@ -584,10 +587,10 @@ export default function ChatPage() {
     sendTypingStatus(false);
 
     try {
-      // Prepare message for API
+      // Prepare message for API - use saved messageText instead of cleared message
       const messageToSave = {
         id: tempId,
-        text: message,
+        text: messageText,
         sender: "user",
         timestamp: newMessage.timestamp.toISOString(),
         attachments: attachments.filter((att) => {
@@ -655,7 +658,7 @@ export default function ChatPage() {
     setTimeout(() => {
       scrollToBottom(false);
     }, 100);
-  }, [chatId, message, attachments, replyingTo, editingMessage, sendTypingStatus, toast]);
+  }, [chatId, customerInfo, attachments, replyingTo, editingMessage, sendTypingStatus, toast, setStep]);
 
   // Handle reply
   const handleReply = useCallback((msg: Message) => {

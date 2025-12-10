@@ -858,7 +858,7 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
               <div ref={messagesEndRef} />
             </div>
 
-            <div className="sticky bottom-0 z-10 bg-background/95 backdrop-blur-sm border-t border-border/40 flex-shrink-0 relative">
+            <div className="sticky bottom-0 z-10 bg-background/95 backdrop-blur-sm border-t border-border/40 flex-shrink-0 relative pb-safe" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
               {/* Scroll to bottom button */}
               <AnimatePresence>
                 {showScrollToBottom && (
