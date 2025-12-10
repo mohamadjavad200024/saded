@@ -25,13 +25,27 @@ echo "✅ مسیر PM2: $PM2_PATH"
 # 2. تنظیم PATH برای Node.js
 export PATH=/opt/alt/alt-nodejs20/root/usr/bin:$PATH
 
-# 3. Restart PM2
-if [ -f "/opt/alt/alt-nodejs20/root/usr/bin/node" ]; then
-    # استفاده از node برای اجرای pm2
-    /opt/alt/alt-nodejs20/root/usr/bin/node $HOME/.npm-global/bin/pm2 restart saded --update-env
-elif [ -f "$HOME/.npm-global/bin/pm2" ]; then
-    # اگر pm2 مستقیماً در PATH است
-    $HOME/.npm-global/bin/pm2 restart saded --update-env
+# 3. بررسی وجود Node.js
+if [ ! -f "/opt/alt/alt-nodejs20/root/usr/bin/node" ]; then
+    echo "❌ Node.js در مسیر /opt/alt/alt-nodejs20/root/usr/bin/node یافت نشد."
+    echo "💡 در حال جستجوی Node.js در مسیرهای دیگر..."
+    NODE_PATH=$(which node 2>/dev/null || find /opt -name "node" -type f 2>/dev/null | head -1)
+    if [ -z "$NODE_PATH" ]; then
+        echo "❌ Node.js یافت نشد."
+        exit 1
+    fi
+    echo "✅ Node.js یافت شد: $NODE_PATH"
+else
+    NODE_PATH="/opt/alt/alt-nodejs20/root/usr/bin/node"
+fi
+
+# 4. Restart PM2
+if [ -f "$HOME/.npm-global/bin/pm2" ]; then
+    echo "🔄 در حال Restart کردن PM2 با Node.js: $NODE_PATH"
+    $NODE_PATH $HOME/.npm-global/bin/pm2 restart saded --update-env
+elif [ -f "$HOME/.npm-global/lib/node_modules/pm2/bin/pm2" ]; then
+    echo "🔄 در حال Restart کردن PM2 با Node.js: $NODE_PATH"
+    $NODE_PATH $HOME/.npm-global/lib/node_modules/pm2/bin/pm2 restart saded --update-env
 else
     echo "❌ PM2 یافت نشد."
     exit 1
@@ -44,14 +58,14 @@ fi
 
 echo "✅ PM2 با موفقیت Restart شد."
 
-# 4. بررسی وضعیت PM2
+# 5. بررسی وضعیت PM2
 echo "⏳ در حال بررسی وضعیت PM2 (5 ثانیه صبر کنید)..."
 sleep 5
 
-if [ -f "/opt/alt/alt-nodejs20/root/usr/bin/node" ]; then
-    /opt/alt/alt-nodejs20/root/usr/bin/node $HOME/.npm-global/bin/pm2 status
-elif [ -f "$HOME/.npm-global/bin/pm2" ]; then
-    $HOME/.npm-global/bin/pm2 status
+if [ -f "$HOME/.npm-global/bin/pm2" ]; then
+    $NODE_PATH $HOME/.npm-global/bin/pm2 status
+elif [ -f "$HOME/.npm-global/lib/node_modules/pm2/bin/pm2" ]; then
+    $NODE_PATH $HOME/.npm-global/lib/node_modules/pm2/bin/pm2 status
 else
     echo "❌ PM2 یافت نشد."
     exit 1
