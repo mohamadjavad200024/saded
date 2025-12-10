@@ -40,32 +40,9 @@ export function HeroSection() {
   };
 
   return (
-    <section className="relative min-h-[400px] sm:min-h-[500px] md:min-h-[600px] flex items-center justify-center overflow-hidden">
-
-      {/* Minimal Grid Pattern - visible on all screens */}
-      {/* Light mode grid */}
-      <div 
-        className="absolute inset-0 dark:hidden"
-        style={{
-          backgroundImage: `linear-gradient(var(--border) 1px, transparent 1px),
-                          linear-gradient(90deg, var(--border) 1px, transparent 1px)`,
-          backgroundSize: '50px 50px',
-          opacity: 0.05,
-        }}
-      />
-      {/* Dark mode grid - subtle and visible */}
-      <div 
-        className="absolute inset-0 hidden dark:block"
-        style={{
-          backgroundImage: `linear-gradient(var(--foreground) 1px, transparent 1px),
-                          linear-gradient(90deg, var(--foreground) 1px, transparent 1px)`,
-          backgroundSize: '50px 50px',
-          opacity: 0.1,
-        }}
-      />
-
-      {/* Main Content */}
-      <div className="container relative z-10 px-3 sm:px-4 py-8 sm:py-12 md:py-16">
+    <section className="relative -mt-[20%] sm:-mt-[20%] md:-mt-[20%] lg:-mt-[20%] flex items-end justify-center overflow-visible pointer-events-none">
+      {/* Main Content - Overlay on bottom 20% of video */}
+      <div className="container relative z-10 px-3 sm:px-4 py-4 sm:py-6 md:py-8 pointer-events-auto w-full">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
