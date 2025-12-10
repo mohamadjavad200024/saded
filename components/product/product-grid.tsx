@@ -200,7 +200,7 @@ export function ProductGrid() {
 
       {/* Products Grid */}
       {viewMode === "grid" ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-5 w-full max-w-full overflow-x-hidden">
           {finalProducts.map((product) => (
             <Link key={product.id} href={`/products/${product.id}`}>
               <Card className="flex flex-col border border-border/30 hover:border-border/50 hover:shadow-lg transition-all active:scale-95 relative overflow-hidden cursor-pointer h-full">
