@@ -84,8 +84,8 @@ export async function GET(request: NextRequest) {
 
       // If all=true, get all products, otherwise only enabled ones
       const productsQuery = includeAll
-        ? `SELECT * FROM products ORDER BY "createdAt" DESC LIMIT ? OFFSET ?`
-        : `SELECT * FROM products WHERE enabled = TRUE ORDER BY "createdAt" DESC LIMIT ? OFFSET ?`;
+        ? `SELECT * FROM products ORDER BY \`createdAt\` DESC LIMIT ? OFFSET ?`
+        : `SELECT * FROM products WHERE enabled = TRUE ORDER BY \`createdAt\` DESC LIMIT ? OFFSET ?`;
       
       // Get paginated products (wrapper converts ? to $1, $2 for PostgreSQL)
       products = await getRows<Product>(productsQuery, [limit, offset]);
@@ -245,8 +245,8 @@ export async function POST(request: NextRequest) {
       // Insert into database (wrapper will convert ? to $1, $2, etc. for PostgreSQL)
       try {
         const insertResult = await runQuery(
-        `INSERT INTO products (id, name, description, price, "originalPrice", brand, category, vin, "vinEnabled", "airShippingEnabled", "seaShippingEnabled", "airShippingCost", "seaShippingCost", "stockCount", "inStock", enabled, images, tags, specifications, "createdAt", "updatedAt")
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb, ?, ?)`,
+        `INSERT INTO products (id, name, description, price, \`originalPrice\`, brand, category, vin, \`vinEnabled\`, \`airShippingEnabled\`, \`seaShippingEnabled\`, \`airShippingCost\`, \`seaShippingCost\`, \`stockCount\`, \`inStock\`, enabled, images, tags, specifications, \`createdAt\`, \`updatedAt\`)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           productData.id,
           productData.name,
@@ -367,8 +367,8 @@ export async function POST(request: NextRequest) {
     const countResult = await getRows<{ count: number }>(countQuery, params);
     const total = countResult[0]?.count || 0;
 
-    // Get paginated products (wrapper will convert ? to $1, $2, etc. for PostgreSQL)
-    const dataQuery = `SELECT * FROM products ${whereClause} ORDER BY "createdAt" DESC LIMIT ? OFFSET ?`;
+    // Get paginated products
+    const dataQuery = `SELECT * FROM products ${whereClause} ORDER BY \`createdAt\` DESC LIMIT ? OFFSET ?`;
     const products = await getRows<any>(dataQuery, [...params, limit, offset]);
 
     // Parse JSON fields (PostgreSQL JSONB returns objects, not strings)

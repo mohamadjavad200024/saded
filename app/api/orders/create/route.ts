@@ -244,7 +244,7 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
 
     await runQuery(
-      `INSERT INTO orders (id, "orderNumber", "userId", "customerName", "customerPhone", "customerEmail", items, total, "shippingCost", "shippingMethod", "shippingAddress", status, "paymentStatus", notes, "createdAt", "updatedAt")
+      `INSERT INTO orders (id, \`orderNumber\`, \`userId\`, \`customerName\`, \`customerPhone\`, \`customerEmail\`, items, total, \`shippingCost\`, \`shippingMethod\`, \`shippingAddress\`, status, \`paymentStatus\`, notes, \`createdAt\`, \`updatedAt\`)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,

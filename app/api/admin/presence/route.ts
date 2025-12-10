@@ -21,30 +21,29 @@ export async function POST(request: NextRequest) {
     // Ensure admin_presence table exists
     await runQuery(`
       CREATE TABLE IF NOT EXISTS admin_presence (
-        "adminId" VARCHAR(255) PRIMARY KEY,
-        "isOnline" BOOLEAN DEFAULT FALSE,
-        "lastSeen" TIMESTAMP NOT NULL DEFAULT NOW(),
-        "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW()
+        \`adminId\` VARCHAR(255) PRIMARY KEY,
+        \`isOnline\` BOOLEAN DEFAULT FALSE,
+        \`lastSeen\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        \`updatedAt\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       );
     `);
 
     // Create index if not exists
     await runQuery(`
-      CREATE INDEX IF NOT EXISTS idx_admin_presence_isOnline ON admin_presence("isOnline");
+      CREATE INDEX IF NOT EXISTS idx_admin_presence_isOnline ON admin_presence(\`isOnline\`);
     `);
 
     const now = new Date().toISOString();
 
     // Upsert admin presence
     await runQuery(
-      `INSERT INTO admin_presence ("adminId", "isOnline", "lastSeen", "updatedAt")
-       VALUES ($1, $2, $3, $3)
-       ON CONFLICT ("adminId") 
-       DO UPDATE SET 
-         "isOnline" = $2,
-         "lastSeen" = CASE WHEN $2 = TRUE THEN $3 ELSE admin_presence."lastSeen" END,
-         "updatedAt" = $3`,
-      [adminId, isOnline, now]
+      `INSERT INTO admin_presence (\`adminId\`, \`isOnline\`, \`lastSeen\`, \`updatedAt\`)
+       VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE 
+         \`isOnline\` = VALUES(\`isOnline\`),
+         \`lastSeen\` = CASE WHEN VALUES(\`isOnline\`) = TRUE THEN VALUES(\`lastSeen\`) ELSE admin_presence.\`lastSeen\` END,
+         \`updatedAt\` = VALUES(\`updatedAt\`)`,
+      [adminId, isOnline, now, now]
     );
 
     return createSuccessResponse({ adminId, isOnline, lastSeen: now });
@@ -64,10 +63,10 @@ export async function GET(request: NextRequest) {
     // Ensure admin_presence table exists
     await runQuery(`
       CREATE TABLE IF NOT EXISTS admin_presence (
-        "adminId" VARCHAR(255) PRIMARY KEY,
-        "isOnline" BOOLEAN DEFAULT FALSE,
-        "lastSeen" TIMESTAMP NOT NULL DEFAULT NOW(),
-        "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW()
+        \`adminId\` VARCHAR(255) PRIMARY KEY,
+        \`isOnline\` BOOLEAN DEFAULT FALSE,
+        \`lastSeen\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        \`updatedAt\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       );
     `);
 
@@ -79,7 +78,7 @@ export async function GET(request: NextRequest) {
         lastSeen: string;
         updatedAt: string;
       }>(
-        `SELECT * FROM admin_presence WHERE "adminId" = $1`,
+        `SELECT * FROM admin_presence WHERE \`adminId\` = ?`,
         [adminId]
       );
 
@@ -101,7 +100,7 @@ export async function GET(request: NextRequest) {
       // Update if status changed
       if (presence.isOnline !== isActuallyOnline) {
         await runQuery(
-          `UPDATE admin_presence SET "isOnline" = $1, "updatedAt" = NOW() WHERE "adminId" = $2`,
+          `UPDATE admin_presence SET \`isOnline\` = ?, \`updatedAt\` = CURRENT_TIMESTAMP WHERE \`adminId\` = ?`,
           [isActuallyOnline, adminId]
         );
       }
@@ -119,7 +118,7 @@ export async function GET(request: NextRequest) {
         isOnline: boolean;
         lastSeen: string;
         updatedAt: string;
-      }>(`SELECT * FROM admin_presence ORDER BY "updatedAt" DESC`);
+      }>(`SELECT * FROM admin_presence ORDER BY \`updatedAt\` DESC`);
 
       // Filter out offline admins that haven't been seen in 30 seconds
       const now = Date.now();

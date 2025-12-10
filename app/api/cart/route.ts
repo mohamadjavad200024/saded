@@ -30,16 +30,16 @@ export async function GET(request: NextRequest) {
         await runQuery(`
           CREATE TABLE IF NOT EXISTS carts (
             id VARCHAR(255) PRIMARY KEY,
-            "sessionId" VARCHAR(255) NOT NULL,
-            "userId" VARCHAR(255),
-            items JSONB NOT NULL DEFAULT '[]'::jsonb,
-            "shippingMethod" VARCHAR(50),
-            "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
-            "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW(),
-            UNIQUE("sessionId")
+            \`sessionId\` VARCHAR(255) NOT NULL,
+            \`userId\` VARCHAR(255),
+            items JSON NOT NULL DEFAULT '[]',
+            \`shippingMethod\` VARCHAR(50),
+            \`createdAt\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            \`updatedAt\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE(\`sessionId\`)
           );
-          CREATE INDEX IF NOT EXISTS idx_carts_sessionId ON carts("sessionId");
-          CREATE INDEX IF NOT EXISTS idx_carts_userId ON carts("userId");
+          CREATE INDEX IF NOT EXISTS idx_carts_sessionId ON carts(\`sessionId\`);
+          CREATE INDEX IF NOT EXISTS idx_carts_userId ON carts(\`userId\`);
         `);
       } catch (createError: any) {
         // Ignore if table already exists
@@ -180,16 +180,16 @@ export async function POST(request: NextRequest) {
         await runQuery(`
           CREATE TABLE IF NOT EXISTS carts (
             id VARCHAR(255) PRIMARY KEY,
-            "sessionId" VARCHAR(255) NOT NULL,
-            "userId" VARCHAR(255),
-            items JSONB NOT NULL DEFAULT '[]'::jsonb,
-            "shippingMethod" VARCHAR(50),
-            "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
-            "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW(),
-            UNIQUE("sessionId")
+            \`sessionId\` VARCHAR(255) NOT NULL,
+            \`userId\` VARCHAR(255),
+            items JSON NOT NULL DEFAULT '[]',
+            \`shippingMethod\` VARCHAR(50),
+            \`createdAt\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            \`updatedAt\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE(\`sessionId\`)
           );
-          CREATE INDEX IF NOT EXISTS idx_carts_sessionId ON carts("sessionId");
-          CREATE INDEX IF NOT EXISTS idx_carts_userId ON carts("userId");
+          CREATE INDEX IF NOT EXISTS idx_carts_sessionId ON carts(\`sessionId\`);
+          CREATE INDEX IF NOT EXISTS idx_carts_userId ON carts(\`userId\`);
         `);
       } catch (createError: any) {
         // Ignore if table already exists
@@ -207,7 +207,7 @@ export async function POST(request: NextRequest) {
       if (existingCart) {
         // Update existing cart
         const updateResult = await runQuery(
-          `UPDATE carts SET items = ?::jsonb, "shippingMethod" = ?, "updatedAt" = ? WHERE "sessionId" = ?`,
+          `UPDATE carts SET items = ?, \`shippingMethod\` = ?, \`updatedAt\` = ? WHERE \`sessionId\` = ?`,
           [JSON.stringify(items), shippingMethod || null, now, sessionId]
         );
         logger.debug("Cart updated in database:", { sessionId, itemCount: items.length });
@@ -215,8 +215,8 @@ export async function POST(request: NextRequest) {
         // Create new cart
         const cartId = `cart-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const insertResult = await runQuery(
-          `INSERT INTO carts (id, "sessionId", items, "shippingMethod", "createdAt", "updatedAt")
-           VALUES (?, ?, ?::jsonb, ?, ?, ?)`,
+          `INSERT INTO carts (id, \`sessionId\`, items, \`shippingMethod\`, \`createdAt\`, \`updatedAt\`)
+           VALUES (?, ?, ?, ?, ?, ?)`,
           [cartId, sessionId, JSON.stringify(items), shippingMethod || null, now, now]
         );
         logger.debug("Cart created in database:", { cartId, sessionId, itemCount: items.length });
