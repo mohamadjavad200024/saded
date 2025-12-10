@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       // If all=true, return all enabled categories (for product filters), otherwise only active ones
       const whereClause = includeAll 
         ? "SELECT * FROM categories WHERE enabled = TRUE ORDER BY name ASC"
-        : "SELECT * FROM categories WHERE enabled = TRUE AND \"isActive\" = TRUE ORDER BY name ASC";
+        : "SELECT * FROM categories WHERE enabled = TRUE AND \`isActive\` = TRUE ORDER BY name ASC";
       
       categories = await getRows<any>(whereClause);
     } catch (dbError: any) {
