@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Save, RefreshCw, Plus, Trash2, FileText, AlertCircle } from "lucide-react";
+import { Save, RefreshCw, Plus, Trash2, FileText, AlertCircle, Link as LinkIcon, ChevronDown, ChevronUp, Instagram, Facebook, Twitter, Phone, Mail } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -22,7 +22,42 @@ interface ContactInfo {
   address: string;
 }
 
-type PageType = "about" | "faq" | "shipping" | "returns" | "warranty" | "contact";
+interface LinkItem {
+  label: string;
+  href: string;
+}
+
+interface SocialLinks {
+  instagram: string;
+  facebook: string;
+  twitter: string;
+}
+
+interface FooterContent {
+  footer: {
+    about: {
+      title: string;
+      description: string;
+      socialLinks: SocialLinks;
+    };
+    quickLinks: {
+      title: string;
+      links: LinkItem[];
+    };
+    support: {
+      title: string;
+      links: LinkItem[];
+    };
+    contact: {
+      title: string;
+      phone: string;
+      email: string;
+    };
+    copyright: string;
+  };
+}
+
+type PageType = "about" | "faq" | "shipping" | "returns" | "warranty" | "contact" | "footer";
 
 interface PageInfo {
   key: PageType;
@@ -68,6 +103,12 @@ const pages: PageInfo[] = [
     description: "ویرایش اطلاعات تماس",
     icon: <FileText className="h-4 w-4" />,
   },
+  {
+    key: "footer",
+    title: "Footer",
+    description: "ویرایش محتوای فوتر",
+    icon: <LinkIcon className="h-4 w-4" />,
+  },
 ];
 
 export function PageContentEditor() {
@@ -85,8 +126,50 @@ export function PageContentEditor() {
     address: "",
   });
 
+  // Footer content state
+  const [footerContent, setFooterContent] = useState<FooterContent>({
+    footer: {
+      about: {
+        title: "درباره ساد",
+        description: "",
+        socialLinks: {
+          instagram: "#",
+          facebook: "#",
+          twitter: "#",
+        },
+      },
+      quickLinks: {
+        title: "دسترسی سریع",
+        links: [],
+      },
+      support: {
+        title: "پشتیبانی",
+        links: [],
+      },
+      contact: {
+        title: "تماس با ما",
+        phone: "",
+        email: "",
+      },
+      copyright: "",
+    },
+  });
+
+  // Collapsible sections for footer
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    footerAbout: true,
+    footerQuickLinks: false,
+    footerSupport: false,
+    footerContact: false,
+    footerCopyright: false,
+  });
+
   useEffect(() => {
-    loadContent(activePage);
+    if (activePage === "footer") {
+      loadFooterContent();
+    } else {
+      loadContent(activePage);
+    }
   }, [activePage]);
 
   const loadContent = async (page: PageType) => {
@@ -122,39 +205,87 @@ export function PageContentEditor() {
     }
   };
 
+  const loadFooterContent = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/settings/site-content");
+      if (response.ok) {
+        const data = await response.json();
+        if (data.data?.footer) {
+          setFooterContent(data.data);
+        }
+      }
+    } catch (error) {
+      console.error("Error loading footer content:", error);
+      toast({
+        title: "خطا",
+        description: "خطا در بارگذاری محتوای فوتر",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
-      let content: any;
-
-      if (activePage === "faq") {
-        content = faqItems;
-      } else if (activePage === "contact") {
-        content = contactInfo;
-      } else {
-        content = textContent;
-      }
-
-      const response = await fetch(`/api/settings/page-content?page=${activePage}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ content }),
-      });
-
-      if (response.ok) {
-        toast({
-          title: "موفق",
-          description: `محتوای ${pages.find(p => p.key === activePage)?.title} با موفقیت ذخیره شد`,
+      if (activePage === "footer") {
+        // Save footer content
+        const response = await fetch("/api/settings/site-content", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ content: footerContent }),
         });
+
+        if (response.ok) {
+          toast({
+            title: "موفق",
+            description: "محتوای Footer با موفقیت ذخیره شد",
+          });
+        } else {
+          const error = await response.json();
+          toast({
+            title: "خطا",
+            description: error.error || "خطا در ذخیره محتوا",
+            variant: "destructive",
+          });
+        }
       } else {
-        const error = await response.json();
-        toast({
-          title: "خطا",
-          description: error.error || "خطا در ذخیره محتوا",
-          variant: "destructive",
+        // Save page content
+        let content: any;
+
+        if (activePage === "faq") {
+          content = faqItems;
+        } else if (activePage === "contact") {
+          content = contactInfo;
+        } else {
+          content = textContent;
+        }
+
+        const response = await fetch(`/api/settings/page-content?page=${activePage}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ content }),
         });
+
+        if (response.ok) {
+          toast({
+            title: "موفق",
+            description: `محتوای ${pages.find(p => p.key === activePage)?.title} با موفقیت ذخیره شد`,
+          });
+        } else {
+          const error = await response.json();
+          toast({
+            title: "خطا",
+            description: error.error || "خطا در ذخیره محتوا",
+            variant: "destructive",
+          });
+        }
       }
     } catch (error) {
       toast({
@@ -179,6 +310,48 @@ export function PageContentEditor() {
     setFaqItems(
       faqItems.map((item, i) => (i === index ? { ...item, [field]: value } : item))
     );
+  };
+
+  // Footer functions
+  const addLink = (section: "quickLinks" | "support") => {
+    setFooterContent((prev) => ({
+      ...prev,
+      footer: {
+        ...prev.footer,
+        [section]: {
+          ...prev.footer[section],
+          links: [...prev.footer[section].links, { label: "", href: "" }],
+        },
+      },
+    }));
+  };
+
+  const removeLink = (section: "quickLinks" | "support", index: number) => {
+    setFooterContent((prev) => ({
+      ...prev,
+      footer: {
+        ...prev.footer,
+        [section]: {
+          ...prev.footer[section],
+          links: prev.footer[section].links.filter((_, i) => i !== index),
+        },
+      },
+    }));
+  };
+
+  const updateLink = (section: "quickLinks" | "support", index: number, field: "label" | "href", value: string) => {
+    setFooterContent((prev) => ({
+      ...prev,
+      footer: {
+        ...prev.footer,
+        [section]: {
+          ...prev.footer[section],
+          links: prev.footer[section].links.map((link, i) =>
+            i === index ? { ...link, [field]: value } : link
+          ),
+        },
+      },
+    }));
   };
 
   if (loading) {
@@ -206,7 +379,7 @@ export function PageContentEditor() {
       </CardHeader>
       <CardContent className="space-y-6 pt-6">
         <Tabs value={activePage} onValueChange={(value) => setActivePage(value as PageType)}>
-          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6">
+          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-7">
             {pages.map((page) => (
               <TabsTrigger key={page.key} value={page.key} className="text-xs">
                 {page.icon}
@@ -352,6 +525,427 @@ export function PageContentEditor() {
                   rows={3}
                 />
               </div>
+            </div>
+          </TabsContent>
+
+          {/* Footer */}
+          <TabsContent value="footer" className="space-y-3 mt-6">
+            {/* Footer About */}
+            <div className="border rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setOpenSections({ ...openSections, footerAbout: !openSections.footerAbout })}
+                className="flex w-full items-center justify-between p-4 hover:bg-accent transition-colors bg-muted/30"
+              >
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium text-sm">درباره ساد</span>
+                </div>
+                {openSections.footerAbout ? (
+                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                )}
+              </button>
+              {openSections.footerAbout && (
+                <div className="space-y-4 p-4 pt-2 border-t bg-background">
+                  <div className="space-y-2">
+                    <Label className="text-sm">عنوان</Label>
+                    <Input
+                      value={footerContent.footer.about.title}
+                      onChange={(e) =>
+                        setFooterContent((prev) => ({
+                          ...prev,
+                          footer: {
+                            ...prev.footer,
+                            about: { ...prev.footer.about, title: e.target.value },
+                          },
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm">توضیحات</Label>
+                    <Textarea
+                      value={footerContent.footer.about.description}
+                      onChange={(e) =>
+                        setFooterContent((prev) => ({
+                          ...prev,
+                          footer: {
+                            ...prev.footer,
+                            about: { ...prev.footer.about, description: e.target.value },
+                          },
+                        }))
+                      }
+                      rows={3}
+                      placeholder="توضیحات کوتاه درباره فروشگاه..."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm">شبکه‌های اجتماعی</Label>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="space-y-2">
+                        <Label className="text-xs flex items-center gap-1">
+                          <Instagram className="h-3 w-3" />
+                          Instagram
+                        </Label>
+                        <Input
+                          value={footerContent.footer.about.socialLinks.instagram}
+                          onChange={(e) =>
+                            setFooterContent((prev) => ({
+                              ...prev,
+                              footer: {
+                                ...prev.footer,
+                                about: {
+                                  ...prev.footer.about,
+                                  socialLinks: {
+                                    ...prev.footer.about.socialLinks,
+                                    instagram: e.target.value,
+                                  },
+                                },
+                              },
+                            }))
+                          }
+                          placeholder="#"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs flex items-center gap-1">
+                          <Facebook className="h-3 w-3" />
+                          Facebook
+                        </Label>
+                        <Input
+                          value={footerContent.footer.about.socialLinks.facebook}
+                          onChange={(e) =>
+                            setFooterContent((prev) => ({
+                              ...prev,
+                              footer: {
+                                ...prev.footer,
+                                about: {
+                                  ...prev.footer.about,
+                                  socialLinks: {
+                                    ...prev.footer.about.socialLinks,
+                                    facebook: e.target.value,
+                                  },
+                                },
+                              },
+                            }))
+                          }
+                          placeholder="#"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs flex items-center gap-1">
+                          <Twitter className="h-3 w-3" />
+                          Twitter
+                        </Label>
+                        <Input
+                          value={footerContent.footer.about.socialLinks.twitter}
+                          onChange={(e) =>
+                            setFooterContent((prev) => ({
+                              ...prev,
+                              footer: {
+                                ...prev.footer,
+                                about: {
+                                  ...prev.footer.about,
+                                  socialLinks: {
+                                    ...prev.footer.about.socialLinks,
+                                    twitter: e.target.value,
+                                  },
+                                },
+                              },
+                            }))
+                          }
+                          placeholder="#"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Quick Links */}
+            <div className="border rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setOpenSections({ ...openSections, footerQuickLinks: !openSections.footerQuickLinks })}
+                className="flex w-full items-center justify-between p-4 hover:bg-accent transition-colors bg-muted/30"
+              >
+                <div className="flex items-center gap-2">
+                  <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium text-sm">دسترسی سریع</span>
+                </div>
+                {openSections.footerQuickLinks ? (
+                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                )}
+              </button>
+              {openSections.footerQuickLinks && (
+                <div className="space-y-4 p-4 pt-2 border-t bg-background">
+                  <div className="space-y-2">
+                    <Label className="text-sm">عنوان</Label>
+                    <Input
+                      value={footerContent.footer.quickLinks.title}
+                      onChange={(e) =>
+                        setFooterContent((prev) => ({
+                          ...prev,
+                          footer: {
+                            ...prev.footer,
+                            quickLinks: { ...prev.footer.quickLinks, title: e.target.value },
+                          },
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">لینک‌ها</Label>
+                      <Button type="button" variant="outline" size="sm" onClick={() => addLink("quickLinks")}>
+                        <Plus className="h-4 w-4 ml-2" />
+                        افزودن لینک
+                      </Button>
+                    </div>
+                    {footerContent.footer.quickLinks.links.length === 0 && (
+                      <div className="flex items-center gap-2 p-3 border border-dashed rounded-lg text-muted-foreground text-sm">
+                        <AlertCircle className="h-4 w-4" />
+                        <span>هنوز لینکی اضافه نشده است</span>
+                      </div>
+                    )}
+                    <div className="space-y-2">
+                      {footerContent.footer.quickLinks.links.map((link, index) => (
+                        <div key={index} className="flex gap-2 items-end">
+                          <div className="flex-1 space-y-1">
+                            <Input
+                              value={link.label}
+                              onChange={(e) => updateLink("quickLinks", index, "label", e.target.value)}
+                              placeholder="عنوان لینک"
+                            />
+                          </div>
+                          <div className="flex-1 space-y-1">
+                            <Input
+                              value={link.href}
+                              onChange={(e) => updateLink("quickLinks", index, "href", e.target.value)}
+                              placeholder="/products"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            onClick={() => removeLink("quickLinks", index)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Support Links */}
+            <div className="border rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setOpenSections({ ...openSections, footerSupport: !openSections.footerSupport })}
+                className="flex w-full items-center justify-between p-4 hover:bg-accent transition-colors bg-muted/30"
+              >
+                <div className="flex items-center gap-2">
+                  <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium text-sm">پشتیبانی</span>
+                </div>
+                {openSections.footerSupport ? (
+                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                )}
+              </button>
+              {openSections.footerSupport && (
+                <div className="space-y-4 p-4 pt-2 border-t bg-background">
+                  <div className="space-y-2">
+                    <Label className="text-sm">عنوان</Label>
+                    <Input
+                      value={footerContent.footer.support.title}
+                      onChange={(e) =>
+                        setFooterContent((prev) => ({
+                          ...prev,
+                          footer: {
+                            ...prev.footer,
+                            support: { ...prev.footer.support, title: e.target.value },
+                          },
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">لینک‌ها</Label>
+                      <Button type="button" variant="outline" size="sm" onClick={() => addLink("support")}>
+                        <Plus className="h-4 w-4 ml-2" />
+                        افزودن لینک
+                      </Button>
+                    </div>
+                    {footerContent.footer.support.links.length === 0 && (
+                      <div className="flex items-center gap-2 p-3 border border-dashed rounded-lg text-muted-foreground text-sm">
+                        <AlertCircle className="h-4 w-4" />
+                        <span>هنوز لینکی اضافه نشده است</span>
+                      </div>
+                    )}
+                    <div className="space-y-2">
+                      {footerContent.footer.support.links.map((link, index) => (
+                        <div key={index} className="flex gap-2 items-end">
+                          <div className="flex-1 space-y-1">
+                            <Input
+                              value={link.label}
+                              onChange={(e) => updateLink("support", index, "label", e.target.value)}
+                              placeholder="عنوان لینک"
+                            />
+                          </div>
+                          <div className="flex-1 space-y-1">
+                            <Input
+                              value={link.href}
+                              onChange={(e) => updateLink("support", index, "href", e.target.value)}
+                              placeholder="/faq"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            onClick={() => removeLink("support", index)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer Contact */}
+            <div className="border rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setOpenSections({ ...openSections, footerContact: !openSections.footerContact })}
+                className="flex w-full items-center justify-between p-4 hover:bg-accent transition-colors bg-muted/30"
+              >
+                <div className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium text-sm">تماس با ما</span>
+                </div>
+                {openSections.footerContact ? (
+                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                )}
+              </button>
+              {openSections.footerContact && (
+                <div className="space-y-4 p-4 pt-2 border-t bg-background">
+                  <div className="space-y-2">
+                    <Label className="text-sm">عنوان</Label>
+                    <Input
+                      value={footerContent.footer.contact.title}
+                      onChange={(e) =>
+                        setFooterContent((prev) => ({
+                          ...prev,
+                          footer: {
+                            ...prev.footer,
+                            contact: { ...prev.footer.contact, title: e.target.value },
+                          },
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm flex items-center gap-2">
+                        <Phone className="h-4 w-4" />
+                        تلفن
+                      </Label>
+                      <Input
+                        value={footerContent.footer.contact.phone}
+                        onChange={(e) =>
+                          setFooterContent((prev) => ({
+                            ...prev,
+                            footer: {
+                              ...prev.footer,
+                              contact: { ...prev.footer.contact, phone: e.target.value },
+                            },
+                          }))
+                        }
+                        placeholder="021-12345678"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm flex items-center gap-2">
+                        <Mail className="h-4 w-4" />
+                        ایمیل
+                      </Label>
+                      <Input
+                        type="email"
+                        value={footerContent.footer.contact.email}
+                        onChange={(e) =>
+                          setFooterContent((prev) => ({
+                            ...prev,
+                            footer: {
+                              ...prev.footer,
+                              contact: { ...prev.footer.contact, email: e.target.value },
+                            },
+                          }))
+                        }
+                        placeholder="info@saded.ir"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Copyright */}
+            <div className="border rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setOpenSections({ ...openSections, footerCopyright: !openSections.footerCopyright })}
+                className="flex w-full items-center justify-between p-4 hover:bg-accent transition-colors bg-muted/30"
+              >
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium text-sm">Copyright</span>
+                </div>
+                {openSections.footerCopyright ? (
+                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                )}
+              </button>
+              {openSections.footerCopyright && (
+                <div className="p-4 pt-2 border-t bg-background">
+                  <div className="space-y-2">
+                    <Label className="text-sm">متن Copyright</Label>
+                    <Input
+                      value={footerContent.footer.copyright}
+                      onChange={(e) =>
+                        setFooterContent((prev) => ({
+                          ...prev,
+                          footer: {
+                            ...prev.footer,
+                            copyright: e.target.value,
+                          },
+                        }))
+                      }
+                      placeholder={`© ${new Date().getFullYear()} ساد. تمامی حقوق محفوظ است.`}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      این متن در پایین Footer نمایش داده می‌شود
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </TabsContent>
         </Tabs>
