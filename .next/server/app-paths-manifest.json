@@ -42,6 +42,7 @@
   "/api/products/route": "app/api/products/route.js",
   "/api/reviews/route": "app/api/reviews/route.js",
   "/api/settings/about/route": "app/api/settings/about/route.js",
+  "/api/settings/page-content/route": "app/api/settings/page-content/route.js",
   "/api/settings/site-content/route": "app/api/settings/site-content/route.js",
   "/api/users/[id]/route": "app/api/users/[id]/route.js",
   "/api/users/route": "app/api/users/route.js",

@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Save, RefreshCw, Trash2, Database, Bell, Palette, Download, Upload, Info, Settings, FileText } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { FooterContentEditor } from "@/components/admin/footer-content-editor";
+import { PageContentEditor } from "@/components/admin/page-content-editor";
 import {
   Select,
   SelectContent,
@@ -264,12 +265,17 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
+        {/* Page Content Editor */}
+        <div className="md:col-span-2">
+          <PageContentEditor />
+        </div>
+
         {/* Footer Content Editor */}
         <div className="md:col-span-2">
           <FooterContentEditor />
         </div>
 
-        {/* About Us Content */}
+        {/* About Us Content (Legacy - kept for backward compatibility) */}
         <Card className="shadow-sm md:col-span-2">
           <CardHeader className="bg-gradient-to-r from-primary/5 to-transparent border-b">
             <CardTitle className="flex items-center gap-2">
