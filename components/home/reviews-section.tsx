@@ -330,7 +330,7 @@ export function ReviewsSection() {
                 disableOnInteraction: false,
                 pauseOnMouseEnter: true,
               }}
-              speed={reviews.length > 0 ? reviews.length * 500 : 3000}
+              speed={reviews.length > 0 ? reviews.length * 10000 : 50000}
               freeMode={{
                 enabled: true,
                 momentum: false,
