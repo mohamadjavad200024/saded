@@ -331,6 +331,12 @@
       "namedRegex": "^/api/settings/about(?:/)?$"
     },
     {
+      "page": "/api/settings/site-content",
+      "regex": "^/api/settings/site\\-content(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/settings/site\\-content(?:/)?$"
+    },
+    {
       "page": "/api/users",
       "regex": "^/api/users(?:/)?$",
       "routeKeys": {},
