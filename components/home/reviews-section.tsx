@@ -295,7 +295,7 @@ export function ReviewsSection() {
                 disableOnInteraction: false,
                 pauseOnMouseEnter: true,
               }}
-              speed={reviews.length > 0 ? reviews.length * 10000 : 50000}
+              speed={reviews.length > 0 ? reviews.length * 2000 : 10000}
               freeMode={{
                 enabled: true,
                 momentum: false,
@@ -348,18 +348,19 @@ export function ReviewsSection() {
                 >
                   <div className="w-[calc(100vw-2rem)] sm:w-[320px] md:w-[360px] lg:w-[380px] h-full" style={{ marginRight: 0, paddingRight: 0 }}>
                     <Card className="glass-morphism h-full border-border/20 hover:border-border/40 transition-all duration-300 rounded-lg sm:rounded-xl">
-                      <CardContent className="p-3 sm:p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                            <User className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
+                      <CardContent className="p-2 sm:p-3 md:p-4">
+                        {/* Minimal Mobile Design */}
+                        <div className="flex items-start gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+                          <div className="w-5 h-5 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <User className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-primary" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-xs sm:text-sm truncate">{review.name}</h3>
-                            <div className="flex items-center gap-0.5 mt-0.5">
+                            <h3 className="font-semibold text-[10px] sm:text-xs md:text-sm truncate leading-tight">{review.name}</h3>
+                            <div className="flex items-center gap-0.5 mt-0.5 sm:mt-1">
                               {[1, 2, 3, 4, 5].map((star) => (
                                 <Star
                                   key={star}
-                                  className={`h-2.5 w-2.5 sm:h-3 sm:w-3 ${
+                                  className={`h-2 w-2 sm:h-2.5 sm:w-2.5 md:h-3 md:w-3 ${
                                     star <= review.rating
                                       ? "fill-yellow-400 text-yellow-400"
                                       : "text-muted-foreground"
@@ -369,11 +370,11 @@ export function ReviewsSection() {
                             </div>
                           </div>
                         </div>
-                        <p className="text-xs sm:text-sm text-foreground leading-relaxed line-clamp-3 mb-2">
+                        <p className="text-[10px] sm:text-xs md:text-sm text-foreground leading-relaxed line-clamp-2 sm:line-clamp-3 mb-1.5 sm:mb-2">
                           {review.comment}
                         </p>
-                        <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground">
-                          <Calendar className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                        <div className="flex items-center gap-1 text-[9px] sm:text-[10px] md:text-xs text-muted-foreground">
+                          <Calendar className="h-2 w-2 sm:h-2.5 sm:w-2.5 md:h-3 md:w-3" />
                           <span>
                             {new Date(review.createdAt).toLocaleDateString("fa-IR", {
                               month: "short",
