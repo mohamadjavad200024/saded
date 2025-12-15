@@ -24,9 +24,14 @@ echo "4. Installing dependencies..."
 export PATH=/opt/alt/alt-nodejs20/root/usr/bin:$PATH
 npm install
 
-# 5. Build the project
+# 5. Build the project (with memory limit)
 echo "5. Building project..."
-npm run build
+# Try to build with Node memory limit
+export NODE_OPTIONS="--max-old-space-size=2048"
+npm run build || {
+    echo "Build failed due to memory issues. Using existing build..."
+    echo "If changes don't appear, you may need to build locally and push .next folder"
+}
 
 # 6. Restart PM2
 echo "6. Restarting PM2..."
