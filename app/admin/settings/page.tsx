@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +10,8 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { useAdminStore } from "@/store/admin-store";
 import { useToast } from "@/hooks/use-toast";
-import { Save, RefreshCw, Trash2, Database, Bell, Palette, Download, Upload, Info, Settings } from "lucide-react";
+import { Save, RefreshCw, Trash2, Database, Bell, Palette, Download, Upload, Info, Settings, FileText } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -31,6 +33,9 @@ export default function SettingsPage() {
   const { settings, updateSettings } = useAdminStore();
   const { toast } = useToast();
   const [clearDataDialogOpen, setClearDataDialogOpen] = useState(false);
+  const [aboutContent, setAboutContent] = useState("");
+  const [aboutLoading, setAboutLoading] = useState(true);
+  const [aboutSaving, setAboutSaving] = useState(false);
 
   // Ensure settings has default values
   const safeSettings = {
@@ -55,6 +60,59 @@ export default function SettingsPage() {
     });
     setClearDataDialogOpen(false);
     window.location.reload();
+  };
+
+  // Load about content
+  React.useEffect(() => {
+    const loadAboutContent = async () => {
+      try {
+        const response = await fetch("/api/settings/about");
+        if (response.ok) {
+          const data = await response.json();
+          setAboutContent(data.data?.content || "");
+        }
+      } catch (error) {
+        console.error("Error loading about content:", error);
+      } finally {
+        setAboutLoading(false);
+      }
+    };
+    loadAboutContent();
+  }, []);
+
+  const handleSaveAbout = async () => {
+    setAboutSaving(true);
+    try {
+      const response = await fetch("/api/settings/about", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ content: aboutContent }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "موفق",
+          description: "محتوای درباره ما با موفقیت ذخیره شد",
+        });
+      } else {
+        const error = await response.json();
+        toast({
+          title: "خطا",
+          description: error.error || "خطا در ذخیره محتوا",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "خطا",
+        description: "خطا در ذخیره محتوا",
+        variant: "destructive",
+      });
+    } finally {
+      setAboutSaving(false);
+    }
   };
 
   return (
@@ -202,6 +260,61 @@ export default function SettingsPage() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+          </CardContent>
+        </Card>
+
+        {/* About Us Content */}
+        <Card className="shadow-sm md:col-span-2">
+          <CardHeader className="bg-gradient-to-r from-primary/5 to-transparent border-b">
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              محتوای درباره ما
+            </CardTitle>
+            <CardDescription>
+              ویرایش محتوای صفحه "درباره ما"
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-6">
+            {aboutLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-6 h-6 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="aboutContent">محتوا</Label>
+                  <Textarea
+                    id="aboutContent"
+                    value={aboutContent}
+                    onChange={(e) => setAboutContent(e.target.value)}
+                    placeholder="محتوای صفحه درباره ما را اینجا وارد کنید..."
+                    className="min-h-[200px] font-sans"
+                    rows={10}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    می‌توانید از چند خط استفاده کنید. محتوا به صورت خودکار در صفحه "درباره ما" نمایش داده می‌شود.
+                  </p>
+                </div>
+                <div className="flex justify-end">
+                  <Button 
+                    onClick={handleSaveAbout} 
+                    disabled={aboutSaving}
+                  >
+                    {aboutSaving ? (
+                      <>
+                        <RefreshCw className="ml-2 h-4 w-4 animate-spin" />
+                        در حال ذخیره...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="ml-2 h-4 w-4" />
+                        ذخیره محتوا
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 

@@ -1,0 +1,54 @@
+Subject: Resource temporarily unavailable error - Unable to execute commands in terminal
+
+Hello,
+
+I am facing a critical issue with my hosting and need your assistance.
+
+🔴 Problem:
+I cannot execute any commands in SSH terminal and receive the following error:
+"bash: fork: retry: Resource temporarily unavailable"
+"bash: fork: Resource temporarily unavailable"
+
+This error occurs for all commands, even simple ones like:
+- git fetch
+- git pull
+- pm2 restart
+- pm2 status
+- npm install
+- and any other command that requires fork
+
+📋 Technical Information:
+- Host: CloudLinux (based on cagefs_enter error)
+- Username: shop1111
+- Project path: /home/shop1111/public_html/saded
+- Node.js: /opt/alt/alt-nodejs20/root/usr/bin/node
+- PM2: ~/.npm-global/bin/pm2
+- Project: Next.js with PM2
+
+🔧 What I've tried:
+1. Deleted all .sh script files that had git fetch/pull commands
+2. Used Cron Jobs to restart PM2 (but it didn't work)
+3. Waited several hours but the problem persists
+4. Tried to use cPanel File Manager
+
+❓ My Requests:
+1. Check LVE limits (PMEM, Process Limits, CPU)
+2. Check running processes - Are there any extra Node.js or PM2 processes?
+3. Kill extra processes (if any exist)
+4. Restart PM2 for me (project name: saded)
+5. Check if hosting limits are properly configured
+6. If needed, increase LVE limits
+
+📝 Additional Information:
+- Project is running with PM2 (ecosystem.config.js)
+- Everything was working fine before
+- Problem started after running several git fetch/pull commands
+- Now I cannot restart PM2 to apply new changes
+
+⚠️ Urgent:
+If possible, please restart PM2 for me:
+/opt/alt/alt-nodejs20/root/usr/bin/node /home/shop1111/.npm-global/bin/pm2 restart saded --update-env
+
+Thank you for your cooperation
+Ticket Number: [Enter ticket number here]
+
