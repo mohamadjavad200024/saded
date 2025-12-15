@@ -265,12 +265,26 @@ export function ReviewsSection() {
 
           {/* Reviews List - Desktop: Right Side (2 columns), Mobile: Full Width */}
           <div className="lg:col-span-2 order-1 lg:order-2">
-            {/* Rating Summary - Desktop Only (Just Count) */}
+            {/* Rating Summary - Desktop Only (With Stars) */}
             {reviews.length > 0 && (
               <div className="hidden lg:flex items-center justify-between mb-4 px-2">
-                <span className="text-sm font-medium text-foreground">
-                  {reviews.length} نظر
-                </span>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        className={`h-4 w-4 ${
+                          star <= Math.round(averageRating)
+                            ? "fill-yellow-400 text-yellow-400"
+                            : "text-muted-foreground"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-sm font-medium text-foreground">
+                    ({averageRating.toFixed(1)}) از {reviews.length} نظر
+                  </span>
+                </div>
               </div>
             )}
 
