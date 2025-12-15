@@ -45,37 +45,50 @@ interface FooterContent {
   };
 }
 
+// Default content که کاربر در سایت می‌بیند
+const defaultContent: FooterContent = {
+  footer: {
+    about: {
+      title: "درباره ساد",
+      description: "فروشگاه آنلاین قطعات خودرو وارداتی با بهترین کیفیت و قیمت. ما متعهد به ارائه بهترین خدمات به مشتریان خود هستیم.",
+      socialLinks: {
+        instagram: "#",
+        facebook: "#",
+        twitter: "#",
+      },
+    },
+    quickLinks: {
+      title: "دسترسی سریع",
+      links: [
+        { label: "محصولات", href: "/products" },
+        { label: "درباره ما", href: "/about" },
+        { label: "تماس با ما", href: "/contact" },
+        { label: "وبلاگ", href: "/blog" },
+      ],
+    },
+    support: {
+      title: "پشتیبانی",
+      links: [
+        { label: "سوالات متداول", href: "/faq" },
+        { label: "ارسال و تحویل", href: "/shipping" },
+        { label: "بازگشت کالا", href: "/returns" },
+        { label: "گارانتی", href: "/warranty" },
+      ],
+    },
+    contact: {
+      title: "تماس با ما",
+      phone: "021-12345678",
+      email: "info@saded.ir",
+    },
+    copyright: `© ${new Date().getFullYear()} ساد. تمامی حقوق محفوظ است.`,
+  },
+};
+
 export function FooterContentEditor() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [content, setContent] = useState<FooterContent>({
-    footer: {
-      about: {
-        title: "درباره ساد",
-        description: "",
-        socialLinks: {
-          instagram: "#",
-          facebook: "#",
-          twitter: "#",
-        },
-      },
-      quickLinks: {
-        title: "دسترسی سریع",
-        links: [],
-      },
-      support: {
-        title: "پشتیبانی",
-        links: [],
-      },
-      contact: {
-        title: "تماس با ما",
-        phone: "",
-        email: "",
-      },
-      copyright: "",
-    },
-  });
+  const [content, setContent] = useState<FooterContent>(defaultContent);
 
   useEffect(() => {
     loadContent();
@@ -86,12 +99,53 @@ export function FooterContentEditor() {
       const response = await fetch("/api/settings/site-content");
       if (response.ok) {
         const data = await response.json();
+        // اگر محتوا از API آمد، استفاده کن، در غیر این صورت از defaultContent استفاده می‌شود
         if (data.data?.footer) {
-          setContent(data.data);
+          // Merge کردن با defaultContent برای اطمینان از وجود همه فیلدها
+          setContent({
+            footer: {
+              ...defaultContent.footer,
+              ...data.data.footer,
+              about: {
+                ...defaultContent.footer.about,
+                ...data.data.footer.about,
+                socialLinks: {
+                  ...defaultContent.footer.about.socialLinks,
+                  ...data.data.footer.about?.socialLinks,
+                },
+              },
+              quickLinks: {
+                ...defaultContent.footer.quickLinks,
+                ...data.data.footer.quickLinks,
+                links: data.data.footer.quickLinks?.links?.length > 0 
+                  ? data.data.footer.quickLinks.links 
+                  : defaultContent.footer.quickLinks.links,
+              },
+              support: {
+                ...defaultContent.footer.support,
+                ...data.data.footer.support,
+                links: data.data.footer.support?.links?.length > 0 
+                  ? data.data.footer.support.links 
+                  : defaultContent.footer.support.links,
+              },
+              contact: {
+                ...defaultContent.footer.contact,
+                ...data.data.footer.contact,
+              },
+            },
+          });
+        } else {
+          // اگر محتوا موجود نبود، از defaultContent استفاده کن
+          setContent(defaultContent);
         }
+      } else {
+        // اگر خطا بود، از defaultContent استفاده کن
+        setContent(defaultContent);
       }
     } catch (error) {
       console.error("Error loading content:", error);
+      // در صورت خطا، از defaultContent استفاده کن
+      setContent(defaultContent);
     } finally {
       setLoading(false);
     }
