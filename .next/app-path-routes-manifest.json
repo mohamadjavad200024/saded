@@ -42,6 +42,7 @@
   "/api/products/route": "/api/products",
   "/api/reviews/route": "/api/reviews",
   "/api/settings/about/route": "/api/settings/about",
+  "/api/settings/site-content/route": "/api/settings/site-content",
   "/api/users/[id]/route": "/api/users/[id]",
   "/api/users/route": "/api/users",
   "/auth/page": "/auth",
