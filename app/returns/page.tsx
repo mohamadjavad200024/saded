@@ -15,15 +15,28 @@ export default function ReturnsPage() {
   useEffect(() => {
     const fetchContent = async () => {
       try {
-        const response = await fetch("/api/settings/page-content?page=returns");
+        // اضافه کردن timestamp برای جلوگیری از cache
+        const response = await fetch(`/api/settings/page-content?page=returns&t=${Date.now()}`, {
+          cache: "no-store",
+        });
         if (response.ok) {
           const data = await response.json();
-          if (data.data?.content) {
-            setContent(data.data.content);
+          // استفاده از محتوای API یا default content
+          const apiContent = data.data?.content;
+          if (apiContent && apiContent.trim() !== "" && apiContent !== "null") {
+            setContent(apiContent);
+          } else {
+            // اگر محتوا موجود نبود یا خالی بود، از default استفاده می‌شود
+            setContent(defaultContent);
           }
+        } else {
+          // اگر خطا بود، از default استفاده می‌شود
+          setContent(defaultContent);
         }
       } catch (error) {
         console.error("Error fetching returns content:", error);
+        // در صورت خطا، از default استفاده می‌شود
+        setContent(defaultContent);
       } finally {
         setLoading(false);
       }

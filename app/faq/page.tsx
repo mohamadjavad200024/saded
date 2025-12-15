@@ -31,20 +31,34 @@ export default function FAQPage() {
   useEffect(() => {
     const fetchContent = async () => {
       try {
-        const response = await fetch("/api/settings/page-content?page=faq");
+        // اضافه کردن timestamp برای جلوگیری از cache
+        const response = await fetch(`/api/settings/page-content?page=faq&t=${Date.now()}`, {
+          cache: "no-store",
+        });
         if (response.ok) {
           const data = await response.json();
           if (data.data?.content) {
             const content = typeof data.data.content === "string" 
               ? JSON.parse(data.data.content) 
               : data.data.content;
+            // اگر array بود و محتوا داشت، استفاده کن، در غیر این صورت از default استفاده می‌شود
             if (Array.isArray(content) && content.length > 0) {
               setFaqs(content);
+            } else {
+              setFaqs(defaultFAQs);
             }
+          } else {
+            // اگر محتوا موجود نبود، از default استفاده می‌شود
+            setFaqs(defaultFAQs);
           }
+        } else {
+          // اگر خطا بود، از default استفاده می‌شود
+          setFaqs(defaultFAQs);
         }
       } catch (error) {
         console.error("Error fetching FAQ content:", error);
+        // در صورت خطا، از default استفاده می‌شود
+        setFaqs(defaultFAQs);
       } finally {
         setLoading(false);
       }
