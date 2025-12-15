@@ -8,13 +8,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Star, MessageSquare, Send, User, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Swiper, SwiperSlide } from "swiper/react";
-import { Autoplay, FreeMode } from "swiper/modules";
-import type { Swiper as SwiperType } from "swiper";
-
-// Import Swiper styles
-import "swiper/css";
-import "swiper/css/free-mode";
 
 interface Review {
   id: string;
@@ -113,45 +106,6 @@ export function ReviewsSection() {
     }
   };
 
-  const swiperRef = useRef<SwiperType | null>(null);
-
-  // Remove gaps after Swiper initializes
-  useEffect(() => {
-    if (swiperRef.current && reviews.length > 0) {
-      const removeGaps = () => {
-        const swiperEl = document.querySelector('.reviews-swiper');
-        if (swiperEl) {
-          const wrapper = swiperEl.querySelector('.swiper-wrapper') as HTMLElement;
-          const slides = swiperEl.querySelectorAll('.swiper-slide') as NodeListOf<HTMLElement>;
-          
-          if (wrapper) {
-            wrapper.style.gap = '0';
-            wrapper.style.margin = '0';
-            wrapper.style.padding = '0';
-          }
-          
-          slides.forEach((slide) => {
-            slide.style.marginRight = '0';
-            slide.style.marginLeft = '0';
-            slide.style.paddingRight = '0';
-            slide.style.paddingLeft = '0';
-            slide.style.width = 'auto';
-          });
-        }
-      };
-
-      // Remove gaps immediately
-      removeGaps();
-      
-      // Remove gaps after a short delay to ensure Swiper has rendered
-      setTimeout(removeGaps, 100);
-      setTimeout(removeGaps, 500);
-      
-      // Watch for Swiper updates
-      swiperRef.current.on('slideChange', removeGaps);
-      swiperRef.current.on('resize', removeGaps);
-    }
-  }, [reviews.length]);
 
   return (
     <section className="py-6 sm:py-8 md:py-10 relative overflow-hidden">
@@ -264,7 +218,7 @@ export function ReviewsSection() {
           </motion.div>
         )}
 
-        {/* Reviews Carousel - Swiper Loop Carousel with Auto-play */}
+        {/* Reviews List - Vertical Comment Style with Scroll */}
         {isLoading ? (
           <div className="flex items-center justify-center py-6">
             <div className="w-6 h-6 border-3 border-primary border-t-transparent rounded-full animate-spin" />
@@ -281,113 +235,72 @@ export function ReviewsSection() {
             </p>
           </motion.div>
         ) : (
-          <div className="relative w-full py-4 overflow-hidden">
-            <Swiper
-              onSwiper={(swiper) => {
-                swiperRef.current = swiper;
-              }}
-              modules={[Autoplay, FreeMode]}
-              spaceBetween={0}
-              slidesPerView="auto"
-              loop={true}
-              autoplay={{
-                delay: 0,
-                disableOnInteraction: false,
-                pauseOnMouseEnter: true,
-              }}
-              speed={reviews.length > 0 ? reviews.length * 2000 : 10000}
-              freeMode={{
-                enabled: true,
-                momentum: false,
-                sticky: false,
-              }}
-              className="reviews-swiper !overflow-visible"
-              breakpoints={{
-                0: {
-                  slidesPerView: 1.2,
-                  spaceBetween: 0,
-                },
-                375: {
-                  slidesPerView: 1.5,
-                  spaceBetween: 0,
-                },
-                480: {
-                  slidesPerView: 1.8,
-                  spaceBetween: 0,
-                },
-                640: {
-                  slidesPerView: 2.2,
-                  spaceBetween: 0,
-                },
-                768: {
-                  slidesPerView: 2.5,
-                  spaceBetween: 0,
-                },
-                1024: {
-                  slidesPerView: 3,
-                  spaceBetween: 0,
-                },
-                1280: {
-                  slidesPerView: 3.5,
-                  spaceBetween: 0,
-                },
-                1536: {
-                  slidesPerView: 4,
-                  spaceBetween: 0,
-                },
-              }}
-            >
-              {reviews.map((review, index) => (
-                <SwiperSlide 
-                  key={`${review.id}-${index}`} 
-                  className="!w-auto"
-                  style={{ 
-                    marginRight: 0,
-                    paddingRight: 0,
-                  }}
-                >
-                  <div className="w-[calc(100vw-2rem)] sm:w-[320px] md:w-[360px] lg:w-[380px] h-full" style={{ marginRight: 0, paddingRight: 0 }}>
-                    <Card className="glass-morphism h-full border-border/20 hover:border-border/40 transition-all duration-300 rounded-lg sm:rounded-xl">
-                      <CardContent className="p-2 sm:p-3 md:p-4">
-                        {/* Minimal Mobile Design */}
-                        <div className="flex items-start gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
-                          <div className="w-5 h-5 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <User className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-primary" />
+          <div className="relative w-full">
+            {/* Scrollable Container */}
+            <div className="max-h-[600px] sm:max-h-[700px] md:max-h-[800px] overflow-y-auto overflow-x-hidden pr-2 -mr-2 custom-scrollbar">
+              <div className="space-y-3 sm:space-y-4 pr-2">
+                {reviews.map((review) => (
+                  <motion.div
+                    key={review.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="w-full"
+                  >
+                    <Card className="glass-morphism border-border/20 hover:border-border/40 transition-all duration-300 rounded-lg sm:rounded-xl">
+                      <CardContent className="p-3 sm:p-4">
+                        {/* Comment Style Layout */}
+                        <div className="flex items-start gap-2 sm:gap-3">
+                          {/* Avatar */}
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <User className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                           </div>
+                          
+                          {/* Content */}
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-[10px] sm:text-xs md:text-sm truncate leading-tight">{review.name}</h3>
-                            <div className="flex items-center gap-0.5 mt-0.5 sm:mt-1">
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <Star
-                                  key={star}
-                                  className={`h-2 w-2 sm:h-2.5 sm:w-2.5 md:h-3 md:w-3 ${
-                                    star <= review.rating
-                                      ? "fill-yellow-400 text-yellow-400"
-                                      : "text-muted-foreground"
-                                  }`}
-                                />
-                              ))}
+                            {/* Header: Name + Rating + Date */}
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2 mb-2">
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-semibold text-sm sm:text-base text-foreground">
+                                  {review.name}
+                                </h3>
+                                <div className="flex items-center gap-0.5">
+                                  {[1, 2, 3, 4, 5].map((star) => (
+                                    <Star
+                                      key={star}
+                                      className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${
+                                        star <= review.rating
+                                          ? "fill-yellow-400 text-yellow-400"
+                                          : "text-muted-foreground"
+                                      }`}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground">
+                                <Calendar className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                                <span>
+                                  {new Date(review.createdAt).toLocaleDateString("fa-IR", {
+                                    year: "numeric",
+                                    month: "long",
+                                    day: "numeric",
+                                  })}
+                                </span>
+                              </div>
                             </div>
+                            
+                            {/* Comment Text */}
+                            <p className="text-sm sm:text-base text-foreground leading-relaxed whitespace-pre-wrap">
+                              {review.comment}
+                            </p>
                           </div>
-                        </div>
-                        <p className="text-[10px] sm:text-xs md:text-sm text-foreground leading-relaxed line-clamp-2 sm:line-clamp-3 mb-1.5 sm:mb-2">
-                          {review.comment}
-                        </p>
-                        <div className="flex items-center gap-1 text-[9px] sm:text-[10px] md:text-xs text-muted-foreground">
-                          <Calendar className="h-2 w-2 sm:h-2.5 sm:w-2.5 md:h-3 md:w-3" />
-                          <span>
-                            {new Date(review.createdAt).toLocaleDateString("fa-IR", {
-                              month: "short",
-                              day: "numeric",
-                            })}
-                          </span>
                         </div>
                       </CardContent>
                     </Card>
-                  </div>
-                </SwiperSlide>
-              ))}
-            </Swiper>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>
