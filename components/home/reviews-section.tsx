@@ -278,7 +278,7 @@ export function ReviewsSection() {
             </p>
           </motion.div>
         ) : (
-          <div className="relative w-full py-4">
+          <div className="relative w-full py-4 overflow-hidden">
             <Swiper
               onSwiper={(swiper) => {
                 swiperRef.current = swiper;
@@ -298,22 +298,22 @@ export function ReviewsSection() {
                 momentum: false,
                 sticky: false,
               }}
-              className="!overflow-visible"
+              className="reviews-swiper !overflow-visible"
               breakpoints={{
                 0: {
-                  slidesPerView: 1.2,
+                  slidesPerView: "auto",
                   spaceBetween: 0,
                 },
                 640: {
-                  slidesPerView: 2,
+                  slidesPerView: "auto",
                   spaceBetween: 0,
                 },
                 768: {
-                  slidesPerView: 2.5,
+                  slidesPerView: "auto",
                   spaceBetween: 0,
                 },
                 1024: {
-                  slidesPerView: 3,
+                  slidesPerView: "auto",
                   spaceBetween: 0,
                 },
               }}
@@ -322,9 +322,13 @@ export function ReviewsSection() {
                 <SwiperSlide 
                   key={`${review.id}-${index}`} 
                   className="!w-auto"
-                  style={{ marginRight: 0 }}
+                  style={{ 
+                    marginRight: 0,
+                    paddingRight: 0,
+                    width: "280px"
+                  }}
                 >
-                  <div className="w-[280px] sm:w-[320px] md:w-[360px] h-full">
+                  <div className="w-[280px] sm:w-[320px] md:w-[360px] h-full" style={{ marginRight: 0, paddingRight: 0 }}>
                     <Card className="glass-morphism h-full border-border/20 hover:border-border/40 transition-all duration-300 rounded-lg sm:rounded-xl">
                       <CardContent className="p-3 sm:p-4">
                         <div className="flex items-center gap-2 mb-2">
