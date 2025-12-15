@@ -339,19 +339,35 @@ export function ReviewsSection() {
               className="reviews-swiper !overflow-visible"
               breakpoints={{
                 0: {
-                  slidesPerView: "auto",
+                  slidesPerView: 1.2,
+                  spaceBetween: 0,
+                },
+                375: {
+                  slidesPerView: 1.5,
+                  spaceBetween: 0,
+                },
+                480: {
+                  slidesPerView: 1.8,
                   spaceBetween: 0,
                 },
                 640: {
-                  slidesPerView: "auto",
+                  slidesPerView: 2.2,
                   spaceBetween: 0,
                 },
                 768: {
-                  slidesPerView: "auto",
+                  slidesPerView: 2.5,
                   spaceBetween: 0,
                 },
                 1024: {
-                  slidesPerView: "auto",
+                  slidesPerView: 3,
+                  spaceBetween: 0,
+                },
+                1280: {
+                  slidesPerView: 3.5,
+                  spaceBetween: 0,
+                },
+                1536: {
+                  slidesPerView: 4,
                   spaceBetween: 0,
                 },
               }}
@@ -363,10 +379,9 @@ export function ReviewsSection() {
                   style={{ 
                     marginRight: 0,
                     paddingRight: 0,
-                    width: "280px"
                   }}
                 >
-                  <div className="w-[280px] sm:w-[320px] md:w-[360px] h-full" style={{ marginRight: 0, paddingRight: 0 }}>
+                  <div className="w-[calc(100vw-2rem)] sm:w-[320px] md:w-[360px] lg:w-[380px] h-full" style={{ marginRight: 0, paddingRight: 0 }}>
                     <Card className="glass-morphism h-full border-border/20 hover:border-border/40 transition-all duration-300 rounded-lg sm:rounded-xl">
                       <CardContent className="p-3 sm:p-4">
                         <div className="flex items-center gap-2 mb-2">
