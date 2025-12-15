@@ -6,8 +6,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Star, MessageSquare, Send, User, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import { Star, MessageSquare, Send, User, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Swiper, SwiperSlide } from "swiper/react";
+import { Autoplay, FreeMode } from "swiper/modules";
+import type { Swiper as SwiperType } from "swiper";
+
+// Import Swiper styles
+import "swiper/css";
+import "swiper/css/free-mode";
 
 interface Review {
   id: string;
@@ -106,10 +113,7 @@ export function ReviewsSection() {
     }
   };
 
-  // Duplicate reviews multiple times for seamless infinite loop (like a ring)
-  const duplicatedReviews = reviews.length > 0 
-    ? [...reviews, ...reviews, ...reviews, ...reviews] // 4x duplication for smoother loop
-    : [];
+  const swiperRef = useRef<SwiperType | null>(null);
 
   return (
     <section className="py-6 sm:py-8 md:py-10 relative overflow-hidden">
@@ -257,7 +261,7 @@ export function ReviewsSection() {
           </motion.div>
         )}
 
-        {/* Reviews Carousel - Seamless Infinite Loop (Marquee Style) */}
+        {/* Reviews Carousel - Swiper Loop Carousel with Auto-play */}
         {isLoading ? (
           <div className="flex items-center justify-center py-6">
             <div className="w-6 h-6 border-3 border-primary border-t-transparent rounded-full animate-spin" />
@@ -274,32 +278,53 @@ export function ReviewsSection() {
             </p>
           </motion.div>
         ) : (
-          <div className="relative overflow-hidden">
-            {/* Seamless Infinite Scrolling Carousel - No Gaps, Ring Style */}
-            <div className="overflow-hidden">
-              <motion.div
-                className="flex"
-                animate={{
-                  x: ["0%", "-25%"], // Move by 25% (one set of reviews) for seamless loop
-                }}
-                transition={{
-                  x: {
-                    repeat: Infinity,
-                    repeatType: "loop",
-                    duration: reviews.length * 3, // Much faster speed (3 seconds per review)
-                    ease: "linear",
-                  },
-                }}
-                style={{
-                  width: "max-content",
-                }}
-              >
-                {duplicatedReviews.map((review, index) => (
-                  <div
-                    key={`${review.id}-${index}`}
-                    className="flex-shrink-0 w-[280px] sm:w-[320px] md:w-[360px]"
-                    style={{ marginRight: 0 }} // No gap between cards
-                  >
+          <div className="relative w-full py-4">
+            <Swiper
+              onSwiper={(swiper) => {
+                swiperRef.current = swiper;
+              }}
+              modules={[Autoplay, FreeMode]}
+              spaceBetween={0}
+              slidesPerView="auto"
+              loop={true}
+              autoplay={{
+                delay: 0,
+                disableOnInteraction: false,
+                pauseOnMouseEnter: true,
+              }}
+              speed={reviews.length > 0 ? reviews.length * 500 : 3000}
+              freeMode={{
+                enabled: true,
+                momentum: false,
+                sticky: false,
+              }}
+              className="!overflow-visible"
+              breakpoints={{
+                0: {
+                  slidesPerView: 1.2,
+                  spaceBetween: 0,
+                },
+                640: {
+                  slidesPerView: 2,
+                  spaceBetween: 0,
+                },
+                768: {
+                  slidesPerView: 2.5,
+                  spaceBetween: 0,
+                },
+                1024: {
+                  slidesPerView: 3,
+                  spaceBetween: 0,
+                },
+              }}
+            >
+              {reviews.map((review, index) => (
+                <SwiperSlide 
+                  key={`${review.id}-${index}`} 
+                  className="!w-auto"
+                  style={{ marginRight: 0 }}
+                >
+                  <div className="w-[280px] sm:w-[320px] md:w-[360px] h-full">
                     <Card className="glass-morphism h-full border-border/20 hover:border-border/40 transition-all duration-300 rounded-lg sm:rounded-xl">
                       <CardContent className="p-3 sm:p-4">
                         <div className="flex items-center gap-2 mb-2">
@@ -337,9 +362,9 @@ export function ReviewsSection() {
                       </CardContent>
                     </Card>
                   </div>
-                ))}
-              </motion.div>
-            </div>
+                </SwiperSlide>
+              ))}
+            </Swiper>
           </div>
         )}
       </div>
