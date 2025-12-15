@@ -4,17 +4,18 @@ import { useState, useEffect, Suspense } from "react";
 import { useParams } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { Card, CardContent } from "@/components/ui/card";
-import { ProductCard } from "@/components/product/product-card";
-import { useProductStore } from "@/store/product-store";
+import { ProductGrid } from "@/components/product/product-grid";
 import { Loader2 } from "lucide-react";
+import { useCategoryStore } from "@/store/category-store";
+import { useProductStore } from "@/store/product-store";
 
 function CategoryProductsContent() {
   const params = useParams();
   const categoryId = params?.id as string;
-  const { products, loadProductsFromDB } = useProductStore();
   const [category, setCategory] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { loadCategoriesFromDB } = useCategoryStore();
+  const { setFilters } = useProductStore();
 
   useEffect(() => {
     const fetchCategory = async () => {
@@ -35,13 +36,16 @@ function CategoryProductsContent() {
 
     if (categoryId) {
       fetchCategory();
-      loadProductsFromDB(true).catch(console.error);
+      loadCategoriesFromDB().catch(console.error);
+      // Set category filter
+      setFilters({ categories: [categoryId] });
     }
-  }, [categoryId, loadProductsFromDB]);
 
-  const categoryProducts = products.filter(
-    (p) => p.category === categoryId && p.enabled
-  );
+    // Cleanup: clear filters when component unmounts
+    return () => {
+      setFilters({ categories: [] });
+    };
+  }, [categoryId, loadCategoriesFromDB, setFilters]);
 
   if (isLoading) {
     return (
@@ -75,29 +79,15 @@ function CategoryProductsContent() {
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
-      <main className="flex-1 container py-8">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-2">{category.name}</h1>
+      <main className="flex-1 container py-4 sm:py-6 md:py-8 px-3 sm:px-4">
+        <div className="mb-4 sm:mb-6 md:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2">{category.name}</h1>
           {category.description && (
-            <p className="text-muted-foreground">{category.description}</p>
+            <p className="text-sm sm:text-base text-muted-foreground">{category.description}</p>
           )}
         </div>
 
-        {categoryProducts.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {categoryProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        ) : (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground">
-                محصولی در این دسته‌بندی یافت نشد.
-              </p>
-            </CardContent>
-          </Card>
-        )}
+        <ProductGrid />
       </main>
       <Footer />
     </div>

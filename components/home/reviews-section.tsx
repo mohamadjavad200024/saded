@@ -59,11 +59,6 @@ export function ReviewsSection() {
     fetchReviews();
   }, []);
 
-  // Calculate average rating
-  const averageRating = reviews.length > 0
-    ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
-    : 0;
-
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,33 +113,62 @@ export function ReviewsSection() {
   };
 
 
+  // Calculate average rating
+  const averageRating = reviews.length > 0
+    ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+    : 0;
+
   return (
     <section className="py-6 sm:py-8 md:py-10 relative overflow-hidden">
       <div className="container px-4 sm:px-4 relative z-10">
+        {/* Mobile Header: Button + Rating Summary */}
+        <div className="lg:hidden mb-4 space-y-3">
+          {/* Add Review Button - Mobile */}
+          {!showForm && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+            >
+              <Button
+                onClick={() => setShowForm(true)}
+                variant="outline"
+                size="sm"
+                className="glass-morphism-light h-9 px-4 text-xs rounded-lg w-full"
+              >
+                <MessageSquare className="h-3.5 w-3.5 ml-1.5" />
+                افزودن نظر
+              </Button>
+            </motion.div>
+          )}
+          
+          {/* Rating Summary - Mobile */}
+          {reviews.length > 0 && (
+            <div className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-primary/5">
+              <div className="flex items-center gap-0.5">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star
+                    key={star}
+                    className={`h-4 w-4 ${
+                      star <= Math.round(averageRating)
+                        ? "fill-yellow-400 text-yellow-400"
+                        : "text-muted-foreground"
+                    }`}
+                  />
+                ))}
+              </div>
+              <span className="text-sm font-medium text-foreground">
+                ({averageRating.toFixed(1)}) از {reviews.length} نظر
+              </span>
+            </div>
+          )}
+        </div>
+
         {/* Desktop Layout: Form on left, Reviews on right */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
           {/* Review Form - Desktop: Left Side, Mobile: Full Width */}
           <div className="lg:col-span-1 order-2 lg:order-1">
-            {/* Add Review Button - Only on Mobile */}
-            {!showForm && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.2 }}
-                className="text-center mb-4 lg:hidden"
-              >
-                <Button
-                  onClick={() => setShowForm(true)}
-                  variant="outline"
-                  size="sm"
-                  className="glass-morphism-light h-9 px-4 text-xs rounded-lg w-full"
-                >
-                  <MessageSquare className="h-3.5 w-3.5 ml-1.5" />
-                  افزودن نظر
-                </Button>
-              </motion.div>
-            )}
 
             {/* Review Form */}
             {(showForm || isDesktop) && (
@@ -241,6 +265,14 @@ export function ReviewsSection() {
 
           {/* Reviews List - Desktop: Right Side (2 columns), Mobile: Full Width */}
           <div className="lg:col-span-2 order-1 lg:order-2">
+            {/* Rating Summary - Desktop Only (Just Count) */}
+            {reviews.length > 0 && (
+              <div className="hidden lg:flex items-center justify-between mb-4 px-2">
+                <span className="text-sm font-medium text-foreground">
+                  {reviews.length} نظر
+                </span>
+              </div>
+            )}
 
             {/* Reviews List - Vertical Comment Style with Scroll */}
             {isLoading ? (

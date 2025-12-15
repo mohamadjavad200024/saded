@@ -47,3 +47,4 @@ echo "   2. Commit فایل‌های .next"
 echo "   3. Push به GitHub"
 echo "   4. روی هاست: git pull && pm2 restart saded"
 
+

@@ -118,3 +118,4 @@ echo "   1. بررسی کنید که BUILD_ID موجود است: cat .next/BUILD
 echo "   2. بررسی کنید که .next/server موجود است: ls -la .next/server | head"
 echo "   3. بررسی لاگ‌های PM2: pm2 logs saded --lines 50"
 
+
