@@ -2,7 +2,27 @@
 
 ## دستورات ترمینال برای اعمال تغییرات در پروژه آنلاین:
 
-### روش 1: استفاده از اسکریپت موجود
+### ✅ دریافت تغییرات از Git (بعد از رفع مشکل منابع):
+
+### روش 1: دریافت تغییرات (ساده و ایمن)
+```bash
+cd ~/public_html/saded
+
+# دریافت تغییرات از Git
+git pull origin main
+
+# اگر خطا داد:
+git reset --hard origin/main
+```
+
+### روش 2: استفاده از اسکریپت ایمن
+```bash
+cd ~/public_html/saded
+chmod +x GIT-PULL-SAFE.sh
+./GIT-PULL-SAFE.sh
+```
+
+### روش 2: استفاده از اسکریپت موجود
 ```bash
 cd ~/public_html/saded
 chmod +x HOST-DEPLOY-COMPLETE.sh
