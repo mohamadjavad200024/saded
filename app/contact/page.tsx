@@ -24,20 +24,34 @@ export default function ContactPage() {
   useEffect(() => {
     const fetchContent = async () => {
       try {
-        const response = await fetch("/api/settings/page-content?page=contact");
+        // اضافه کردن timestamp برای جلوگیری از cache
+        const response = await fetch(`/api/settings/page-content?page=contact&t=${Date.now()}`, {
+          cache: "no-store",
+        });
         if (response.ok) {
           const data = await response.json();
           if (data.data?.content) {
             const content = typeof data.data.content === "string" 
               ? JSON.parse(data.data.content) 
               : data.data.content;
-            if (content && typeof content === "object") {
+            // اگر object بود و محتوا داشت، استفاده کن، در غیر این صورت از default استفاده می‌شود
+            if (content && typeof content === "object" && Object.keys(content).length > 0) {
               setContact(content);
+            } else {
+              setContact(defaultContact);
             }
+          } else {
+            // اگر محتوا موجود نبود، از default استفاده می‌شود
+            setContact(defaultContact);
           }
+        } else {
+          // اگر خطا بود، از default استفاده می‌شود
+          setContact(defaultContact);
         }
       } catch (error) {
         console.error("Error fetching contact content:", error);
+        // در صورت خطا، از default استفاده می‌شود
+        setContact(defaultContact);
       } finally {
         setLoading(false);
       }

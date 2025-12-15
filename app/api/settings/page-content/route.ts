@@ -69,8 +69,8 @@ export async function GET(request: NextRequest) {
       [`page_content_${page}`]
     );
 
-    // If not found, return default content
-    if (!pageContent || !pageContent.value) {
+    // If not found or value is empty/null, return default content
+    if (!pageContent || !pageContent.value || pageContent.value.trim() === "" || pageContent.value === "null") {
       return createSuccessResponse({
         content: defaultContents[page],
         page,
@@ -81,9 +81,21 @@ export async function GET(request: NextRequest) {
     // Parse JSON if needed
     let content = pageContent.value;
     try {
-      content = JSON.parse(content);
+      const parsed = JSON.parse(content);
+      // اگر parse شد و خالی نبود، استفاده کن
+      if (parsed !== null && parsed !== "" && !(Array.isArray(parsed) && parsed.length === 0) && !(typeof parsed === "object" && Object.keys(parsed).length === 0)) {
+        content = parsed;
+      }
+      // اگر parse شد اما خالی بود، از default استفاده کن
+      else {
+        content = defaultContents[page];
+      }
     } catch {
       // If not JSON, use as string
+      // اگر string خالی بود، از default استفاده کن
+      if (!content || content.trim() === "") {
+        content = defaultContents[page];
+      }
     }
 
     return createSuccessResponse({
