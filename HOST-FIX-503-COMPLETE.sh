@@ -98,3 +98,4 @@ echo "   2. مطمئن شوید که BUILD_ID موجود است"
 echo "   3. مطمئن شوید که .next/server و .next/static موجود هستند"
 echo "   4. مطمئن شوید که environment variables درست تنظیم شده‌اند"
 
+

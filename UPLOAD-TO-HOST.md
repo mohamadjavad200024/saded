@@ -98,3 +98,4 @@ export PATH=/opt/alt/alt-nodejs20/root/usr/bin:$PATH
    /opt/alt/alt-nodejs20/root/usr/bin/node ~/.npm-global/lib/node_modules/pm2/bin/pm2 logs saded --lines 50 --err
    ```
 
+

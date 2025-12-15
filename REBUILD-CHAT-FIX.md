@@ -63,3 +63,4 @@ curl -s "http://localhost:3001/api/chat" | head -c 300
 3. ✅ بعد از rebuild، PM2 را حتماً restart کنید
 4. ✅ اگر بعد از rebuild هنوز خطا دارید، لاگ‌های PM2 را بررسی کنید
 
+
