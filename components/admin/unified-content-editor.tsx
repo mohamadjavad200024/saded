@@ -832,6 +832,7 @@ export function UnifiedContentEditor() {
                   </div>
                   </div>
                 )}
+              </div>
 
               {/* Copyright */}
               <div className="border rounded-lg overflow-hidden">
