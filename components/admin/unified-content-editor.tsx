@@ -115,6 +115,46 @@ const defaultFooterContent: FooterContent = {
   },
 };
 
+// Default content برای صفحات مختلف
+const defaultPageContents: Record<string, any> = {
+  about: `فروشگاه آنلاین ساد، ارائه‌دهنده قطعات خودرو وارداتی با بهترین کیفیت و قیمت است.
+
+ما متعهد به ارائه بهترین خدمات به مشتریان خود هستیم و تمام تلاش خود را می‌کنیم تا رضایت شما را جلب کنیم.`,
+  
+  faq: [
+    {
+      question: "چگونه می‌توانم سفارش بدهم؟",
+      answer: "شما می‌توانید با مراجعه به صفحه محصولات، محصول مورد نظر خود را انتخاب کرده و به سبد خرید اضافه کنید.",
+    },
+    {
+      question: "روش‌های پرداخت چیست؟",
+      answer: "پرداخت از طریق درگاه پرداخت آنلاین انجام می‌شود.",
+    },
+    {
+      question: "زمان تحویل چقدر است؟",
+      answer: "زمان تحویل بسته به روش ارسال انتخابی شما متفاوت است.",
+    },
+  ],
+  
+  shipping: `ما دو روش ارسال هوایی و دریایی را برای شما فراهم کرده‌ایم.
+
+هزینه ارسال بر اساس محصول و روش انتخابی شما محاسبه می‌شود.`,
+  
+  returns: `در صورت وجود مشکل در محصول، می‌توانید درخواست بازگشت کالا را ثبت کنید.
+
+لطفاً قبل از ثبت درخواست، با پشتیبانی تماس بگیرید.`,
+  
+  warranty: `تمام محصولات ما دارای گارانتی اصالت و کیفیت هستند.
+
+در صورت وجود مشکل در محصول، می‌توانید از خدمات گارانتی استفاده کنید.`,
+  
+  contact: {
+    phone: "021-12345678",
+    email: "info@saded.ir",
+    address: "تهران، ایران",
+  },
+};
+
 export function UnifiedContentEditor() {
   const { toast } = useToast();
   const [activeSection, setActiveSection] = useState<PageType>("about");
@@ -156,20 +196,46 @@ export function UnifiedContentEditor() {
       const response = await fetch(`/api/settings/page-content?page=${page}`);
       if (response.ok) {
         const data = await response.json();
-        const content = data.data?.content;
+        let content = data.data?.content;
+
+        // اگر محتوا خالی یا null است، از default content استفاده کن
+        if (!content || content === "" || content === null) {
+          content = defaultPageContents[page];
+        }
 
         if (page === "faq") {
           const faqs = typeof content === "string" ? JSON.parse(content) : content;
-          setFaqItems(Array.isArray(faqs) ? faqs : []);
+          // اگر خالی بود یا array نبود، از default استفاده کن
+          setFaqItems(Array.isArray(faqs) && faqs.length > 0 ? faqs : (defaultPageContents.faq || []));
         } else if (page === "contact") {
           const contact = typeof content === "string" ? JSON.parse(content) : content;
-          setContactInfo(contact || { phone: "", email: "", address: "" });
+          // اگر خالی بود، از default استفاده کن
+          setContactInfo(contact && Object.keys(contact).length > 0 ? contact : (defaultPageContents.contact || { phone: "", email: "", address: "" }));
         } else {
-          setTextContent(typeof content === "string" ? content : "");
+          // برای صفحات متنی، اگر خالی بود از default استفاده کن
+          const text = typeof content === "string" ? content : "";
+          setTextContent(text || defaultPageContents[page] || "");
+        }
+      } else {
+        // اگر خطا بود، از default content استفاده کن
+        if (page === "faq") {
+          setFaqItems(defaultPageContents.faq || []);
+        } else if (page === "contact") {
+          setContactInfo(defaultPageContents.contact || { phone: "", email: "", address: "" });
+        } else {
+          setTextContent(defaultPageContents[page] || "");
         }
       }
     } catch (error) {
       console.error("Error loading content:", error);
+      // در صورت خطا، از default content استفاده کن
+      if (page === "faq") {
+        setFaqItems(defaultPageContents.faq || []);
+      } else if (page === "contact") {
+        setContactInfo(defaultPageContents.contact || { phone: "", email: "", address: "" });
+      } else {
+        setTextContent(defaultPageContents[page] || "");
+      }
     } finally {
       setLoading(false);
     }
