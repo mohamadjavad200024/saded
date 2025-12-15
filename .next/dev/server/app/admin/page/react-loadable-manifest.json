@@ -1,0 +1,9 @@
+{
+  "[project]/components/admin/dashboard-stats.tsx [app-client] (ecmascript, next/dynamic entry)": {
+    "id": "[project]/components/admin/dashboard-stats.tsx [app-client] (ecmascript, next/dynamic entry)",
+    "files": [
+      "static/chunks/_90712efb._.js",
+      "static/chunks/components_admin_dashboard-stats_tsx_c1a3c5fe._.js"
+    ]
+  }
+}
