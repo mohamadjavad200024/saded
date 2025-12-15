@@ -111,6 +111,45 @@ const pages: PageInfo[] = [
   },
 ];
 
+// Default content که کاربر در سایت می‌بیند
+const defaultFooterContent: FooterContent = {
+  footer: {
+    about: {
+      title: "درباره ساد",
+      description: "فروشگاه آنلاین قطعات خودرو وارداتی با بهترین کیفیت و قیمت. ما متعهد به ارائه بهترین خدمات به مشتریان خود هستیم.",
+      socialLinks: {
+        instagram: "#",
+        facebook: "#",
+        twitter: "#",
+      },
+    },
+    quickLinks: {
+      title: "دسترسی سریع",
+      links: [
+        { label: "محصولات", href: "/products" },
+        { label: "درباره ما", href: "/about" },
+        { label: "تماس با ما", href: "/contact" },
+        { label: "وبلاگ", href: "/blog" },
+      ],
+    },
+    support: {
+      title: "پشتیبانی",
+      links: [
+        { label: "سوالات متداول", href: "/faq" },
+        { label: "ارسال و تحویل", href: "/shipping" },
+        { label: "بازگشت کالا", href: "/returns" },
+        { label: "گارانتی", href: "/warranty" },
+      ],
+    },
+    contact: {
+      title: "تماس با ما",
+      phone: "021-12345678",
+      email: "info@saded.ir",
+    },
+    copyright: `© ${new Date().getFullYear()} ساد. تمامی حقوق محفوظ است.`,
+  },
+};
+
 export function PageContentEditor() {
   const { toast } = useToast();
   const [activePage, setActivePage] = useState<PageType>("about");
@@ -126,34 +165,8 @@ export function PageContentEditor() {
     address: "",
   });
 
-  // Footer content state
-  const [footerContent, setFooterContent] = useState<FooterContent>({
-    footer: {
-      about: {
-        title: "درباره ساد",
-        description: "",
-        socialLinks: {
-          instagram: "#",
-          facebook: "#",
-          twitter: "#",
-        },
-      },
-      quickLinks: {
-        title: "دسترسی سریع",
-        links: [],
-      },
-      support: {
-        title: "پشتیبانی",
-        links: [],
-      },
-      contact: {
-        title: "تماس با ما",
-        phone: "",
-        email: "",
-      },
-      copyright: "",
-    },
-  });
+  // Footer content state - با defaultFooterContent مقداردهی می‌شود
+  const [footerContent, setFooterContent] = useState<FooterContent>(defaultFooterContent);
 
   // Collapsible sections for footer
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -211,15 +224,56 @@ export function PageContentEditor() {
       const response = await fetch("/api/settings/site-content");
       if (response.ok) {
         const data = await response.json();
+        // اگر محتوا از API آمد، استفاده کن، در غیر این صورت از defaultFooterContent استفاده می‌شود
         if (data.data?.footer) {
-          setFooterContent(data.data);
+          // Merge کردن با defaultFooterContent برای اطمینان از وجود همه فیلدها
+          setFooterContent({
+            footer: {
+              ...defaultFooterContent.footer,
+              ...data.data.footer,
+              about: {
+                ...defaultFooterContent.footer.about,
+                ...data.data.footer.about,
+                socialLinks: {
+                  ...defaultFooterContent.footer.about.socialLinks,
+                  ...data.data.footer.about?.socialLinks,
+                },
+              },
+              quickLinks: {
+                ...defaultFooterContent.footer.quickLinks,
+                ...data.data.footer.quickLinks,
+                links: data.data.footer.quickLinks?.links?.length > 0 
+                  ? data.data.footer.quickLinks.links 
+                  : defaultFooterContent.footer.quickLinks.links,
+              },
+              support: {
+                ...defaultFooterContent.footer.support,
+                ...data.data.footer.support,
+                links: data.data.footer.support?.links?.length > 0 
+                  ? data.data.footer.support.links 
+                  : defaultFooterContent.footer.support.links,
+              },
+              contact: {
+                ...defaultFooterContent.footer.contact,
+                ...data.data.footer.contact,
+              },
+            },
+          });
+        } else {
+          // اگر محتوا موجود نبود، از defaultFooterContent استفاده کن
+          setFooterContent(defaultFooterContent);
         }
+      } else {
+        // اگر خطا بود، از defaultFooterContent استفاده کن
+        setFooterContent(defaultFooterContent);
       }
     } catch (error) {
       console.error("Error loading footer content:", error);
+      // در صورت خطا، از defaultFooterContent استفاده کن
+      setFooterContent(defaultFooterContent);
       toast({
         title: "خطا",
-        description: "خطا در بارگذاری محتوای فوتر",
+        description: "خطا در بارگذاری محتوای فوتر. از محتوای پیش‌فرض استفاده می‌شود.",
         variant: "destructive",
       });
     } finally {
