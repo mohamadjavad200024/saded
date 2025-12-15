@@ -156,41 +156,6 @@ export function ReviewsSection() {
   return (
     <section className="py-6 sm:py-8 md:py-10 relative overflow-hidden">
       <div className="container px-4 sm:px-4 relative z-10">
-        {/* Minimal Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-4 sm:mb-6"
-        >
-          <div className="inline-flex items-center gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full bg-primary/10 mb-2 sm:mb-3">
-            <MessageSquare className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-primary" />
-            <span className="text-xs font-medium text-primary">نظرات مشتریان</span>
-          </div>
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2 text-foreground">
-            نظرات <span className="text-primary">مشتریان</span>
-          </h2>
-          {reviews.length > 0 && (
-            <div className="flex items-center justify-center gap-2 mt-1">
-              <div className="flex items-center gap-0.5">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <Star
-                    key={star}
-                    className={`h-3 w-3 sm:h-4 sm:w-4 ${
-                      star <= Math.round(averageRating)
-                        ? "fill-yellow-400 text-yellow-400"
-                        : "text-muted-foreground"
-                    }`}
-                  />
-                ))}
-              </div>
-              <span className="text-xs sm:text-sm text-muted-foreground">
-                ({averageRating.toFixed(1)}) از {reviews.length} نظر
-              </span>
-            </div>
-          )}
-        </motion.div>
 
         {/* Add Review Button - Minimal */}
         {!showForm && (
