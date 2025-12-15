@@ -12,7 +12,6 @@ import { useAdminStore } from "@/store/admin-store";
 import { useToast } from "@/hooks/use-toast";
 import { Save, RefreshCw, Trash2, Database, Bell, Palette, Download, Upload, Info, Settings, FileText } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
-import { FooterContentEditor } from "@/components/admin/footer-content-editor";
 import { PageContentEditor } from "@/components/admin/page-content-editor";
 import {
   Select,
@@ -35,9 +34,6 @@ export default function SettingsPage() {
   const { settings, updateSettings } = useAdminStore();
   const { toast } = useToast();
   const [clearDataDialogOpen, setClearDataDialogOpen] = useState(false);
-  const [aboutContent, setAboutContent] = useState("");
-  const [aboutLoading, setAboutLoading] = useState(true);
-  const [aboutSaving, setAboutSaving] = useState(false);
 
   // Ensure settings has default values
   const safeSettings = {
@@ -64,58 +60,6 @@ export default function SettingsPage() {
     window.location.reload();
   };
 
-  // Load about content
-  React.useEffect(() => {
-    const loadAboutContent = async () => {
-      try {
-        const response = await fetch("/api/settings/about");
-        if (response.ok) {
-          const data = await response.json();
-          setAboutContent(data.data?.content || "");
-        }
-      } catch (error) {
-        console.error("Error loading about content:", error);
-      } finally {
-        setAboutLoading(false);
-      }
-    };
-    loadAboutContent();
-  }, []);
-
-  const handleSaveAbout = async () => {
-    setAboutSaving(true);
-    try {
-      const response = await fetch("/api/settings/about", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ content: aboutContent }),
-      });
-
-      if (response.ok) {
-        toast({
-          title: "موفق",
-          description: "محتوای درباره ما با موفقیت ذخیره شد",
-        });
-      } else {
-        const error = await response.json();
-        toast({
-          title: "خطا",
-          description: error.error || "خطا در ذخیره محتوا",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "خطا",
-        description: "خطا در ذخیره محتوا",
-        variant: "destructive",
-      });
-    } finally {
-      setAboutSaving(false);
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -265,70 +209,10 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Page Content Editor */}
+        {/* Page Content Editor - همه محتواها در یک بخش */}
         <div className="md:col-span-2">
           <PageContentEditor />
         </div>
-
-        {/* Footer Content Editor */}
-        <div className="md:col-span-2">
-          <FooterContentEditor />
-        </div>
-
-        {/* About Us Content (Legacy - kept for backward compatibility) */}
-        <Card className="shadow-sm md:col-span-2">
-          <CardHeader className="bg-gradient-to-r from-primary/5 to-transparent border-b">
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
-              محتوای درباره ما
-            </CardTitle>
-            <CardDescription>
-              ویرایش محتوای صفحه "درباره ما"
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 pt-6">
-            {aboutLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="w-6 h-6 border-3 border-primary border-t-transparent rounded-full animate-spin" />
-              </div>
-            ) : (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="aboutContent">محتوا</Label>
-                  <Textarea
-                    id="aboutContent"
-                    value={aboutContent}
-                    onChange={(e) => setAboutContent(e.target.value)}
-                    placeholder="محتوای صفحه درباره ما را اینجا وارد کنید..."
-                    className="min-h-[200px] font-sans"
-                    rows={10}
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    می‌توانید از چند خط استفاده کنید. محتوا به صورت خودکار در صفحه "درباره ما" نمایش داده می‌شود.
-                  </p>
-                </div>
-                <div className="flex justify-end">
-                  <Button 
-                    onClick={handleSaveAbout} 
-                    disabled={aboutSaving}
-                  >
-                    {aboutSaving ? (
-                      <>
-                        <RefreshCw className="ml-2 h-4 w-4 animate-spin" />
-                        در حال ذخیره...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="ml-2 h-4 w-4" />
-                        ذخیره محتوا
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
 
         {/* System Info */}
         <Card className="shadow-sm">
