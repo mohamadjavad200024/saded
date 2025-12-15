@@ -115,6 +115,44 @@ export function ReviewsSection() {
 
   const swiperRef = useRef<SwiperType | null>(null);
 
+  // Remove gaps after Swiper initializes
+  useEffect(() => {
+    if (swiperRef.current && reviews.length > 0) {
+      const removeGaps = () => {
+        const swiperEl = document.querySelector('.reviews-swiper');
+        if (swiperEl) {
+          const wrapper = swiperEl.querySelector('.swiper-wrapper') as HTMLElement;
+          const slides = swiperEl.querySelectorAll('.swiper-slide') as NodeListOf<HTMLElement>;
+          
+          if (wrapper) {
+            wrapper.style.gap = '0';
+            wrapper.style.margin = '0';
+            wrapper.style.padding = '0';
+          }
+          
+          slides.forEach((slide) => {
+            slide.style.marginRight = '0';
+            slide.style.marginLeft = '0';
+            slide.style.paddingRight = '0';
+            slide.style.paddingLeft = '0';
+            slide.style.width = 'auto';
+          });
+        }
+      };
+
+      // Remove gaps immediately
+      removeGaps();
+      
+      // Remove gaps after a short delay to ensure Swiper has rendered
+      setTimeout(removeGaps, 100);
+      setTimeout(removeGaps, 500);
+      
+      // Watch for Swiper updates
+      swiperRef.current.on('slideChange', removeGaps);
+      swiperRef.current.on('resize', removeGaps);
+    }
+  }, [reviews.length]);
+
   return (
     <section className="py-6 sm:py-8 md:py-10 relative overflow-hidden">
       <div className="container px-4 sm:px-4 relative z-10">
