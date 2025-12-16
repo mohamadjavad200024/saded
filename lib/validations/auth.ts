@@ -5,19 +5,31 @@ import * as z from "zod";
  * فرمت‌های معتبر: 09123456789, 9123456789, +989123456789
  */
 export function validateIranianPhone(phone: string): boolean {
-  // حذف فاصله‌ها و کاراکترهای غیر عددی
-  const cleaned = phone.replace(/\s+/g, "").replace(/[^\d+]/g, "");
-  
-  // حذف +98 و 0098 از ابتدا
-  let normalized = cleaned.replace(/^(\+98|0098)/, "");
-  
-  // اگر با 0 شروع می‌شود، 0 را حذف کن
-  if (normalized.startsWith("0")) {
-    normalized = normalized.substring(1);
+  if (!phone || typeof phone !== "string") {
+    return false;
   }
-  
-  // باید 10 رقم باشد و با 9 شروع شود
-  return /^9\d{9}$/.test(normalized);
+
+  try {
+    // حذف فاصله‌ها و کاراکترهای غیر عددی (به جز +)
+    const cleaned = phone.replace(/\s+/g, "").replace(/[^\d+]/g, "");
+    
+    if (!cleaned || cleaned.length === 0) {
+      return false;
+    }
+    
+    // حذف +98 و 0098 از ابتدا
+    let normalized = cleaned.replace(/^(\+98|0098)/, "");
+    
+    // اگر با 0 شروع می‌شود، 0 را حذف کن
+    if (normalized.startsWith("0")) {
+      normalized = normalized.substring(1);
+    }
+    
+    // باید 10 رقم باشد و با 9 شروع شود
+    return /^9\d{9}$/.test(normalized);
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -106,7 +118,7 @@ export function normalizePhone(phone: string): string {
   }
 
   // حذف فاصله‌ها و کاراکترهای غیر عددی (به جز +)
-  let cleaned = phone.replace(/\s+/g, "").replace(/[^\d+]/g, "");
+  let cleaned = phone.trim().replace(/\s+/g, "").replace(/[^\d+]/g, "");
   
   if (!cleaned || cleaned.length === 0) {
     throw new Error("شماره تماس معتبر نیست");
@@ -120,9 +132,14 @@ export function normalizePhone(phone: string): string {
     cleaned = "0" + cleaned;
   }
   
-  // بررسی نهایی
-  if (cleaned.length < 11 || cleaned.length > 11) {
-    throw new Error("شماره تماس باید 11 رقم باشد");
+  // بررسی نهایی - باید 11 رقم باشد
+  if (cleaned.length !== 11) {
+    throw new Error(`شماره تماس باید 11 رقم باشد (${cleaned.length} رقم وارد شده)`);
+  }
+  
+  // بررسی اینکه با 09 شروع می‌شود
+  if (!cleaned.startsWith("09")) {
+    throw new Error("شماره تماس باید با 09 شروع شود");
   }
   
   return cleaned;
