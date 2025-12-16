@@ -43,6 +43,7 @@ import { useAdminPresence } from "@/hooks/use-admin-presence";
 import { TypingIndicator } from "@/components/chat/typing-indicator";
 import { logger } from "@/lib/logger-client";
 import { useAuthStore } from "@/store/auth-store";
+import { ProtectedRoute } from "@/components/auth/protected-route";
 
 type MessageStatus = "sending" | "sent" | "delivered" | "read";
 
@@ -64,7 +65,7 @@ interface Attachment {
   duration?: number;
 }
 
-export default function ChatPage() {
+function ChatPageContent() {
   const router = useRouter();
   const { toast } = useToast();
   const { showNotification, requestPermission } = useNotifications();
@@ -1446,6 +1447,14 @@ export default function ChatPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <ProtectedRoute requireAuth={true}>
+      <ChatPageContent />
+    </ProtectedRoute>
   );
 }
 

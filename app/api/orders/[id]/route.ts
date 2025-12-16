@@ -3,11 +3,13 @@ import { getRow, runQuery } from "@/lib/db/index";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-route-helpers";
 import { AppError } from "@/lib/api-error-handler";
 import type { Order } from "@/types/order";
+import { getUserIdFromRequest } from "@/lib/auth/middleware";
 
 /**
  * GET /api/orders/[id] - Get order by ID
  * PUT /api/orders/[id] - Update order
  * DELETE /api/orders/[id] - Delete order
+ * Headers: x-user-id (optional), x-user-role (optional)
  */
 export async function GET(
   request: NextRequest,
@@ -15,11 +17,23 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    
+    // دریافت userId و role از header
+    const userId = request.headers.get("x-user-id");
+    const userRole = request.headers.get("x-user-role") || "user";
+    const isAdmin = userRole === "admin";
 
     const order = await getRow<any>("SELECT * FROM orders WHERE id = ?", [id]);
 
     if (!order) {
       throw new AppError("سفارش یافت نشد", 404, "ORDER_NOT_FOUND");
+    }
+
+    // بررسی دسترسی: فقط admin یا صاحب سفارش می‌تواند سفارش را ببیند
+    if (!isAdmin && order.userId && order.userId !== "guest") {
+      if (!userId || userId.trim() === "" || userId !== order.userId) {
+        throw new AppError("شما دسترسی به این سفارش را ندارید", 403, "FORBIDDEN");
+      }
     }
 
     // Parse JSON fields (PostgreSQL JSONB returns objects, not strings)
@@ -47,6 +61,11 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
+    
+    // دریافت userId و role از header
+    const userId = request.headers.get("x-user-id");
+    const userRole = request.headers.get("x-user-role") || "user";
+    const isAdmin = userRole === "admin";
 
     const body = await request.json().catch(() => {
       throw new AppError("Invalid JSON in request body", 400, "INVALID_JSON");
@@ -55,6 +74,11 @@ export async function PUT(
     const order = await getRow<any>("SELECT * FROM orders WHERE id = ?", [id]);
     if (!order) {
       throw new AppError("سفارش یافت نشد", 404, "ORDER_NOT_FOUND");
+    }
+
+    // فقط admin می‌تواند سفارش را ویرایش کند
+    if (!isAdmin) {
+      throw new AppError("شما دسترسی به ویرایش سفارش را ندارید", 403, "FORBIDDEN");
     }
 
     const updates: any = {
@@ -101,10 +125,19 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+    
+    // دریافت userId و role از header
+    const userRole = request.headers.get("x-user-role") || "user";
+    const isAdmin = userRole === "admin";
 
     const order = await getRow<any>("SELECT * FROM orders WHERE id = ?", [id]);
     if (!order) {
       throw new AppError("سفارش یافت نشد", 404, "ORDER_NOT_FOUND");
+    }
+
+    // فقط admin می‌تواند سفارش را حذف کند
+    if (!isAdmin) {
+      throw new AppError("شما دسترسی به حذف سفارش را ندارید", 403, "FORBIDDEN");
     }
 
     await runQuery("DELETE FROM orders WHERE id = ?", [id]);

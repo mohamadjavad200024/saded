@@ -8,9 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthStore } from "@/store/auth-store";
 import { useToast } from "@/hooks/use-toast";
-import { User, Phone, Lock, ArrowRight, ArrowLeft } from "lucide-react";
+import { User, Phone, Lock, ArrowRight, ArrowLeft, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { validateIranianPhone, normalizePhone, validateStrongPassword } from "@/lib/validations/auth";
 
 export default function AuthPage() {
   const router = useRouter();
@@ -25,6 +26,75 @@ export default function AuthPage() {
     password: "",
     confirmPassword: "",
   });
+
+  // State برای اعتبارسنجی real-time
+  const [validationErrors, setValidationErrors] = useState<{
+    name?: string;
+    phone?: string;
+    password?: string;
+    confirmPassword?: string;
+  }>({});
+
+  // اعتبارسنجی real-time
+  const validateField = (field: string, value: string) => {
+    const errors: typeof validationErrors = { ...validationErrors };
+
+    if (field === "phone") {
+      if (!value.trim()) {
+        errors.phone = "شماره تماس الزامی است";
+      } else if (!validateIranianPhone(value)) {
+        errors.phone = "شماره تماس معتبر نیست. فرمت صحیح: 09123456789";
+      } else {
+        delete errors.phone;
+      }
+    }
+
+    if (field === "password") {
+      if (!value) {
+        errors.password = "رمز عبور الزامی است";
+      } else {
+        const passwordValidation = validateStrongPassword(value);
+        if (!passwordValidation.valid) {
+          errors.password = passwordValidation.errors[0] || "رمز عبور ضعیف است";
+        } else {
+          delete errors.password;
+        }
+      }
+
+      // بررسی تطابق با confirmPassword
+      if (mode === "register" && formData.confirmPassword) {
+        if (value !== formData.confirmPassword) {
+          errors.confirmPassword = "رمز عبور و تکرار آن یکسان نیستند";
+        } else {
+          delete errors.confirmPassword;
+        }
+      }
+    }
+
+    if (field === "confirmPassword" && mode === "register") {
+      if (!value) {
+        errors.confirmPassword = "تکرار رمز عبور الزامی است";
+      } else if (value !== formData.password) {
+        errors.confirmPassword = "رمز عبور و تکرار آن یکسان نیستند";
+      } else {
+        delete errors.confirmPassword;
+      }
+    }
+
+    if (field === "name" && mode === "register") {
+      if (!value.trim()) {
+        errors.name = "نام الزامی است";
+      } else if (value.trim().length < 2) {
+        errors.name = "نام باید حداقل 2 کاراکتر باشد";
+      } else if (!/^[\u0600-\u06FFa-zA-Z\s]+$/.test(value.trim())) {
+        errors.name = "نام باید فقط شامل حروف فارسی یا انگلیسی باشد";
+      } else {
+        delete errors.name;
+      }
+    }
+
+    setValidationErrors(errors);
+  };
 
   // Redirect if already authenticated
   if (isAuthenticated) {
@@ -163,12 +233,20 @@ export default function AuthPage() {
                     type="text"
                     placeholder="مثال: علی احمدی"
                     value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
+                    onChange={(e) => {
+                      setFormData({ ...formData, name: e.target.value });
+                      validateField("name", e.target.value);
+                    }}
+                    onBlur={(e) => validateField("name", e.target.value)}
                     required={mode === "register"}
-                    className="h-11"
+                    className={`h-11 ${validationErrors.name ? "border-destructive" : ""}`}
                   />
+                  {validationErrors.name && (
+                    <p className="text-sm text-destructive flex items-center gap-1 mt-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {validationErrors.name}
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -177,17 +255,25 @@ export default function AuthPage() {
                   <Phone className="h-4 w-4" />
                   شماره تماس
                 </Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="09123456789"
-                  value={formData.phone}
-                  onChange={(e) =>
-                    setFormData({ ...formData, phone: e.target.value })
-                  }
-                  required
-                  className="h-11"
-                />
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="09123456789"
+                    value={formData.phone}
+                    onChange={(e) => {
+                      setFormData({ ...formData, phone: e.target.value });
+                      validateField("phone", e.target.value);
+                    }}
+                    onBlur={(e) => validateField("phone", e.target.value)}
+                    required
+                    className={`h-11 ${validationErrors.phone ? "border-destructive" : ""}`}
+                  />
+                  {validationErrors.phone && (
+                    <p className="text-sm text-destructive flex items-center gap-1 mt-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {validationErrors.phone}
+                    </p>
+                  )}
               </div>
 
               <div className="space-y-2">
@@ -195,18 +281,32 @@ export default function AuthPage() {
                   <Lock className="h-4 w-4" />
                   رمز عبور
                 </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="حداقل 6 کاراکتر"
-                  value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
-                  required
-                  minLength={mode === "register" ? 6 : undefined}
-                  className="h-11"
-                />
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder={mode === "register" ? "حداقل 8 کاراکتر (حروف بزرگ، کوچک، عدد و کاراکتر خاص)" : "رمز عبور خود را وارد کنید"}
+                    value={formData.password}
+                    onChange={(e) => {
+                      setFormData({ ...formData, password: e.target.value });
+                      validateField("password", e.target.value);
+                    }}
+                    onBlur={(e) => validateField("password", e.target.value)}
+                    required
+                    minLength={mode === "register" ? 8 : undefined}
+                    className={`h-11 ${validationErrors.password ? "border-destructive" : ""}`}
+                  />
+                  {validationErrors.password && (
+                    <p className="text-sm text-destructive flex items-center gap-1 mt-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {validationErrors.password}
+                    </p>
+                  )}
+                  {mode === "register" && formData.password && !validationErrors.password && (
+                    <p className="text-sm text-green-600 flex items-center gap-1 mt-1">
+                      <CheckCircle2 className="h-3 w-3" />
+                      رمز عبور معتبر است
+                    </p>
+                  )}
               </div>
 
               {mode === "register" && (
@@ -220,12 +320,26 @@ export default function AuthPage() {
                     type="password"
                     placeholder="رمز عبور را دوباره وارد کنید"
                     value={formData.confirmPassword}
-                    onChange={(e) =>
-                      setFormData({ ...formData, confirmPassword: e.target.value })
-                    }
+                    onChange={(e) => {
+                      setFormData({ ...formData, confirmPassword: e.target.value });
+                      validateField("confirmPassword", e.target.value);
+                    }}
+                    onBlur={(e) => validateField("confirmPassword", e.target.value)}
                     required
-                    className="h-11"
+                    className={`h-11 ${validationErrors.confirmPassword ? "border-destructive" : ""}`}
                   />
+                  {validationErrors.confirmPassword && (
+                    <p className="text-sm text-destructive flex items-center gap-1 mt-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {validationErrors.confirmPassword}
+                    </p>
+                  )}
+                  {formData.confirmPassword && !validationErrors.confirmPassword && formData.password === formData.confirmPassword && (
+                    <p className="text-sm text-green-600 flex items-center gap-1 mt-1">
+                      <CheckCircle2 className="h-3 w-3" />
+                      رمز عبورها یکسان هستند
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -261,6 +375,7 @@ export default function AuthPage() {
                     password: "",
                     confirmPassword: "",
                   });
+                  setValidationErrors({});
                 }}
                 className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               >

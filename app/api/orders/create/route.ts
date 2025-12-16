@@ -235,7 +235,7 @@ export async function POST(request: NextRequest) {
         postalCode: sanitizedFormData.postalCode || undefined,
       },
       notes: sanitizedFormData.notes || undefined,
-      userId: "guest",
+      userId: request.headers.get("x-user-id") || "guest",
       orderNumber: generateOrderNumber(),
     };
 
