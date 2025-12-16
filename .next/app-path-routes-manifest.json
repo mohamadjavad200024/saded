@@ -16,6 +16,7 @@
   "/admin/suppliers/page": "/admin/suppliers",
   "/admin/users/page": "/admin/users",
   "/api/admin/presence/route": "/api/admin/presence",
+  "/api/auth/cleanup-db/route": "/api/auth/cleanup-db",
   "/api/auth/debug-db/route": "/api/auth/debug-db",
   "/api/auth/login/route": "/api/auth/login",
   "/api/auth/me/route": "/api/auth/me",

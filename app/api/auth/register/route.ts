@@ -121,25 +121,37 @@ export async function POST(request: NextRequest) {
       }
 
       // بررسی دقیق‌تر - فقط شماره‌های معتبر را چک کن
-      // استفاده از BINARY برای case-sensitive comparison و بررسی دقیق
+      // استفاده از TRIM و بررسی دقیق برای اطمینان از عدم وجود فاصله یا کاراکتر اضافی
       const queryResult = await getRows<{ id: string; phone: string }>(
-        "SELECT id, phone FROM users WHERE phone = ? AND phone IS NOT NULL AND phone != '' AND LENGTH(phone) = 11 AND phone LIKE '09%'",
-        [normalizedPhone]
+        "SELECT id, TRIM(phone) as phone FROM users WHERE TRIM(phone) = ? AND phone IS NOT NULL AND phone != '' AND LENGTH(TRIM(phone)) = 11 AND TRIM(phone) LIKE '09%'",
+        [normalizedPhone.trim()]
       );
       
       existingUser = queryResult && queryResult.length > 0 ? queryResult[0] : null;
       
+      // اگر پیدا نشد، یک بار دیگر بدون TRIM چک کن (برای backward compatibility)
+      if (!existingUser) {
+        const queryResult2 = await getRows<{ id: string; phone: string }>(
+          "SELECT id, phone FROM users WHERE phone = ? AND phone IS NOT NULL AND phone != '' AND LENGTH(phone) = 11 AND phone LIKE '09%'",
+          [normalizedPhone]
+        );
+        existingUser = queryResult2 && queryResult2.length > 0 ? queryResult2[0] : null;
+      }
+      
       logger.info("Duplicate check result:", {
         normalizedPhone,
+        normalizedPhoneTrimmed: normalizedPhone.trim(),
         normalizedPhoneLength: normalizedPhone.length,
         normalizedPhoneBytes: Buffer.from(normalizedPhone).length,
         queryResultCount: queryResult?.length || 0,
         found: !!existingUser,
         existingPhone: existingUser?.phone,
+        existingPhoneTrimmed: existingUser?.phone?.trim(),
         existingPhoneLength: existingUser?.phone?.length,
         existingPhoneBytes: existingUser?.phone ? Buffer.from(existingUser.phone).length : 0,
         existingId: existingUser?.id,
         phonesMatch: existingUser?.phone === normalizedPhone,
+        phonesMatchTrimmed: existingUser?.phone?.trim() === normalizedPhone.trim(),
         phonesEqual: existingUser?.phone ? existingUser.phone.localeCompare(normalizedPhone) === 0 : false
       });
 
@@ -156,6 +168,7 @@ export async function POST(request: NextRequest) {
               normalizedPhone,
               similarPhones: similarUsers.map(u => ({
                 phone: u.phone,
+                trimmed: u.phone.trim(),
                 length: u.phone.length,
                 bytes: Buffer.from(u.phone).length
               }))
@@ -197,11 +210,14 @@ export async function POST(request: NextRequest) {
     if (existingUser) {
       logger.warn("Duplicate phone detected:", {
         normalizedPhone,
+        normalizedPhoneTrimmed: normalizedPhone.trim(),
         normalizedPhoneBytes: Buffer.from(normalizedPhone).length,
         existingUserId: existingUser.id,
         existingUserPhone: existingUser.phone,
+        existingUserPhoneTrimmed: existingUser.phone?.trim(),
         existingUserPhoneBytes: Buffer.from(existingUser.phone).length,
         phonesMatch: existingUser.phone === normalizedPhone,
+        phonesMatchTrimmed: existingUser.phone?.trim() === normalizedPhone.trim(),
         phonesEqual: existingUser.phone.localeCompare(normalizedPhone) === 0,
         phoneComparison: {
           normalized: normalizedPhone.split("").map(c => c.charCodeAt(0)),
