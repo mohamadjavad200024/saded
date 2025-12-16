@@ -31,19 +31,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // اعتبارسنجی رمز عبور قوی
+    // اعتبارسنجی رمز عبور (اختیاری - فقط برای هشدار)
     const passwordValidation = validateStrongPassword(password);
-    if (!passwordValidation.valid) {
-      throw new AppError(
-        passwordValidation.errors.join(". ") || "رمز عبور ضعیف است",
-        400,
-        "WEAK_PASSWORD",
-        passwordValidation.errors
-      );
+    if (!passwordValidation.valid && passwordValidation.errors.length > 0) {
+      // فقط هشدار می‌دهیم، اما ثبت‌نام را متوقف نمی‌کنیم
+      logger.warn("Weak password detected:", passwordValidation.errors);
     }
 
     // نرمال‌سازی شماره تماس
-    const normalizedPhone = normalizePhone(phone);
+    let normalizedPhone: string;
+    try {
+      normalizedPhone = normalizePhone(phone);
+    } catch (error: any) {
+      throw new AppError(
+        "شماره تماس معتبر نیست. فرمت صحیح: 09123456789",
+        400,
+        "INVALID_PHONE"
+      );
+    }
 
     // Ensure users table exists
     try {
