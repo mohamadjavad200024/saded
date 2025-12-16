@@ -11,18 +11,37 @@ import { registerSchema, normalizePhone, validateStrongPassword } from "@/lib/va
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json().catch(() => {
-      throw new AppError("Invalid JSON in request body", 400, "INVALID_JSON");
-    });
+    // Parse request body
+    let body: any;
+    try {
+      body = await request.json();
+    } catch (parseError: any) {
+      logger.error("JSON parse error:", parseError);
+      throw new AppError("فرمت درخواست نامعتبر است", 400, "INVALID_JSON");
+    }
 
-    const { name, phone, password } = body;
+    const { name, phone, password } = body || {};
+
+    // بررسی وجود فیلدهای ضروری
+    if (!name || typeof name !== "string" || name.trim() === "") {
+      throw new AppError("نام الزامی است", 400, "MISSING_NAME");
+    }
+
+    if (!phone || typeof phone !== "string" || phone.trim() === "") {
+      throw new AppError("شماره تماس الزامی است", 400, "MISSING_PHONE");
+    }
+
+    if (!password || typeof password !== "string" || password.trim() === "") {
+      throw new AppError("رمز عبور الزامی است", 400, "MISSING_PASSWORD");
+    }
 
     // اعتبارسنجی با Zod
     try {
-      registerSchema.parse({ name, phone, password });
+      registerSchema.parse({ name: name.trim(), phone: phone.trim(), password });
     } catch (validationError: any) {
       const errors = validationError.errors || [];
       const firstError = errors[0];
+      logger.warn("Validation error:", { errors, input: { name, phone: "***" } });
       throw new AppError(
         firstError?.message || "اطلاعات وارد شده معتبر نیست",
         400,
@@ -41,10 +60,12 @@ export async function POST(request: NextRequest) {
     // نرمال‌سازی شماره تماس
     let normalizedPhone: string;
     try {
-      normalizedPhone = normalizePhone(phone);
+      normalizedPhone = normalizePhone(phone.trim());
+      logger.debug("Phone normalized:", { original: phone, normalized: normalizedPhone });
     } catch (error: any) {
+      logger.error("Phone normalization error:", { phone, error: error.message });
       throw new AppError(
-        "شماره تماس معتبر نیست. فرمت صحیح: 09123456789",
+        error.message || "شماره تماس معتبر نیست. فرمت صحیح: 09123456789",
         400,
         "INVALID_PHONE"
       );
@@ -64,51 +85,139 @@ export async function POST(request: NextRequest) {
           updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )
       `);
+      logger.debug("Users table checked/created successfully");
     } catch (createError: any) {
-      if (createError?.code !== "ER_TABLE_EXISTS_ERROR" && !createError?.message?.includes("already exists")) {
-        logger.error("Error creating users table:", createError);
+      // Ignore table already exists errors
+      if (
+        createError?.code !== "ER_TABLE_EXISTS_ERROR" &&
+        !createError?.message?.includes("already exists") &&
+        !createError?.message?.includes("Duplicate table")
+      ) {
+        logger.error("Error creating users table:", {
+          code: createError?.code,
+          message: createError?.message,
+          sqlState: createError?.sqlState,
+        });
         throw new AppError("خطا در ایجاد جدول کاربران", 500, "TABLE_CREATION_ERROR");
       }
     }
 
     // Check if user with this phone already exists
-    const existingUser = await getRow<{ id: string }>(
-      "SELECT id FROM users WHERE phone = ?",
-      [normalizedPhone]
-    );
+    let existingUser: { id: string } | null = null;
+    try {
+      existingUser = await getRow<{ id: string }>(
+        "SELECT id FROM users WHERE phone = ?",
+        [normalizedPhone]
+      );
+    } catch (dbError: any) {
+      logger.error("Error checking existing user:", {
+        code: dbError?.code,
+        message: dbError?.message,
+        phone: normalizedPhone,
+      });
+      // اگر خطای دیتابیس بود، آن را throw کن
+      if (
+        dbError?.code === "ECONNREFUSED" ||
+        dbError?.code === "ETIMEDOUT" ||
+        dbError?.code === "ECONNRESET" ||
+        dbError?.message?.includes("connect") ||
+        dbError?.message?.includes("timeout")
+      ) {
+        throw new AppError("دیتابیس در دسترس نیست", 503, "DATABASE_NOT_AVAILABLE");
+      }
+      throw dbError;
+    }
 
     if (existingUser) {
       throw new AppError("شماره تماس قبلاً ثبت شده است", 400, "DUPLICATE_PHONE");
     }
 
     // Hash password
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    let hashedPassword: string;
+    try {
+      const saltRounds = 10;
+      hashedPassword = await bcrypt.hash(password, saltRounds);
+      logger.debug("Password hashed successfully");
+    } catch (hashError: any) {
+      logger.error("Password hashing error:", hashError);
+      throw new AppError("خطا در پردازش رمز عبور", 500, "PASSWORD_HASH_ERROR");
+    }
 
     // Generate user ID
     const id = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const now = new Date().toISOString().slice(0, 19).replace("T", " ");
 
     // Insert user
-    await runQuery(
-      `INSERT INTO users (id, name, phone, password, role, enabled, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, 'user', TRUE, ?, ?)`,
-      [id, name.trim(), normalizedPhone, hashedPassword, now, now]
-    );
+    try {
+      await runQuery(
+        `INSERT INTO users (id, name, phone, password, role, enabled, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, 'user', TRUE, ?, ?)`,
+        [id, name.trim(), normalizedPhone, hashedPassword, now, now]
+      );
+      logger.debug("User inserted successfully:", { id, phone: normalizedPhone });
+    } catch (insertError: any) {
+      logger.error("Error inserting user:", {
+        code: insertError?.code,
+        message: insertError?.message,
+        sqlState: insertError?.sqlState,
+        errno: insertError?.errno,
+      });
+
+      // بررسی خطاهای خاص
+      if (insertError?.code === "ER_DUP_ENTRY" || insertError?.errno === 1062) {
+        throw new AppError("شماره تماس قبلاً ثبت شده است", 400, "DUPLICATE_PHONE");
+      }
+
+      if (
+        insertError?.code === "ECONNREFUSED" ||
+        insertError?.code === "ETIMEDOUT" ||
+        insertError?.code === "ECONNRESET" ||
+        insertError?.message?.includes("connect") ||
+        insertError?.message?.includes("timeout")
+      ) {
+        throw new AppError("دیتابیس در دسترس نیست", 503, "DATABASE_NOT_AVAILABLE");
+      }
+
+      throw new AppError(
+        `خطا در ثبت کاربر: ${insertError?.message || "خطای نامشخص"}`,
+        500,
+        "USER_INSERT_ERROR"
+      );
+    }
 
     // Get created user (without password)
-    const newUser = await getRow<{
+    let newUser: {
       id: string;
       name: string;
       phone: string;
       role: string;
       createdAt: string;
-    }>(
-      "SELECT id, name, phone, role, createdAt FROM users WHERE id = ?",
-      [id]
-    );
+    } | null = null;
+
+    try {
+      newUser = await getRow<{
+        id: string;
+        name: string;
+        phone: string;
+        role: string;
+        createdAt: string;
+      }>(
+        "SELECT id, name, phone, role, createdAt FROM users WHERE id = ?",
+        [id]
+      );
+    } catch (selectError: any) {
+      logger.error("Error selecting created user:", {
+        code: selectError?.code,
+        message: selectError?.message,
+        id,
+      });
+      // اگر کاربر insert شده اما select نشد، خطا نیست - ممکن است کمی delay داشته باشد
+      // اما برای اطمینان، خطا را throw می‌کنیم
+      throw new AppError("خطا در دریافت اطلاعات کاربر", 500, "USER_SELECT_ERROR");
+    }
 
     if (!newUser) {
+      logger.error("User created but not found:", { id, phone: normalizedPhone });
       throw new AppError("خطا در ایجاد کاربر", 500, "USER_CREATION_ERROR");
     }
 
@@ -124,8 +233,16 @@ export async function POST(request: NextRequest) {
       message: "ثبت‌نام با موفقیت انجام شد",
     });
   } catch (error: any) {
-    logger.error("POST /api/auth/register error:", error);
+    // Log کامل خطا برای debugging
+    logger.error("POST /api/auth/register error:", {
+      message: error?.message,
+      code: error?.code,
+      errno: error?.errno,
+      sqlState: error?.sqlState,
+      stack: process.env.NODE_ENV === "development" ? error?.stack : undefined,
+    });
     
+    // اگر AppError است، مستقیماً return کن
     if (error instanceof AppError) {
       return createErrorResponse(error);
     }
@@ -137,18 +254,37 @@ export async function POST(request: NextRequest) {
       error?.code === "ECONNREFUSED" ||
       error?.code === "ETIMEDOUT" ||
       error?.code === "ECONNRESET" ||
+      error?.code === "PROTOCOL_CONNECTION_LOST" ||
       error?.message?.includes("connect") ||
-      error?.message?.includes("timeout")
+      error?.message?.includes("timeout") ||
+      error?.message?.includes("Connection lost")
     ) {
       return createErrorResponse(
-        new AppError("دیتابیس در دسترس نیست", 503, "DATABASE_NOT_AVAILABLE")
+        new AppError("دیتابیس در دسترس نیست. لطفاً دوباره تلاش کنید", 503, "DATABASE_NOT_AVAILABLE")
+      );
+    }
+
+    // Handle validation errors
+    if (error?.name === "ZodError" || error?.issues) {
+      const firstError = error?.issues?.[0] || error?.errors?.[0];
+      return createErrorResponse(
+        new AppError(
+          firstError?.message || "اطلاعات وارد شده معتبر نیست",
+          400,
+          "VALIDATION_ERROR"
+        )
       );
     }
 
     // Handle other errors with proper message
-    const errorMessage = error?.message || "خطا در ثبت‌نام";
+    const errorMessage = error?.message || "خطا در ثبت‌نام. لطفاً دوباره تلاش کنید";
     return createErrorResponse(
-      new AppError(errorMessage, 500, "REGISTRATION_ERROR")
+      new AppError(
+        errorMessage,
+        500,
+        "REGISTRATION_ERROR",
+        process.env.NODE_ENV === "development" ? error : undefined
+      )
     );
   }
 }
