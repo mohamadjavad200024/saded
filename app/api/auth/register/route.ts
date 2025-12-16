@@ -110,34 +110,55 @@ export async function POST(request: NextRequest) {
     // Check if user with this phone already exists
     let existingUser: { id: string; phone: string } | null = null;
     try {
+      // ابتدا بررسی کن که آیا شماره normalize شده معتبر است
+      if (!normalizedPhone || normalizedPhone.length !== 11 || !normalizedPhone.startsWith("09")) {
+        logger.error("Invalid normalized phone:", {
+          normalizedPhone,
+          length: normalizedPhone?.length,
+          startsWith09: normalizedPhone?.startsWith("09")
+        });
+        throw new AppError("شماره تماس معتبر نیست", 400, "INVALID_PHONE");
+      }
+
       // بررسی دقیق‌تر - فقط شماره‌های معتبر را چک کن
-      // استفاده از BINARY برای case-sensitive comparison
-      existingUser = await getRow<{ id: string; phone: string }>(
-        "SELECT id, phone FROM users WHERE BINARY phone = ? AND phone IS NOT NULL AND phone != '' AND LENGTH(phone) = 11",
+      // استفاده از BINARY برای case-sensitive comparison و بررسی دقیق
+      const queryResult = await getRows<{ id: string; phone: string }>(
+        "SELECT id, phone FROM users WHERE phone = ? AND phone IS NOT NULL AND phone != '' AND LENGTH(phone) = 11 AND phone LIKE '09%'",
         [normalizedPhone]
       );
+      
+      existingUser = queryResult && queryResult.length > 0 ? queryResult[0] : null;
       
       logger.info("Duplicate check result:", {
         normalizedPhone,
         normalizedPhoneLength: normalizedPhone.length,
+        normalizedPhoneBytes: Buffer.from(normalizedPhone).length,
+        queryResultCount: queryResult?.length || 0,
         found: !!existingUser,
         existingPhone: existingUser?.phone,
         existingPhoneLength: existingUser?.phone?.length,
-        existingId: existingUser?.id
+        existingPhoneBytes: existingUser?.phone ? Buffer.from(existingUser.phone).length : 0,
+        existingId: existingUser?.id,
+        phonesMatch: existingUser?.phone === normalizedPhone,
+        phonesEqual: existingUser?.phone ? existingUser.phone.localeCompare(normalizedPhone) === 0 : false
       });
 
       // اگر پیدا نشد، بررسی کن که آیا شماره‌های مشابه وجود دارد
       if (!existingUser) {
         try {
           const similarUsers = await getRows<{ id: string; phone: string }>(
-            "SELECT id, phone FROM users WHERE phone LIKE ? AND phone IS NOT NULL AND phone != '' LIMIT 5",
+            "SELECT id, phone FROM users WHERE phone LIKE ? AND phone IS NOT NULL AND phone != '' AND LENGTH(phone) = 11 LIMIT 5",
             [`%${normalizedPhone.slice(-4)}%`]
           );
           
           if (similarUsers && similarUsers.length > 0) {
             logger.info("Similar phones found:", {
               normalizedPhone,
-              similarPhones: similarUsers.map(u => u.phone)
+              similarPhones: similarUsers.map(u => ({
+                phone: u.phone,
+                length: u.phone.length,
+                bytes: Buffer.from(u.phone).length
+              }))
             });
           }
         } catch (similarError: any) {
@@ -152,7 +173,14 @@ export async function POST(request: NextRequest) {
         phone: normalizedPhone,
         sqlState: dbError?.sqlState,
         errno: dbError?.errno,
+        stack: process.env.NODE_ENV === "development" ? dbError?.stack : undefined
       });
+      
+      // اگر AppError است، مستقیماً throw کن
+      if (dbError instanceof AppError) {
+        throw dbError;
+      }
+      
       // اگر خطای دیتابیس بود، آن را throw کن
       if (
         dbError?.code === "ECONNREFUSED" ||
@@ -169,9 +197,16 @@ export async function POST(request: NextRequest) {
     if (existingUser) {
       logger.warn("Duplicate phone detected:", {
         normalizedPhone,
+        normalizedPhoneBytes: Buffer.from(normalizedPhone).length,
         existingUserId: existingUser.id,
         existingUserPhone: existingUser.phone,
-        phonesMatch: existingUser.phone === normalizedPhone
+        existingUserPhoneBytes: Buffer.from(existingUser.phone).length,
+        phonesMatch: existingUser.phone === normalizedPhone,
+        phonesEqual: existingUser.phone.localeCompare(normalizedPhone) === 0,
+        phoneComparison: {
+          normalized: normalizedPhone.split("").map(c => c.charCodeAt(0)),
+          existing: existingUser.phone.split("").map(c => c.charCodeAt(0))
+        }
       });
       throw new AppError("شماره تماس قبلاً ثبت شده است", 400, "DUPLICATE_PHONE");
     }
