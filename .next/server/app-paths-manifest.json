@@ -19,6 +19,7 @@
   "/api/auth/login/route": "app/api/auth/login/route.js",
   "/api/auth/me/route": "app/api/auth/me/route.js",
   "/api/auth/register/route": "app/api/auth/register/route.js",
+  "/api/auth/test-phone/route": "app/api/auth/test-phone/route.js",
   "/api/auth/verify/route": "app/api/auth/verify/route.js",
   "/api/cart/route": "app/api/cart/route.js",
   "/api/categories/[id]/route": "app/api/categories/[id]/route.js",

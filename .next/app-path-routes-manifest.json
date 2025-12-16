@@ -19,6 +19,7 @@
   "/api/auth/login/route": "/api/auth/login",
   "/api/auth/me/route": "/api/auth/me",
   "/api/auth/register/route": "/api/auth/register",
+  "/api/auth/test-phone/route": "/api/auth/test-phone",
   "/api/auth/verify/route": "/api/auth/verify",
   "/api/cart/route": "/api/cart",
   "/api/categories/[id]/route": "/api/categories/[id]",
