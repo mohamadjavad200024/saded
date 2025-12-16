@@ -4,6 +4,7 @@ import { createErrorResponse, createSuccessResponse } from "@/lib/api-route-help
 import { AppError } from "@/lib/api-error-handler";
 import { logger } from "@/lib/logger";
 import bcrypt from "bcryptjs";
+import { registerSchema, normalizePhone, validateStrongPassword } from "@/lib/validations/auth";
 
 /**
  * POST /api/auth/register - Register new user
@@ -16,18 +17,33 @@ export async function POST(request: NextRequest) {
 
     const { name, phone, password } = body;
 
-    // Validation
-    if (!name || typeof name !== "string" || name.trim() === "") {
-      throw new AppError("نام الزامی است", 400, "MISSING_NAME");
+    // اعتبارسنجی با Zod
+    try {
+      registerSchema.parse({ name, phone, password });
+    } catch (validationError: any) {
+      const errors = validationError.errors || [];
+      const firstError = errors[0];
+      throw new AppError(
+        firstError?.message || "اطلاعات وارد شده معتبر نیست",
+        400,
+        "VALIDATION_ERROR",
+        errors
+      );
     }
 
-    if (!phone || typeof phone !== "string" || phone.trim() === "") {
-      throw new AppError("شماره تماس الزامی است", 400, "MISSING_PHONE");
+    // اعتبارسنجی رمز عبور قوی
+    const passwordValidation = validateStrongPassword(password);
+    if (!passwordValidation.valid) {
+      throw new AppError(
+        passwordValidation.errors.join(". ") || "رمز عبور ضعیف است",
+        400,
+        "WEAK_PASSWORD",
+        passwordValidation.errors
+      );
     }
 
-    if (!password || typeof password !== "string" || password.length < 6) {
-      throw new AppError("رمز عبور باید حداقل 6 کاراکتر باشد", 400, "INVALID_PASSWORD");
-    }
+    // نرمال‌سازی شماره تماس
+    const normalizedPhone = normalizePhone(phone);
 
     // Ensure users table exists
     try {
@@ -53,7 +69,7 @@ export async function POST(request: NextRequest) {
     // Check if user with this phone already exists
     const existingUser = await getRow<{ id: string }>(
       "SELECT id FROM users WHERE phone = ?",
-      [phone.trim()]
+      [normalizedPhone]
     );
 
     if (existingUser) {
@@ -72,7 +88,7 @@ export async function POST(request: NextRequest) {
     await runQuery(
       `INSERT INTO users (id, name, phone, password, role, enabled, createdAt, updatedAt)
        VALUES (?, ?, ?, ?, 'user', TRUE, ?, ?)`,
-      [id, name.trim(), phone.trim(), hashedPassword, now, now]
+      [id, name.trim(), normalizedPhone, hashedPassword, now, now]
     );
 
     // Get created user (without password)

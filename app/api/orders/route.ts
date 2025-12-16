@@ -1,26 +1,43 @@
 import { NextRequest } from "next/server";
-import { getRows } from "@/lib/db/index";
+import { getRows, getRow } from "@/lib/db/index";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-route-helpers";
 import type { Order, OrderFilters } from "@/types/order";
+import { getUserIdFromRequest } from "@/lib/auth/middleware";
 
 /**
- * GET /api/orders - Get all orders
- * POST /api/orders - Get filtered orders
+ * GET /api/orders - Get orders (filtered by user if not admin)
+ * Headers: x-user-id (optional), x-user-role (optional)
  */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const orderNumber = searchParams.get("orderNumber");
+    
+    // دریافت userId و role از header
+    const userId = request.headers.get("x-user-id");
+    const userRole = request.headers.get("x-user-role") || "user";
+    const isAdmin = userRole === "admin";
 
     let query = "SELECT * FROM orders";
     const params: any[] = [];
+    const conditions: string[] = [];
+
+    // اگر admin نیست، فقط سفارش‌های خودش را ببیند
+    if (!isAdmin && userId && userId !== "guest" && userId.trim() !== "") {
+      conditions.push("`userId` = ?");
+      params.push(userId.trim());
+    }
 
     if (orderNumber) {
-      query += " WHERE \"orderNumber\" = ? OR id = ?";
+      conditions.push("(\"orderNumber\" = ? OR id = ?)");
       params.push(orderNumber, orderNumber);
-    } else {
-      query += " ORDER BY \"createdAt\" DESC";
     }
+
+    if (conditions.length > 0) {
+      query += " WHERE " + conditions.join(" AND ");
+    }
+
+    query += " ORDER BY \"createdAt\" DESC";
 
     const orders = await getRows<any>(query, params.length > 0 ? params : undefined);
 
@@ -52,9 +69,20 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
     const filters: OrderFilters = body || {};
+    
+    // دریافت userId و role از header
+    const userId = request.headers.get("x-user-id");
+    const userRole = request.headers.get("x-user-role") || "user";
+    const isAdmin = userRole === "admin";
 
     let query = "SELECT * FROM orders WHERE 1=1";
     const params: any[] = [];
+
+    // اگر admin نیست، فقط سفارش‌های خودش را ببیند
+    if (!isAdmin && userId && userId !== "guest" && userId.trim() !== "") {
+      query += " AND `userId` = ?";
+      params.push(userId.trim());
+    }
 
     if (filters.status && filters.status.length > 0) {
       query += ` AND status IN (${filters.status.map(() => "?").join(",")})`;

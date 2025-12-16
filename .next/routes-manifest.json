@@ -235,6 +235,12 @@
       "namedRegex": "^/api/auth/register(?:/)?$"
     },
     {
+      "page": "/api/auth/verify",
+      "regex": "^/api/auth/verify(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/verify(?:/)?$"
+    },
+    {
       "page": "/api/cart",
       "regex": "^/api/cart(?:/)?$",
       "routeKeys": {},

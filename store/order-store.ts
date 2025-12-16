@@ -95,7 +95,9 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
       
-      const response = await fetch("/api/orders", {
+      // استفاده از fetchWithAuth برای ارسال header های احراز هویت
+      const { fetchWithAuth } = await import("@/lib/api/fetch-with-auth");
+      const response = await fetchWithAuth("/api/orders", {
         signal: controller.signal,
       });
       

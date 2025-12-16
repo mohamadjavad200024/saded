@@ -45,15 +45,24 @@ export const useAuthStore = create<AuthStore>()(
         }
 
         // Set current user
+        const user = {
+          id: result.data.user.id,
+          name: result.data.user.name,
+          phone: result.data.user.phone,
+          role: result.data.user.role || "user",
+          createdAt: result.data.user.createdAt,
+        };
+
         set({
-          user: {
-            id: result.data.user.id,
-            name: result.data.user.name,
-            phone: result.data.user.phone,
-            createdAt: result.data.user.createdAt,
-          },
+          user,
           isAuthenticated: true,
         });
+
+        // ذخیره در localStorage برای استفاده در header ها
+        if (typeof window !== "undefined") {
+          localStorage.setItem("saded_user_id", user.id);
+          localStorage.setItem("saded_user_role", user.role || "user");
+        }
       },
 
       login: async (phone: string, password: string): Promise<boolean> => {
@@ -72,16 +81,24 @@ export const useAuthStore = create<AuthStore>()(
         }
 
         // Set current user
+        const user = {
+          id: result.data.user.id,
+          name: result.data.user.name,
+          phone: result.data.user.phone,
+          role: result.data.user.role || "user",
+          createdAt: result.data.user.createdAt,
+        };
+
         set({
-          user: {
-            id: result.data.user.id,
-            name: result.data.user.name,
-            phone: result.data.user.phone,
-            role: result.data.user.role,
-            createdAt: result.data.user.createdAt,
-          },
+          user,
           isAuthenticated: true,
         });
+
+        // ذخیره در localStorage برای استفاده در header ها
+        if (typeof window !== "undefined") {
+          localStorage.setItem("saded_user_id", user.id);
+          localStorage.setItem("saded_user_role", user.role || "user");
+        }
 
         return true;
       },
@@ -91,6 +108,12 @@ export const useAuthStore = create<AuthStore>()(
           user: null,
           isAuthenticated: false,
         });
+
+        // حذف از localStorage
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("saded_user_id");
+          localStorage.removeItem("saded_user_role");
+        }
       },
 
       updateUser: (userData: Partial<AuthUser>) => {
@@ -107,16 +130,24 @@ export const useAuthStore = create<AuthStore>()(
           const result = await response.json();
 
           if (result.success && result.data.user) {
+            const user = {
+              id: result.data.user.id,
+              name: result.data.user.name,
+              phone: result.data.user.phone,
+              role: result.data.user.role || "user",
+              createdAt: result.data.user.createdAt,
+            };
+
             set({
-              user: {
-                id: result.data.user.id,
-                name: result.data.user.name,
-                phone: result.data.user.phone,
-                role: result.data.user.role,
-                createdAt: result.data.user.createdAt,
-              },
+              user,
               isAuthenticated: true,
             });
+
+            // ذخیره در localStorage
+            if (typeof window !== "undefined") {
+              localStorage.setItem("saded_user_id", user.id);
+              localStorage.setItem("saded_user_role", user.role || "user");
+            }
           }
         } catch (error) {
           console.error("Error loading user:", error);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { useOrderStore } from "@/store/order-store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
+import { ProtectedRoute } from "@/components/auth/protected-route";
+import { useAuthStore } from "@/store/auth-store";
 
-export default function MyOrdersPage() {
+function MyOrdersPageContent() {
   const { orders } = useOrderStore();
   const router = useRouter();
   const { toast } = useToast();
@@ -303,6 +305,14 @@ export default function MyOrdersPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function MyOrdersPage() {
+  return (
+    <ProtectedRoute requireAuth={true}>
+      <MyOrdersPageContent />
+    </ProtectedRoute>
   );
 }
 

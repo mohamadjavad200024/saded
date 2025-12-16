@@ -4,6 +4,7 @@ import { createErrorResponse, createSuccessResponse } from "@/lib/api-route-help
 import { AppError } from "@/lib/api-error-handler";
 import { logger } from "@/lib/logger";
 import bcrypt from "bcryptjs";
+import { loginSchema, normalizePhone } from "@/lib/validations/auth";
 
 /**
  * POST /api/auth/login - Login user
@@ -16,14 +17,22 @@ export async function POST(request: NextRequest) {
 
     const { phone, password } = body;
 
-    // Validation
-    if (!phone || typeof phone !== "string" || phone.trim() === "") {
-      throw new AppError("شماره تماس الزامی است", 400, "MISSING_PHONE");
+    // اعتبارسنجی با Zod
+    try {
+      loginSchema.parse({ phone, password });
+    } catch (validationError: any) {
+      const errors = validationError.errors || [];
+      const firstError = errors[0];
+      throw new AppError(
+        firstError?.message || "اطلاعات وارد شده معتبر نیست",
+        400,
+        "VALIDATION_ERROR",
+        errors
+      );
     }
 
-    if (!password || typeof password !== "string") {
-      throw new AppError("رمز عبور الزامی است", 400, "MISSING_PASSWORD");
-    }
+    // نرمال‌سازی شماره تماس
+    const normalizedPhone = normalizePhone(phone);
 
     // Get user from database
     const user = await getRow<{
@@ -36,7 +45,7 @@ export async function POST(request: NextRequest) {
       createdAt: string;
     }>(
       "SELECT id, name, phone, password, role, enabled, createdAt FROM users WHERE phone = ?",
-      [phone.trim()]
+      [normalizedPhone]
     );
 
     if (!user) {
