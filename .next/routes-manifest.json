@@ -217,6 +217,12 @@
       "namedRegex": "^/api/admin/presence(?:/)?$"
     },
     {
+      "page": "/api/auth/debug-db",
+      "regex": "^/api/auth/debug\\-db(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/debug\\-db(?:/)?$"
+    },
+    {
       "page": "/api/auth/login",
       "regex": "^/api/auth/login(?:/)?$",
       "routeKeys": {},

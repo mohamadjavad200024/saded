@@ -16,6 +16,7 @@
   "/admin/suppliers/page": "app/admin/suppliers/page.js",
   "/admin/users/page": "app/admin/users/page.js",
   "/api/admin/presence/route": "app/api/admin/presence/route.js",
+  "/api/auth/debug-db/route": "app/api/auth/debug-db/route.js",
   "/api/auth/login/route": "app/api/auth/login/route.js",
   "/api/auth/me/route": "app/api/auth/me/route.js",
   "/api/auth/register/route": "app/api/auth/register/route.js",

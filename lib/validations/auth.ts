@@ -132,14 +132,19 @@ export function normalizePhone(phone: string): string {
     cleaned = "0" + cleaned;
   }
   
-  // بررسی نهایی - باید 11 رقم باشد
+  // بررسی نهایی - باید دقیقاً 11 رقم باشد
   if (cleaned.length !== 11) {
-    throw new Error(`شماره تماس باید 11 رقم باشد (${cleaned.length} رقم وارد شده)`);
+    throw new Error(`شماره تماس باید دقیقاً 11 رقم باشد (${cleaned.length} رقم وارد شده: ${cleaned})`);
   }
   
   // بررسی اینکه با 09 شروع می‌شود
   if (!cleaned.startsWith("09")) {
-    throw new Error("شماره تماس باید با 09 شروع شود");
+    throw new Error(`شماره تماس باید با 09 شروع شود (شروع شده با: ${cleaned.substring(0, 2)})`);
+  }
+  
+  // بررسی اینکه فقط عدد باشد
+  if (!/^\d+$/.test(cleaned)) {
+    throw new Error("شماره تماس باید فقط شامل اعداد باشد");
   }
   
   return cleaned;
