@@ -22,7 +22,7 @@ export function validateIranianPhone(phone: string): boolean {
 
 /**
  * اعتبارسنجی رمز عبور قوی
- * حداقل 8 کاراکتر، شامل حروف بزرگ، کوچک، عدد و کاراکتر خاص
+ * حداقل 8 کاراکتر (برای production می‌تواند شامل حروف بزرگ، کوچک، عدد باشد)
  */
 export function validateStrongPassword(password: string): {
   valid: boolean;
@@ -32,35 +32,24 @@ export function validateStrongPassword(password: string): {
   
   if (password.length < 8) {
     errors.push("رمز عبور باید حداقل 8 کاراکتر باشد");
+    return { valid: false, errors };
   }
   
   if (password.length > 128) {
     errors.push("رمز عبور نمی‌تواند بیشتر از 128 کاراکتر باشد");
+    return { valid: false, errors };
   }
   
-  if (!/[a-z]/.test(password)) {
-    errors.push("رمز عبور باید شامل حداقل یک حرف کوچک انگلیسی باشد");
-  }
+  // برای سادگی، فقط طول را بررسی می‌کنیم
+  // اگر می‌خواهید قوی‌تر باشد، می‌توانید بقیه بررسی‌ها را فعال کنید
   
-  if (!/[A-Z]/.test(password)) {
-    errors.push("رمز عبور باید شامل حداقل یک حرف بزرگ انگلیسی باشد");
-  }
-  
-  if (!/[0-9]/.test(password)) {
-    errors.push("رمز عبور باید شامل حداقل یک عدد باشد");
-  }
-  
-  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
-    errors.push("رمز عبور باید شامل حداقل یک کاراکتر خاص باشد");
-  }
-  
-  // بررسی رمزهای رایج و ضعیف
+  // بررسی رمزهای رایج و ضعیف (اختیاری)
   const commonPasswords = [
     "password", "12345678", "qwerty", "abc123", "password123",
-    "123456789", "1234567890", "password1", "admin123"
+    "123456789", "1234567890", "password1", "admin123", "12345678"
   ];
   
-  if (commonPasswords.some(common => password.toLowerCase().includes(common.toLowerCase()))) {
+  if (commonPasswords.some(common => password.toLowerCase() === common.toLowerCase())) {
     errors.push("رمز عبور انتخاب شده بسیار رایج و ناامن است");
   }
   
@@ -82,22 +71,19 @@ export const registerSchema = z.object({
   phone: z
     .string()
     .min(1, "شماره تماس الزامی است")
-    .refine((val) => validateIranianPhone(val), {
+    .refine((val) => {
+      try {
+        return validateIranianPhone(val);
+      } catch {
+        return false;
+      }
+    }, {
       message: "شماره تماس معتبر نیست. فرمت صحیح: 09123456789",
     }),
   password: z
     .string()
     .min(8, "رمز عبور باید حداقل 8 کاراکتر باشد")
-    .max(128, "رمز عبور نمی‌تواند بیشتر از 128 کاراکتر باشد")
-    .refine(
-      (val) => {
-        const validation = validateStrongPassword(val);
-        return validation.valid;
-      },
-      {
-        message: "رمز عبور باید شامل حروف بزرگ، کوچک، عدد و کاراکتر خاص باشد",
-      }
-    ),
+    .max(128, "رمز عبور نمی‌تواند بیشتر از 128 کاراکتر باشد"),
 });
 
 /**
@@ -107,7 +93,13 @@ export const loginSchema = z.object({
   phone: z
     .string()
     .min(1, "شماره تماس الزامی است")
-    .refine((val) => validateIranianPhone(val), {
+    .refine((val) => {
+      try {
+        return validateIranianPhone(val);
+      } catch {
+        return false;
+      }
+    }, {
       message: "شماره تماس معتبر نیست. فرمت صحیح: 09123456789",
     }),
   password: z
@@ -120,8 +112,16 @@ export const loginSchema = z.object({
  * نرمال‌سازی شماره تماس به فرمت استاندارد (09123456789)
  */
 export function normalizePhone(phone: string): string {
-  // حذف فاصله‌ها و کاراکترهای غیر عددی
+  if (!phone || typeof phone !== "string") {
+    throw new Error("شماره تماس معتبر نیست");
+  }
+
+  // حذف فاصله‌ها و کاراکترهای غیر عددی (به جز +)
   let cleaned = phone.replace(/\s+/g, "").replace(/[^\d+]/g, "");
+  
+  if (!cleaned || cleaned.length === 0) {
+    throw new Error("شماره تماس معتبر نیست");
+  }
   
   // حذف +98 و 0098 از ابتدا
   cleaned = cleaned.replace(/^(\+98|0098)/, "");
@@ -129,6 +129,11 @@ export function normalizePhone(phone: string): string {
   // اگر با 0 شروع نمی‌شود، 0 اضافه کن
   if (!cleaned.startsWith("0")) {
     cleaned = "0" + cleaned;
+  }
+  
+  // بررسی نهایی
+  if (cleaned.length < 11 || cleaned.length > 11) {
+    throw new Error("شماره تماس باید 11 رقم باشد");
   }
   
   return cleaned;

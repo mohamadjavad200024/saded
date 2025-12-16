@@ -32,7 +32,16 @@ export async function POST(request: NextRequest) {
     }
 
     // نرمال‌سازی شماره تماس
-    const normalizedPhone = normalizePhone(phone);
+    let normalizedPhone: string;
+    try {
+      normalizedPhone = normalizePhone(phone);
+    } catch (error: any) {
+      throw new AppError(
+        "شماره تماس معتبر نیست. فرمت صحیح: 09123456789",
+        400,
+        "INVALID_PHONE"
+      );
+    }
 
     // Get user from database
     const user = await getRow<{
