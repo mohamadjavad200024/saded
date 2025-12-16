@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { User, Phone, Lock, ArrowRight, ArrowLeft, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { validateIranianPhone, normalizePhone, validateStrongPassword } from "@/lib/validations/auth";
+import { validateIranianPhone, validateStrongPassword } from "@/lib/validations/auth";
 
 export default function AuthPage() {
   const router = useRouter();
@@ -284,7 +284,7 @@ export default function AuthPage() {
                   <Input
                     id="password"
                     type="password"
-                    placeholder={mode === "register" ? "حداقل 8 کاراکتر (حروف بزرگ، کوچک، عدد و کاراکتر خاص)" : "رمز عبور خود را وارد کنید"}
+                    placeholder={mode === "register" ? "حداقل 6 کاراکتر" : "رمز عبور خود را وارد کنید"}
                     value={formData.password}
                     onChange={(e) => {
                       setFormData({ ...formData, password: e.target.value });
@@ -292,7 +292,7 @@ export default function AuthPage() {
                     }}
                     onBlur={(e) => validateField("password", e.target.value)}
                     required
-                    minLength={mode === "register" ? 8 : undefined}
+                    minLength={mode === "register" ? 6 : undefined}
                     className={`h-11 ${validationErrors.password ? "border-destructive" : ""}`}
                   />
                   {validationErrors.password && (
