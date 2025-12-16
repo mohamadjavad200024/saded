@@ -61,7 +61,12 @@ export async function POST(request: NextRequest) {
     let normalizedPhone: string;
     try {
       normalizedPhone = normalizePhone(phone.trim());
-      logger.debug("Phone normalized:", { original: phone, normalized: normalizedPhone });
+      logger.info("Phone normalized:", { 
+        original: phone, 
+        normalized: normalizedPhone,
+        originalLength: phone.length,
+        normalizedLength: normalizedPhone.length
+      });
     } catch (error: any) {
       logger.error("Phone normalization error:", { phone, error: error.message });
       throw new AppError(
@@ -103,17 +108,26 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user with this phone already exists
-    let existingUser: { id: string } | null = null;
+    let existingUser: { id: string; phone: string } | null = null;
     try {
-      existingUser = await getRow<{ id: string }>(
-        "SELECT id FROM users WHERE phone = ?",
+      // بررسی دقیق‌تر - فقط شماره‌های معتبر را چک کن
+      existingUser = await getRow<{ id: string; phone: string }>(
+        "SELECT id, phone FROM users WHERE phone = ? AND phone IS NOT NULL AND phone != ''",
         [normalizedPhone]
       );
+      
+      logger.info("Duplicate check result:", {
+        normalizedPhone,
+        found: !!existingUser,
+        existingPhone: existingUser?.phone,
+        existingId: existingUser?.id
+      });
     } catch (dbError: any) {
       logger.error("Error checking existing user:", {
         code: dbError?.code,
         message: dbError?.message,
         phone: normalizedPhone,
+        sqlState: dbError?.sqlState,
       });
       // اگر خطای دیتابیس بود، آن را throw کن
       if (
@@ -129,6 +143,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (existingUser) {
+      logger.warn("Duplicate phone detected:", {
+        normalizedPhone,
+        existingUserId: existingUser.id,
+        existingUserPhone: existingUser.phone
+      });
       throw new AppError("شماره تماس قبلاً ثبت شده است", 400, "DUPLICATE_PHONE");
     }
 
