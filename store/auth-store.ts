@@ -43,6 +43,15 @@ export const useAuthStore = create<AuthStore>()(
         if (!result.success) {
           // نمایش پیام خطای دقیق از سرور
           const errorMessage = result.error || result.message || "خطا در ثبت‌نام";
+          
+          // Log کامل برای debugging
+          console.error("Register API error:", {
+            status: response.status,
+            statusText: response.statusText,
+            result,
+            body: { name, phone: "***", password: "***" },
+          });
+          
           throw new Error(errorMessage);
         }
 
