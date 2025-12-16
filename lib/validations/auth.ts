@@ -21,8 +21,8 @@ export function validateIranianPhone(phone: string): boolean {
 }
 
 /**
- * اعتبارسنجی رمز عبور قوی
- * حداقل 8 کاراکتر (برای production می‌تواند شامل حروف بزرگ، کوچک، عدد باشد)
+ * اعتبارسنجی رمز عبور
+ * فقط طول را بررسی می‌کند - حداقل 6 کاراکتر
  */
 export function validateStrongPassword(password: string): {
   valid: boolean;
@@ -30,8 +30,8 @@ export function validateStrongPassword(password: string): {
 } {
   const errors: string[] = [];
   
-  if (password.length < 8) {
-    errors.push("رمز عبور باید حداقل 8 کاراکتر باشد");
+  if (password.length < 6) {
+    errors.push("رمز عبور باید حداقل 6 کاراکتر باشد");
     return { valid: false, errors };
   }
   
@@ -40,22 +40,11 @@ export function validateStrongPassword(password: string): {
     return { valid: false, errors };
   }
   
-  // برای سادگی، فقط طول را بررسی می‌کنیم
-  // اگر می‌خواهید قوی‌تر باشد، می‌توانید بقیه بررسی‌ها را فعال کنید
-  
-  // بررسی رمزهای رایج و ضعیف (اختیاری)
-  const commonPasswords = [
-    "password", "12345678", "qwerty", "abc123", "password123",
-    "123456789", "1234567890", "password1", "admin123", "12345678"
-  ];
-  
-  if (commonPasswords.some(common => password.toLowerCase() === common.toLowerCase())) {
-    errors.push("رمز عبور انتخاب شده بسیار رایج و ناامن است");
-  }
+  // هیچ محدودیتی روی نوع کاراکترها نیست - فقط طول مهم است
   
   return {
-    valid: errors.length === 0,
-    errors,
+    valid: true,
+    errors: [],
   };
 }
 
@@ -82,7 +71,7 @@ export const registerSchema = z.object({
     }),
   password: z
     .string()
-    .min(8, "رمز عبور باید حداقل 8 کاراکتر باشد")
+    .min(6, "رمز عبور باید حداقل 6 کاراکتر باشد")
     .max(128, "رمز عبور نمی‌تواند بیشتر از 128 کاراکتر باشد"),
 });
 
