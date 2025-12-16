@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { User, Phone, Lock, ArrowRight, ArrowLeft, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { validateIranianPhone, validateStrongPassword } from "@/lib/validations/auth";
+import { validateIranianPhone, normalizePhone, validateStrongPassword } from "@/lib/validations/auth";
 
 export default function AuthPage() {
   const router = useRouter();
@@ -149,14 +149,25 @@ export default function AuthPage() {
           return;
         }
 
-        await register(formData.name, formData.phone, formData.password);
-        
-        toast({
-          title: "ثبت‌نام موفق",
-          description: "حساب کاربری شما با موفقیت ایجاد شد",
-        });
+        try {
+          await register(formData.name, formData.phone, formData.password);
+          
+          toast({
+            title: "ثبت‌نام موفق",
+            description: "حساب کاربری شما با موفقیت ایجاد شد",
+          });
 
-        router.push("/");
+          router.push("/");
+        } catch (registerError: any) {
+          // نمایش خطای دقیق از API
+          const errorMessage = registerError?.message || "خطا در ثبت‌نام. لطفاً دوباره تلاش کنید";
+          toast({
+            title: "خطا در ثبت‌نام",
+            description: errorMessage,
+            variant: "destructive",
+          });
+          console.error("Registration error:", registerError);
+        }
       } else {
         // Login
         if (!formData.phone.trim() || !formData.password.trim()) {
