@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getRow, runQuery } from "@/lib/db/index";
+import { getRow, runQuery, getRows } from "@/lib/db/index";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-route-helpers";
 import { AppError } from "@/lib/api-error-handler";
 import { logger } from "@/lib/logger";
@@ -111,23 +111,47 @@ export async function POST(request: NextRequest) {
     let existingUser: { id: string; phone: string } | null = null;
     try {
       // بررسی دقیق‌تر - فقط شماره‌های معتبر را چک کن
+      // استفاده از BINARY برای case-sensitive comparison
       existingUser = await getRow<{ id: string; phone: string }>(
-        "SELECT id, phone FROM users WHERE phone = ? AND phone IS NOT NULL AND phone != ''",
+        "SELECT id, phone FROM users WHERE BINARY phone = ? AND phone IS NOT NULL AND phone != '' AND LENGTH(phone) = 11",
         [normalizedPhone]
       );
       
       logger.info("Duplicate check result:", {
         normalizedPhone,
+        normalizedPhoneLength: normalizedPhone.length,
         found: !!existingUser,
         existingPhone: existingUser?.phone,
+        existingPhoneLength: existingUser?.phone?.length,
         existingId: existingUser?.id
       });
+
+      // اگر پیدا نشد، بررسی کن که آیا شماره‌های مشابه وجود دارد
+      if (!existingUser) {
+        try {
+          const similarUsers = await getRows<{ id: string; phone: string }>(
+            "SELECT id, phone FROM users WHERE phone LIKE ? AND phone IS NOT NULL AND phone != '' LIMIT 5",
+            [`%${normalizedPhone.slice(-4)}%`]
+          );
+          
+          if (similarUsers && similarUsers.length > 0) {
+            logger.info("Similar phones found:", {
+              normalizedPhone,
+              similarPhones: similarUsers.map(u => u.phone)
+            });
+          }
+        } catch (similarError: any) {
+          // Ignore errors in similar phones check
+          logger.debug("Error checking similar phones:", similarError.message);
+        }
+      }
     } catch (dbError: any) {
       logger.error("Error checking existing user:", {
         code: dbError?.code,
         message: dbError?.message,
         phone: normalizedPhone,
         sqlState: dbError?.sqlState,
+        errno: dbError?.errno,
       });
       // اگر خطای دیتابیس بود، آن را throw کن
       if (
@@ -146,7 +170,8 @@ export async function POST(request: NextRequest) {
       logger.warn("Duplicate phone detected:", {
         normalizedPhone,
         existingUserId: existingUser.id,
-        existingUserPhone: existingUser.phone
+        existingUserPhone: existingUser.phone,
+        phonesMatch: existingUser.phone === normalizedPhone
       });
       throw new AppError("شماره تماس قبلاً ثبت شده است", 400, "DUPLICATE_PHONE");
     }

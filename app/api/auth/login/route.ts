@@ -34,16 +34,23 @@ export async function POST(request: NextRequest) {
     // نرمال‌سازی شماره تماس
     let normalizedPhone: string;
     try {
-      normalizedPhone = normalizePhone(phone);
+      normalizedPhone = normalizePhone(phone.trim());
+      logger.info("Login - Phone normalized:", {
+        original: phone,
+        normalized: normalizedPhone,
+        originalLength: phone.length,
+        normalizedLength: normalizedPhone.length
+      });
     } catch (error: any) {
+      logger.error("Login - Phone normalization error:", { phone, error: error.message });
       throw new AppError(
-        "شماره تماس معتبر نیست. فرمت صحیح: 09123456789",
+        error.message || "شماره تماس معتبر نیست. فرمت صحیح: 09123456789",
         400,
         "INVALID_PHONE"
       );
     }
 
-    // Get user from database
+    // Get user from database - استفاده از BINARY برای case-sensitive comparison
     const user = await getRow<{
       id: string;
       name: string;
@@ -53,9 +60,17 @@ export async function POST(request: NextRequest) {
       enabled: boolean;
       createdAt: string;
     }>(
-      "SELECT id, name, phone, password, role, enabled, createdAt FROM users WHERE phone = ?",
+      "SELECT id, name, phone, password, role, enabled, createdAt FROM users WHERE BINARY phone = ? AND phone IS NOT NULL AND phone != '' AND LENGTH(phone) = 11",
       [normalizedPhone]
     );
+
+    logger.info("Login - User lookup result:", {
+      normalizedPhone,
+      found: !!user,
+      userId: user?.id,
+      userPhone: user?.phone,
+      userPhoneLength: user?.phone?.length
+    });
 
     if (!user) {
       throw new AppError("شماره تماس یا رمز عبور اشتباه است", 401, "INVALID_CREDENTIALS");
