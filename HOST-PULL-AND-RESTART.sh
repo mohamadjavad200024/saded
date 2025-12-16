@@ -39,35 +39,62 @@ else
     echo "⚠️  Warning: Some build files are missing!"
 fi
 
-# 3. Restart PM2
+# 3. بررسی فایل‌های API جدید
 echo ""
-echo "3️⃣ Restarting PM2..."
+echo "3️⃣ Checking new API files..."
 echo "=========================================="
+
+if [ -f ".next/server/app/api/auth/debug-db/route.js" ]; then
+    echo "✅ debug-db API exists"
+else
+    echo "❌ debug-db API missing!"
+fi
+
+if [ -f ".next/server/app/api/auth/cleanup-db/route.js" ]; then
+    echo "✅ cleanup-db API exists"
+else
+    echo "❌ cleanup-db API missing!"
+fi
+
+if [ -f ".next/server/app/api/auth/test-phone/route.js" ]; then
+    echo "✅ test-phone API exists"
+else
+    echo "❌ test-phone API missing!"
+fi
+
+# 4. Restart PM2
+echo ""
+echo "4️⃣ Restarting PM2..."
+echo "=========================================="
+
+# Stop و Delete برای اطمینان از restart کامل
+/opt/alt/alt-nodejs20/root/usr/bin/node ~/.npm-global/bin/pm2 stop saded 2>/dev/null
+/opt/alt/alt-nodejs20/root/usr/bin/node ~/.npm-global/bin/pm2 delete saded 2>/dev/null
 
 # بررسی وضعیت PM2
 PM2_STATUS=$(/opt/alt/alt-nodejs20/root/usr/bin/node ~/.npm-global/bin/pm2 jlist 2>/dev/null | grep -o '"name":"saded"' || echo "")
 
 if [ -n "$PM2_STATUS" ]; then
-    echo "🔄 Restarting existing PM2 process..."
-    /opt/alt/alt-nodejs20/root/usr/bin/node ~/.npm-global/bin/pm2 restart saded --update-env
-else
-    echo "🚀 Starting new PM2 process..."
-    if [ -f "ecosystem.config.js" ]; then
-        /opt/alt/alt-nodejs20/root/usr/bin/node ~/.npm-global/bin/pm2 start ecosystem.config.js
-    else
-        /opt/alt/alt-nodejs20/root/usr/bin/node ~/.npm-global/bin/pm2 start server.js --name saded --env production --update-env
-    fi
-    /opt/alt/alt-nodejs20/root/usr/bin/node ~/.npm-global/bin/pm2 save
+    echo "⚠️  Process still exists, forcing delete..."
+    /opt/alt/alt-nodejs20/root/usr/bin/node ~/.npm-global/bin/pm2 delete saded 2>/dev/null
 fi
 
-# 4. صبر برای راه‌اندازی
-echo ""
-echo "4️⃣ Waiting for server to start..."
-sleep 5
+echo "🚀 Starting PM2 process..."
+if [ -f "ecosystem.config.js" ]; then
+    /opt/alt/alt-nodejs20/root/usr/bin/node ~/.npm-global/bin/pm2 start ecosystem.config.js
+else
+    /opt/alt/alt-nodejs20/root/usr/bin/node ~/.npm-global/bin/pm2 start server.js --name saded --env production --update-env
+fi
+/opt/alt/alt-nodejs20/root/usr/bin/node ~/.npm-global/bin/pm2 save
 
-# 5. بررسی وضعیت نهایی
+# 5. صبر برای راه‌اندازی
 echo ""
-echo "5️⃣ Final PM2 Status:"
+echo "5️⃣ Waiting for server to start..."
+sleep 8
+
+# 6. بررسی وضعیت نهایی
+echo ""
+echo "6️⃣ Final PM2 Status:"
 echo "=========================================="
 /opt/alt/alt-nodejs20/root/usr/bin/node ~/.npm-global/bin/pm2 status
 
