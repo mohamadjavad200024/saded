@@ -41,7 +41,9 @@ export const useAuthStore = create<AuthStore>()(
         const result = await response.json();
 
         if (!result.success) {
-          throw new Error(result.error || "خطا در ثبت‌نام");
+          // نمایش پیام خطای دقیق از سرور
+          const errorMessage = result.error || result.message || "خطا در ثبت‌نام";
+          throw new Error(errorMessage);
         }
 
         // Set current user
@@ -77,6 +79,8 @@ export const useAuthStore = create<AuthStore>()(
         const result = await response.json();
 
         if (!result.success) {
+          // می‌توانیم پیام خطا را لاگ کنیم برای debugging
+          console.error("Login error:", result.error || result.message);
           return false;
         }
 

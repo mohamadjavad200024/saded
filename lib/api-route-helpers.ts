@@ -4,7 +4,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { logError } from "./api-error-handler";
+import { logError, AppError } from "./api-error-handler";
 
 export interface ApiRouteError {
   message: string;
@@ -25,7 +25,13 @@ export function createErrorResponse(
   let code: string | undefined;
   let details: unknown;
 
-  if (error instanceof Error) {
+  // Handle AppError specifically (most common case)
+  if (error instanceof AppError) {
+    message = error.message;
+    status = error.status || defaultStatus;
+    code = error.code;
+    details = error.details;
+  } else if (error instanceof Error) {
     message = error.message;
     if ("status" in error && typeof error.status === "number") {
       status = error.status;
@@ -42,6 +48,9 @@ export function createErrorResponse(
     message = String(error.message);
     if ("status" in error && typeof error.status === "number") {
       status = error.status;
+    }
+    if ("code" in error && typeof error.code === "string") {
+      code = error.code as string;
     }
   }
 
