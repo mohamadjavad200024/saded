@@ -51,7 +51,7 @@ import { usePersistentNotifications } from "@/hooks/use-persistent-notifications
 import { TypingIndicator } from "@/components/chat/typing-indicator";
 import { logger } from "@/lib/logger-client";
 
-type MessageStatus = "sending" | "sent" | "delivered" | "read";
+type MessageStatus = "sending" | "sent" | "delivered" | "read" | "failed";
 
 interface Message {
   id: string;
@@ -567,6 +567,18 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
         // Try to load by chatId first
         url += `chatId=${savedChatId}`;
       } else {
+        // Try session-based chat first (logged-in users)
+        try {
+          const myRes = await fetch("/api/chat/my", { credentials: "include" });
+          const myJson = await myRes.json().catch(() => null);
+          if (myRes.ok && myJson?.success && myJson?.data?.chatId) {
+            savedChatId = String(myJson.data.chatId);
+            url = `/api/chat?chatId=${savedChatId}`;
+          }
+        } catch {
+          // ignore and fallback to legacy lookup
+        }
+
         // Find chat by customer info
         url += `customerPhone=${encodeURIComponent(customerInfo.phone)}`;
         if (customerInfo.name) {
@@ -574,7 +586,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
         }
       }
 
-      const response = await fetch(url);
+      const response = await fetch(url, { credentials: "include" });
       if (!response.ok) {
         throw new Error("خطا در بارگذاری تاریخچه چت");
       }
@@ -765,6 +777,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
           chatId,
           sender: "user",
@@ -786,6 +799,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
           chatId,
           sender: "user", // Mark messages from support as read
@@ -811,7 +825,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
         url += `&lastMessageId=${lastMessageId}`;
       }
 
-      const response = await fetch(url);
+      const response = await fetch(url, { credentials: "include" });
       if (!response.ok) {
         throw new Error("خطا در دریافت پیام‌های جدید");
       }
@@ -941,7 +955,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
     if (!chatId) return;
     
     try {
-      const response = await fetch(`/api/chat/typing?chatId=${chatId}&sender=support`);
+      const response = await fetch(`/api/chat/typing?chatId=${chatId}&sender=support`, { credentials: "include" });
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
@@ -963,6 +977,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
           chatId,
           sender: "user",
@@ -1204,6 +1219,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
     try {
       const response = await fetch(`/api/chat/message/${messageId}`, {
         method: "DELETE",
+        credentials: "include",
       });
       
       if (response.ok) {
@@ -1234,6 +1250,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
         const response = await fetch(`/api/chat/message/${editingMessage.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({
             text: message,
             attachments: attachments,
@@ -1331,21 +1348,23 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
     try {
       setIsSaving(true);
       
-      // Prepare messages with filtered attachments and status
-      const messagesToSave = [...messages, newMessage].map((msg) => ({
-        id: msg.id,
-        text: msg.text,
-        sender: msg.sender,
-        timestamp: msg.timestamp.toISOString(),
-        status: msg.id === newMessage.id ? "sent" : (msg.status || (msg.sender === "user" ? "sent" : undefined)),
-        attachments: msg.attachments ? msg.attachments.filter((att: Attachment) => {
+      // Only send the NEW message (avoid re-sending whole history and triggering limits)
+      const messageToSave = {
+        id: newMessage.id,
+        text: newMessage.text,
+        sender: newMessage.sender,
+        timestamp: newMessage.timestamp.toISOString(),
+        status: "sent",
+        attachments: (messageAttachments || []).filter((att: Attachment) => {
           const url = att.url;
-          return url && 
-                 !url.startsWith('blob:') && 
-                 !url.startsWith('data:') &&
-                 (url.startsWith('http') || url.startsWith('/'));
-        }) : [],
-      }));
+          return (
+            url &&
+            !url.startsWith("blob:") &&
+            !url.startsWith("data:") &&
+            (url.startsWith("http") || url.startsWith("/"))
+          );
+        }),
+      };
       
       // Log the new message being sent
       if (newMessage.attachments && newMessage.attachments.length > 0) {
@@ -1364,16 +1383,17 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
           chatId: chatId || undefined,
           customerInfo,
-          messages: messagesToSave,
+          messages: [messageToSave],
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "خطا در ذخیره پیام");
+        throw new Error(errorData.error || errorData.message || "خطا در ذخیره پیام");
       }
 
       const data = await response.json();
@@ -1433,11 +1453,11 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
     } catch (error: any) {
       logger.error("Error saving message:", error);
       
-      // Update message status to "sent" even on error (so user sees it was attempted)
+      // Mark as failed so user sees it did NOT send
       setMessages((prev) => {
         return prev.map((msg) => 
           msg.id === newMessage.id 
-            ? { ...msg, status: "sent" as MessageStatus }
+            ? { ...msg, status: "failed" as MessageStatus }
             : msg
         );
       });
@@ -1487,6 +1507,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
       const response = await fetch("/api/chat/upload", {
         method: "POST",
         body: formData,
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -2005,6 +2026,9 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
                           )}
                           {msg.status === "read" && (
                             <CheckCheck className="h-3 w-3 text-primary-foreground/70" />
+                          )}
+                          {msg.status === "failed" && (
+                            <X className="h-3 w-3 text-destructive" />
                           )}
                           {!msg.status && (
                             <Check className="h-3 w-3 text-primary-foreground/40" />
