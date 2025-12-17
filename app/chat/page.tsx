@@ -559,6 +559,7 @@ function ChatPageContent() {
         const response = await fetch(`/api/chat/message/${editingMessage.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({
             text: message,
             attachments: attachments,
@@ -640,8 +641,14 @@ function ChatPageContent() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "خطا در ارسال پیام");
+        const errorData = await response.json().catch(() => ({} as any));
+        const serverMsg =
+          (typeof errorData?.error === "string" && errorData.error) ||
+          (typeof errorData?.error?.message === "string" && errorData.error.message) ||
+          (typeof errorData?.message === "string" && errorData.message) ||
+          (response.status === 429 ? "درخواست‌های شما زیاد است. لطفاً کمی بعد دوباره تلاش کنید." : null) ||
+          `خطا در ارسال پیام (HTTP ${response.status})`;
+        throw new Error(serverMsg);
       }
 
       const data = await response.json();
@@ -664,12 +671,15 @@ function ChatPageContent() {
           setChatId(data.data.chatId);
         }
       }
+
+      // Always refresh from server after send to keep state consistent (attachments/status)
+      pollForNewMessages(activeChatId);
     } catch (error) {
       logger.error("Error sending message:", error);
       setMessages((prev) => prev.filter((msg) => msg.id !== tempId));
       toast({
         title: "خطا",
-        description: "خطا در ارسال پیام",
+        description: error instanceof Error ? error.message : "خطا در ارسال پیام",
         variant: "destructive",
       });
     }
@@ -677,7 +687,7 @@ function ChatPageContent() {
     setTimeout(() => {
       scrollToBottom(false);
     }, 100);
-  }, [chatId, customerInfo, attachments, replyingTo, editingMessage, sendTypingStatus, toast, setStep, initMyChat]);
+  }, [chatId, customerInfo, attachments, replyingTo, editingMessage, sendTypingStatus, toast, setStep, initMyChat, pollForNewMessages]);
 
   // Handle reply
   const handleReply = useCallback((msg: Message) => {
@@ -698,6 +708,7 @@ function ChatPageContent() {
       try {
         const response = await fetch(`/api/chat/message/${messageId}`, {
           method: "DELETE",
+          credentials: "include",
         });
 
         if (response.ok) {

@@ -4,7 +4,7 @@ import { createErrorResponse, createSuccessResponse } from "@/lib/api-route-help
 import { AppError } from "@/lib/api-error-handler";
 import { cache, cacheKeys } from "@/lib/cache";
 import { logger } from "@/lib/logger";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimit, rateLimiter, getClientId } from "@/lib/rate-limit";
 import { getSessionUserFromRequest } from "@/lib/auth/session";
 import { ensureChatTables as ensureChatTablesShared, getChatSchemaInfo } from "@/lib/chat/schema";
 
@@ -12,16 +12,40 @@ async function ensureChatTables(): Promise<void> {
   await ensureChatTablesShared();
 }
 
+function rateLimitKeyForAuthedUser(request: NextRequest, userId: string): string {
+  // Use userId as the primary key for authenticated-only chat endpoints.
+  // This prevents false 429s on hosts where client IP is missing (all users become "unknown")
+  // and avoids collisions for users behind the same NAT.
+  return `user:${userId}`;
+}
+
+function createRateLimitResponse(maxRequests: number, windowMs: number, fullKey: string): Response {
+  const resetTime = rateLimiter.getResetTime(fullKey);
+  const remaining = rateLimiter.getRemaining(fullKey, maxRequests);
+
+  return new Response(
+    JSON.stringify({
+      success: false,
+      error: "درخواست‌های شما زیاد است. لطفاً کمی بعد دوباره تلاش کنید.",
+      code: "RATE_LIMIT_EXCEEDED",
+    }),
+    {
+      status: 429,
+      headers: {
+        "Content-Type": "application/json",
+        "X-RateLimit-Limit": maxRequests.toString(),
+        "X-RateLimit-Remaining": remaining.toString(),
+        "X-RateLimit-Reset": resetTime?.toString() || "",
+        "Retry-After": Math.ceil((resetTime ? resetTime - Date.now() : windowMs) / 1000).toString(),
+      },
+    }
+  );
+}
+
 /**
  * POST /api/chat - Create a new chat and save messages
  */
 export async function POST(request: NextRequest) {
-  // Rate limiting: 20 requests per minute per IP
-  const rateLimitResponse = await rateLimit(20, 60000)(request);
-  if (rateLimitResponse) {
-    return rateLimitResponse;
-  }
-
   try {
     await ensureChatTables();
     const schema = await getChatSchemaInfo();
@@ -31,6 +55,17 @@ export async function POST(request: NextRequest) {
       throw new AppError("برای استفاده از چت باید وارد حساب کاربری شوید", 401, "UNAUTHORIZED");
     }
     const isAdmin = sessionUser.role === "admin";
+
+    // Rate limiting (auth-based): 20 POSTs/min per user (fallback to IP if needed)
+    {
+      const max = 20;
+      const windowMs = 60000;
+      const key = rateLimitKeyForAuthedUser(request, sessionUser.id) || getClientId(request);
+      const fullKey = `${request.nextUrl.pathname}:${request.method}:${key}`;
+      if (rateLimiter.isRateLimited(fullKey, max, windowMs)) {
+        return createRateLimitResponse(max, windowMs, fullKey);
+      }
+    }
 
     const body = await request.json().catch(() => {
       throw new AppError("Invalid JSON in request body", 400, "INVALID_JSON");
@@ -349,12 +384,6 @@ export async function POST(request: NextRequest) {
  * GET /api/chat - Get chat by ID or list chats
  */
 export async function GET(request: NextRequest) {
-  // Rate limiting: 120 requests per minute per IP (increased for polling - allows 2 requests per second)
-  const rateLimitResponse = await rateLimit(120, 60000)(request);
-  if (rateLimitResponse) {
-    return rateLimitResponse;
-  }
-
   try {
     await ensureChatTables();
     const schema = await getChatSchemaInfo();
@@ -364,6 +393,17 @@ export async function GET(request: NextRequest) {
       throw new AppError("برای استفاده از چت باید وارد حساب کاربری شوید", 401, "UNAUTHORIZED");
     }
     const isAdmin = sessionUser.role === "admin";
+
+    // Rate limiting (auth-based): 240 GETs/min per user (polling-friendly)
+    {
+      const max = 240;
+      const windowMs = 60000;
+      const key = rateLimitKeyForAuthedUser(request, sessionUser.id) || getClientId(request);
+      const fullKey = `${request.nextUrl.pathname}:${request.method}:${key}`;
+      if (rateLimiter.isRateLimited(fullKey, max, windowMs)) {
+        return createRateLimitResponse(max, windowMs, fullKey);
+      }
+    }
 
     const { searchParams } = new URL(request.url);
     const chatId = searchParams.get("chatId");

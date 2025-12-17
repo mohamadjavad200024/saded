@@ -4,6 +4,7 @@
  */
 
 import { NextRequest } from 'next/server';
+import crypto from "crypto";
 
 interface RateLimitEntry {
   count: number;
@@ -115,10 +116,25 @@ rateLimiter.startCleanup(60000);
  */
 export function getClientId(request: NextRequest): string {
   // Try to get IP from various headers (for proxies/load balancers)
-  const forwarded = request.headers.get('x-forwarded-for');
-  const realIp = request.headers.get('x-real-ip');
-  const ip = forwarded?.split(',')[0] || realIp || 'unknown';
-  
+  const candidates = [
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim(),
+    request.headers.get("x-real-ip")?.trim(),
+    request.headers.get("cf-connecting-ip")?.trim(),
+    request.headers.get("true-client-ip")?.trim(),
+    request.headers.get("fastly-client-ip")?.trim(),
+    request.headers.get("x-client-ip")?.trim(),
+  ].filter(Boolean) as string[];
+
+  const ip = candidates[0] || "unknown";
+
+  // If we can't detect an IP, avoid collapsing ALL users into the same "unknown" bucket.
+  // This is not a security boundary; it's just to reduce false-positive 429s in hosts that don't pass client IP headers.
+  if (ip === "unknown") {
+    const ua = request.headers.get("user-agent") || "unknown-ua";
+    const uaHash = crypto.createHash("sha256").update(ua).digest("hex").slice(0, 12);
+    return `unknown:${uaHash}`;
+  }
+
   return ip;
 }
 
@@ -144,10 +160,8 @@ export function rateLimit(
       return new Response(
         JSON.stringify({
           success: false,
-          error: {
-            message: 'Too many requests. Please try again later.',
-            code: 'RATE_LIMIT_EXCEEDED',
-          },
+          error: "درخواست‌های شما زیاد است. لطفاً کمی بعد دوباره تلاش کنید.",
+          code: "RATE_LIMIT_EXCEEDED",
         }),
         {
           status: 429,
