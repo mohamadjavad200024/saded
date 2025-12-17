@@ -283,6 +283,12 @@
       "namedRegex": "^/api/chat(?:/)?$"
     },
     {
+      "page": "/api/chat/my",
+      "regex": "^/api/chat/my(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/chat/my(?:/)?$"
+    },
+    {
       "page": "/api/chat/status",
       "regex": "^/api/chat/status(?:/)?$",
       "routeKeys": {},
