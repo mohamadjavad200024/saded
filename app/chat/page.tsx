@@ -506,8 +506,15 @@ function ChatPageContent() {
       return;
     }
 
-    logger.info("Requesting geolocation...");
-    console.log("[Location] Requesting geolocation...");
+    // Show loading toast
+    toast({
+      title: "در حال دریافت موقعیت...",
+      description: "لطفاً اجازه دسترسی به موقعیت را در مرورگر بدهید",
+      duration: 3000,
+    });
+
+    logger.info("Requesting geolocation permission...");
+    console.log("[Location] Requesting geolocation permission...");
     navigator.geolocation.getCurrentPosition(
       (position) => {
         logger.info("Location received:", position.coords);
@@ -1363,11 +1370,11 @@ function ChatPageContent() {
                             e.preventDefault();
                             e.stopPropagation();
                             console.log("[Voice] Save button clicked!");
-                            alert("دکمه ذخیره ویس کلیک شد!");
                             saveRecording();
                           }} 
                           size="sm" 
                           className="h-7 px-3 text-xs rounded-lg"
+                          title="ذخیره و ارسال پیام صوتی"
                         >
                           ذخیره
                         </Button>
@@ -1416,11 +1423,11 @@ function ChatPageContent() {
                         e.preventDefault();
                         e.stopPropagation();
                         console.log("[Location] Button clicked!");
-                        alert("دکمه لوکیشن کلیک شد!");
                         handleLocationShare();
                         setShowAttachmentOptions(false);
                       }}
                       className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-all rounded-lg"
+                      title="اشتراک‌گذاری موقعیت مکانی"
                     >
                       <MapPin className="h-3.5 w-3.5" />
                     </Button>
@@ -1431,11 +1438,17 @@ function ChatPageContent() {
                         e.preventDefault();
                         e.stopPropagation();
                         console.log("[Voice] Button clicked!");
-                        alert("دکمه ویس کلیک شد!");
                         setShowAttachmentOptions(false);
                         if (isRecording) {
                           stopRecording();
                         } else {
+                          // Show loading toast
+                          toast({
+                            title: "در حال درخواست دسترسی...",
+                            description: "لطفاً اجازه دسترسی به میکروفون را در مرورگر بدهید",
+                            duration: 3000,
+                          });
+                          
                           const hasPermission = await checkMicrophonePermission();
                           if (!hasPermission) {
                             toast({
@@ -1444,10 +1457,13 @@ function ChatPageContent() {
                               variant: "destructive",
                               duration: 5000,
                             });
+                            return;
                           }
                           startRecording();
                         }
                       }}
+                      title="ضبط پیام صوتی"
+                    >
                       className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-all rounded-lg"
                       disabled={isRecording}
                     >
