@@ -136,7 +136,13 @@ export const useAuthStore = create<AuthStore>()(
         // Always allow re-check, but avoid spamming if already checked recently
         set({ isCheckingAuth: true });
         try {
-          const res = await fetch("/api/auth/me", { credentials: "include" });
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 7000);
+          const res = await fetch("/api/auth/me", {
+            credentials: "include",
+            signal: controller.signal,
+          });
+          clearTimeout(timeout);
           const json = await res.json().catch(() => null);
           if (res.ok && json?.success && json?.data?.user) {
             const u = json.data.user;
@@ -156,9 +162,7 @@ export const useAuthStore = create<AuthStore>()(
           }
         } catch {
           // Network fail: don't force logout, but mark checked to prevent infinite spinner
-          if (!hasCheckedAuth) {
-            set({ hasCheckedAuth: true });
-          }
+          set({ user: null, isAuthenticated: false, hasCheckedAuth: true });
         } finally {
           set({ isCheckingAuth: false });
         }

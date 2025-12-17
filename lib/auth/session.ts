@@ -170,10 +170,11 @@ export async function createSession(userId: string, request: NextRequest): Promi
 }
 
 export async function getSessionUserFromRequest(request: NextRequest): Promise<SessionUser | null> {
-  await ensureAuthTables();
-
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
   if (!token) return null;
+
+  // Only touch DB if a session cookie exists (prevents hanging on DB when user is not logged in)
+  await ensureAuthTables();
 
   const tokenHash = sha256Hex(token);
   const row = await getRow<{
@@ -219,6 +220,7 @@ export async function getSessionUserFromRequest(request: NextRequest): Promise<S
 export async function clearSession(request: NextRequest): Promise<void> {
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
   if (!token) return;
+  await ensureAuthTables();
   const tokenHash = sha256Hex(token);
   await runQuery(`DELETE FROM sessions WHERE tokenHash = ?`, [tokenHash]);
 }
