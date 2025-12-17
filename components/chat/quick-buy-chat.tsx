@@ -2304,6 +2304,9 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
                 className="flex gap-2 p-2 bg-card rounded-lg border border-border/50 shadow-lg"
+                onClick={(e) => {
+                  console.log("[Attachment Options Widget] Container clicked!", e.target);
+                }}
               >
                   <Button
                     variant="ghost"
@@ -2493,7 +2496,12 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => setShowAttachmentOptions(!showAttachmentOptions)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log("[Paperclip Widget] Button clicked! showAttachmentOptions:", !showAttachmentOptions);
+                      setShowAttachmentOptions(!showAttachmentOptions);
+                    }}
                     className={`h-7 w-7 rounded-lg transition-all ${
                       showAttachmentOptions 
                         ? "bg-primary/10 text-primary" 
