@@ -171,7 +171,26 @@ function ChatPageContent() {
           status: msg.status || (msg.sender === "user" ? "sent" : undefined),
         }));
 
-        setMessages(formattedMessages);
+        // Merge with existing messages (don't replace - preserve tempId messages until they're matched)
+        setMessages((prev) => {
+          const existingIds = new Set(prev.map((m) => m.id));
+          const uniqueNewMessages = formattedMessages.filter((msg) => !existingIds.has(msg.id));
+          
+          // Update status of existing messages from database
+          const updatedPrev = prev.map((existingMsg) => {
+            const dbMsg = formattedMessages.find((m) => m.id === existingMsg.id);
+            if (dbMsg && existingMsg.sender === "user" && dbMsg.status && existingMsg.status !== dbMsg.status) {
+              return { ...existingMsg, status: dbMsg.status };
+            }
+            return existingMsg;
+          });
+          
+          // If we have new messages, add them. Otherwise just return updated prev (preserves tempId messages)
+          if (uniqueNewMessages.length > 0) {
+            return [...updatedPrev, ...uniqueNewMessages];
+          }
+          return updatedPrev;
+        });
       }
     } catch (error) {
       logger.error("Error polling messages:", error);
@@ -656,13 +675,17 @@ function ChatPageContent() {
       const data = await response.json();
       if (data.success && data.data?.messages && data.data.messages.length > 0) {
         const savedMessage = data.data.messages[0];
+        
+        // Update tempId message with real ID from server
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === tempId
               ? {
                   ...msg,
                   id: savedMessage.id,
+                  text: savedMessage.text || msg.text, // Ensure text is preserved
                   status: savedMessage.status || "sent",
+                  attachments: savedMessage.attachments || msg.attachments,
                 }
               : msg
           )
@@ -674,8 +697,10 @@ function ChatPageContent() {
         }
       }
 
-      // Always refresh from server after send to keep state consistent (attachments/status)
-      pollForNewMessages(activeChatId);
+      // Poll for new messages after a short delay to ensure server has processed the message
+      setTimeout(() => {
+        pollForNewMessages(activeChatId);
+      }, 500);
     } catch (error) {
       logger.error("Error sending message:", error);
       setMessages((prev) => prev.filter((msg) => msg.id !== tempId));
