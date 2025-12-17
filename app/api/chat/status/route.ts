@@ -3,12 +3,15 @@ import { getRow, runQuery } from "@/lib/db/index";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-route-helpers";
 import { AppError } from "@/lib/api-error-handler";
 import { getSessionUserFromRequest } from "@/lib/auth/session";
+import { ensureChatTables, getChatSchemaInfo } from "@/lib/chat/schema";
 
 /**
  * PATCH /api/chat/status - Update message status
  */
 export async function PATCH(request: NextRequest) {
   try {
+    await ensureChatTables();
+    const schema = await getChatSchemaInfo();
     const sessionUser = await getSessionUserFromRequest(request);
     if (!sessionUser || !sessionUser.enabled) {
       throw new AppError("برای استفاده از چت باید وارد حساب کاربری شوید", 401, "UNAUTHORIZED");
@@ -31,21 +34,28 @@ export async function PATCH(request: NextRequest) {
 
     // Access control: message must belong to user's chat (or admin)
     const msg = await getRow<any>(
-      `SELECT m.id, c.userId as chatUserId
-       FROM chat_messages m
-       JOIN quick_buy_chats c ON c.id = m.chatId
-       WHERE m.id = ?
-       LIMIT 1`,
+      schema.chatHasUserId
+        ? `SELECT m.id, c.userId as chatUserId, c.customerPhone as chatPhone
+           FROM chat_messages m
+           JOIN quick_buy_chats c ON c.id = m.chatId
+           WHERE m.id = ?
+           LIMIT 1`
+        : `SELECT m.id, c.customerPhone as chatPhone
+           FROM chat_messages m
+           JOIN quick_buy_chats c ON c.id = m.chatId
+           WHERE m.id = ?
+           LIMIT 1`,
       [messageId]
     );
     if (!msg) {
       throw new AppError("پیام یافت نشد", 404, "MESSAGE_NOT_FOUND");
     }
     if (!isAdmin) {
-      const chatUserId = msg.chatUserId ? String(msg.chatUserId) : "";
-      if (!chatUserId || chatUserId !== sessionUser.id) {
-        throw new AppError("شما به این پیام دسترسی ندارید", 403, "FORBIDDEN");
-      }
+      const chatPhone = msg.chatPhone ? String(msg.chatPhone) : "";
+      const chatUserId = schema.chatHasUserId && msg.chatUserId ? String(msg.chatUserId) : "";
+      const isOwnerByUserId = schema.chatHasUserId && chatUserId === sessionUser.id;
+      const isOwnerByPhone = !schema.chatHasUserId && chatPhone === sessionUser.phone;
+      if (!isOwnerByUserId && !isOwnerByPhone) throw new AppError("شما به این پیام دسترسی ندارید", 403, "FORBIDDEN");
     }
 
     await runQuery(
@@ -66,6 +76,8 @@ export async function PATCH(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    await ensureChatTables();
+    const schema = await getChatSchemaInfo();
     const sessionUser = await getSessionUserFromRequest(request);
     if (!sessionUser || !sessionUser.enabled) {
       throw new AppError("برای استفاده از چت باید وارد حساب کاربری شوید", 401, "UNAUTHORIZED");
@@ -82,15 +94,16 @@ export async function POST(request: NextRequest) {
       throw new AppError("chatId and sender are required", 400, "MISSING_PARAMS");
     }
 
-    const chat = await getRow<any>(`SELECT id, userId, customerPhone FROM quick_buy_chats WHERE id = ?`, [chatId]);
+    const chat = await getRow<any>(`SELECT * FROM quick_buy_chats WHERE id = ?`, [chatId]);
     if (!chat) {
       throw new AppError("چت یافت نشد", 404, "CHAT_NOT_FOUND");
     }
     if (!isAdmin) {
-      const chatUserId = chat.userId ? String(chat.userId) : "";
-      if (!chatUserId || chatUserId !== sessionUser.id) {
-        throw new AppError("شما به این چت دسترسی ندارید", 403, "FORBIDDEN");
-      }
+      const chatPhone = chat.customerPhone ? String(chat.customerPhone) : "";
+      const chatUserId = schema.chatHasUserId && chat.userId ? String(chat.userId) : "";
+      const isOwnerByUserId = schema.chatHasUserId && chatUserId === sessionUser.id;
+      const isOwnerByPhone = !schema.chatHasUserId && chatPhone === sessionUser.phone;
+      if (!isOwnerByUserId && !isOwnerByPhone) throw new AppError("شما به این چت دسترسی ندارید", 403, "FORBIDDEN");
     }
 
     // Mark all messages from the opposite sender

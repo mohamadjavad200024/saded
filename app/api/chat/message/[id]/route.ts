@@ -3,6 +3,7 @@ import { runQuery, getRow } from "@/lib/db/index";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-route-helpers";
 import { AppError } from "@/lib/api-error-handler";
 import { getSessionUserFromRequest } from "@/lib/auth/session";
+import { ensureChatTables, getChatSchemaInfo } from "@/lib/chat/schema";
 
 async function ensureMessageColumns(): Promise<void> {
   try {
@@ -20,6 +21,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await ensureChatTables();
+    const schema = await getChatSchemaInfo();
     await ensureMessageColumns();
     const sessionUser = await getSessionUserFromRequest(request);
     if (!sessionUser || !sessionUser.enabled) {
@@ -39,11 +42,17 @@ export async function PATCH(
     }
 
     const message = await getRow<any>(
-      `SELECT m.*, c.userId as chatUserId
-       FROM chat_messages m
-       JOIN quick_buy_chats c ON c.id = m.chatId
-       WHERE m.id = ?
-       LIMIT 1`,
+      schema.chatHasUserId
+        ? `SELECT m.*, c.userId as chatUserId, c.customerPhone as chatPhone
+           FROM chat_messages m
+           JOIN quick_buy_chats c ON c.id = m.chatId
+           WHERE m.id = ?
+           LIMIT 1`
+        : `SELECT m.*, c.customerPhone as chatPhone
+           FROM chat_messages m
+           JOIN quick_buy_chats c ON c.id = m.chatId
+           WHERE m.id = ?
+           LIMIT 1`,
       [id]
     );
     if (!message) {
@@ -51,10 +60,11 @@ export async function PATCH(
     }
 
     if (!isAdmin) {
-      const chatUserId = message.chatUserId ? String(message.chatUserId) : "";
-      if (!chatUserId || chatUserId !== sessionUser.id) {
-        throw new AppError("شما دسترسی به این پیام را ندارید", 403, "FORBIDDEN");
-      }
+      const chatPhone = message.chatPhone ? String(message.chatPhone) : "";
+      const chatUserId = schema.chatHasUserId && message.chatUserId ? String(message.chatUserId) : "";
+      const isOwnerByUserId = schema.chatHasUserId && chatUserId === sessionUser.id;
+      const isOwnerByPhone = !schema.chatHasUserId && chatPhone === sessionUser.phone;
+      if (!isOwnerByUserId && !isOwnerByPhone) throw new AppError("شما دسترسی به این پیام را ندارید", 403, "FORBIDDEN");
       if (String(message.sender) !== "user") {
         throw new AppError("شما فقط می‌توانید پیام‌های خودتان را ویرایش کنید", 403, "FORBIDDEN");
       }
@@ -86,6 +96,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await ensureChatTables();
+    const schema = await getChatSchemaInfo();
     const sessionUser = await getSessionUserFromRequest(request);
     if (!sessionUser || !sessionUser.enabled) {
       throw new AppError("برای حذف پیام باید وارد حساب کاربری شوید", 401, "UNAUTHORIZED");
@@ -95,11 +107,17 @@ export async function DELETE(
     const { id } = await params;
 
     const message = await getRow<any>(
-      `SELECT m.*, c.userId as chatUserId
-       FROM chat_messages m
-       JOIN quick_buy_chats c ON c.id = m.chatId
-       WHERE m.id = ?
-       LIMIT 1`,
+      schema.chatHasUserId
+        ? `SELECT m.*, c.userId as chatUserId, c.customerPhone as chatPhone
+           FROM chat_messages m
+           JOIN quick_buy_chats c ON c.id = m.chatId
+           WHERE m.id = ?
+           LIMIT 1`
+        : `SELECT m.*, c.customerPhone as chatPhone
+           FROM chat_messages m
+           JOIN quick_buy_chats c ON c.id = m.chatId
+           WHERE m.id = ?
+           LIMIT 1`,
       [id]
     );
     if (!message) {
@@ -107,10 +125,11 @@ export async function DELETE(
     }
 
     if (!isAdmin) {
-      const chatUserId = message.chatUserId ? String(message.chatUserId) : "";
-      if (!chatUserId || chatUserId !== sessionUser.id) {
-        throw new AppError("شما دسترسی به این پیام را ندارید", 403, "FORBIDDEN");
-      }
+      const chatPhone = message.chatPhone ? String(message.chatPhone) : "";
+      const chatUserId = schema.chatHasUserId && message.chatUserId ? String(message.chatUserId) : "";
+      const isOwnerByUserId = schema.chatHasUserId && chatUserId === sessionUser.id;
+      const isOwnerByPhone = !schema.chatHasUserId && chatPhone === sessionUser.phone;
+      if (!isOwnerByUserId && !isOwnerByPhone) throw new AppError("شما دسترسی به این پیام را ندارید", 403, "FORBIDDEN");
       if (String(message.sender) !== "user") {
         throw new AppError("شما فقط می‌توانید پیام‌های خودتان را حذف کنید", 403, "FORBIDDEN");
       }

@@ -3,30 +3,7 @@ import { createErrorResponse, createSuccessResponse } from "@/lib/api-route-help
 import { AppError } from "@/lib/api-error-handler";
 import { getRow, runQuery } from "@/lib/db/index";
 import { getSessionUserFromRequest } from "@/lib/auth/session";
-
-async function ensureChatTables(): Promise<void> {
-  await runQuery(`
-    CREATE TABLE IF NOT EXISTS quick_buy_chats (
-      id VARCHAR(255) PRIMARY KEY,
-      userId VARCHAR(255) NULL,
-      customerName VARCHAR(255) NOT NULL,
-      customerPhone VARCHAR(255) NOT NULL,
-      customerEmail VARCHAR(255),
-      status VARCHAR(50) NOT NULL DEFAULT 'active',
-      createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      INDEX idx_quick_buy_chats_userId (userId),
-      INDEX idx_quick_buy_chats_customerPhone (customerPhone)
-    );
-  `);
-
-  // Best-effort migration for older schema
-  try {
-    await runQuery(`ALTER TABLE quick_buy_chats ADD COLUMN userId VARCHAR(255) NULL`);
-  } catch {
-    // ignore (already exists)
-  }
-}
+import { ensureChatTables, getChatSchemaInfo } from "@/lib/chat/schema";
 
 /**
  * GET /api/chat/my
@@ -35,6 +12,7 @@ async function ensureChatTables(): Promise<void> {
 export async function GET(request: NextRequest) {
   try {
     await ensureChatTables();
+    const schema = await getChatSchemaInfo();
 
     const sessionUser = await getSessionUserFromRequest(request);
     if (!sessionUser || !sessionUser.enabled) {
@@ -42,10 +20,15 @@ export async function GET(request: NextRequest) {
     }
 
     // Find latest chat for this user
-    const existing = await getRow<any>(
-      `SELECT * FROM quick_buy_chats WHERE userId = ? ORDER BY updatedAt DESC LIMIT 1`,
-      [sessionUser.id]
-    );
+    const existing = schema.chatHasUserId
+      ? await getRow<any>(
+          `SELECT * FROM quick_buy_chats WHERE userId = ? ORDER BY updatedAt DESC LIMIT 1`,
+          [sessionUser.id]
+        )
+      : await getRow<any>(
+          `SELECT * FROM quick_buy_chats WHERE customerPhone = ? ORDER BY updatedAt DESC LIMIT 1`,
+          [sessionUser.phone]
+        );
 
     if (existing?.id) {
       return createSuccessResponse({
@@ -57,12 +40,14 @@ export async function GET(request: NextRequest) {
     // Migration/claim: if there is an older "guest" chat with same phone, attach it to this user
     const legacy = await getRow<any>(
       `SELECT * FROM quick_buy_chats 
-       WHERE (userId IS NULL OR TRIM(userId) = '') AND customerPhone = ?
+       WHERE (${schema.chatHasUserId ? "(userId IS NULL OR TRIM(userId) = '') AND" : ""} customerPhone = ?)
        ORDER BY updatedAt DESC LIMIT 1`,
       [sessionUser.phone]
     );
     if (legacy?.id) {
-      await runQuery(`UPDATE quick_buy_chats SET userId = ? WHERE id = ?`, [sessionUser.id, legacy.id]);
+      if (schema.chatHasUserId) {
+        await runQuery(`UPDATE quick_buy_chats SET userId = ? WHERE id = ?`, [sessionUser.id, legacy.id]);
+      }
       const claimed = await getRow<any>(`SELECT * FROM quick_buy_chats WHERE id = ?`, [legacy.id]);
       return createSuccessResponse({
         chatId: legacy.id,
@@ -73,9 +58,14 @@ export async function GET(request: NextRequest) {
     const chatId = `chat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const now = new Date().toISOString();
     await runQuery(
-      `INSERT INTO quick_buy_chats (id, userId, customerName, customerPhone, customerEmail, status, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [chatId, sessionUser.id, sessionUser.name, sessionUser.phone, null, "active", now, now]
+      schema.chatHasUserId
+        ? `INSERT INTO quick_buy_chats (id, userId, customerName, customerPhone, customerEmail, status, createdAt, updatedAt)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        : `INSERT INTO quick_buy_chats (id, customerName, customerPhone, customerEmail, status, createdAt, updatedAt)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      schema.chatHasUserId
+        ? [chatId, sessionUser.id, sessionUser.name, sessionUser.phone, null, "active", now, now]
+        : [chatId, sessionUser.name, sessionUser.phone, null, "active", now, now]
     );
 
     const created = await getRow<any>(`SELECT * FROM quick_buy_chats WHERE id = ?`, [chatId]);
