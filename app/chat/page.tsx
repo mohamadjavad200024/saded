@@ -198,15 +198,22 @@ function ChatPageContent() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          customerName: customerInfo.name,
-          customerPhone: customerInfo.phone,
-          customerEmail: customerInfo.email || undefined,
+          customerInfo: {
+            name: customerInfo.name,
+            phone: customerInfo.phone,
+            email: customerInfo.email || undefined,
+          },
+          // Create chat without messages (messages are sent later)
+          messages: [],
         }),
       });
 
-      if (!response.ok) throw new Error("خطا در ایجاد چت");
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) {
+        const msg = data?.error || "خطا در ایجاد چت";
+        throw new Error(msg);
+      }
 
-      const data = await response.json();
       if (data.success && data.data?.id) {
         const newChatId = data.data.id;
         setChatId(newChatId);
