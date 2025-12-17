@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { getRow, runQuery } from "@/lib/db/index";
+import { getRow, getRows, runQuery } from "@/lib/db/index";
 import { AppError } from "@/lib/api-error-handler";
 
 export const SESSION_COOKIE_NAME = "saded_session";
@@ -54,6 +54,64 @@ export async function ensureAuthTables(): Promise<void> {
       UNIQUE KEY uniq_users_phone (phone)
     )
   `);
+
+  // If table already existed with different schema/indexes, normalize it:
+  // - Only `phone` should be unique (besides PRIMARY id)
+  // - Remove other UNIQUE indexes that can block registration (e.g. old email unique)
+  // - Ensure phone is NOT NULL
+  try {
+    // Remove invalid rows (NULL/empty phone) to avoid ALTER failures
+    await runQuery(`DELETE FROM users WHERE phone IS NULL OR TRIM(phone) = ''`);
+
+    // Ensure phone column is NOT NULL (keep type small)
+    await runQuery(`ALTER TABLE users MODIFY phone VARCHAR(32) NOT NULL`);
+
+    // Read indexes
+    const indexRows = await getRows<any>(`SHOW INDEX FROM users`);
+    const uniqueIndexToColumns = new Map<string, string[]>();
+
+    for (const r of indexRows) {
+      const keyName = String(r.Key_name ?? r.key_name ?? r.KEY_NAME ?? "");
+      const nonUnique = Number(r.Non_unique ?? r.non_unique ?? r.NON_UNIQUE ?? 1);
+      const colName = String(r.Column_name ?? r.column_name ?? r.COLUMN_NAME ?? "");
+      if (!keyName || !colName) continue;
+      if (nonUnique !== 0) continue;
+      const cols = uniqueIndexToColumns.get(keyName) || [];
+      cols.push(colName);
+      uniqueIndexToColumns.set(keyName, cols);
+    }
+
+    // Find which unique index (if any) is exactly on phone
+    let phoneUniqueIndexName: string | null = null;
+    for (const [key, cols] of uniqueIndexToColumns.entries()) {
+      if (key === "PRIMARY") continue;
+      const normalizedCols = cols.map((c) => c.toLowerCase()).sort();
+      if (normalizedCols.length === 1 && normalizedCols[0] === "phone") {
+        phoneUniqueIndexName = key;
+        break;
+      }
+    }
+
+    // Ensure we have a unique index on phone with our preferred name
+    if (!phoneUniqueIndexName) {
+      await runQuery(`ALTER TABLE users ADD UNIQUE KEY uniq_users_phone (phone)`);
+      phoneUniqueIndexName = "uniq_users_phone";
+    }
+
+    // Drop any other UNIQUE indexes (only PRIMARY + phone unique should remain)
+    for (const key of uniqueIndexToColumns.keys()) {
+      if (key === "PRIMARY") continue;
+      if (key === phoneUniqueIndexName) continue;
+      // Drop (might fail if permissions; ignore)
+      try {
+        await runQuery(`ALTER TABLE users DROP INDEX \`${key}\``);
+      } catch {
+        // ignore
+      }
+    }
+  } catch {
+    // Best-effort; do not block auth if ALTER is not permitted
+  }
 
   // Sessions table
   await runQuery(`
