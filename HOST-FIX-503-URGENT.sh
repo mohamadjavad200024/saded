@@ -15,7 +15,15 @@ cd ~/public_html/saded || {
 }
 
 export PATH=/opt/alt/alt-nodejs20/root/usr/bin:$PATH
-PM2_CMD="/opt/alt/alt-nodejs20/root/usr/bin/node ~/.npm-global/bin/pm2"
+
+# Find PM2 path
+if [ -f "$HOME/.npm-global/bin/pm2" ]; then
+    PM2_CMD="$HOME/.npm-global/bin/pm2"
+elif [ -f "/opt/alt/alt-nodejs20/root/usr/bin/node" ]; then
+    PM2_CMD="/opt/alt/alt-nodejs20/root/usr/bin/node $HOME/.npm-global/bin/pm2"
+else
+    PM2_CMD="pm2"
+fi
 
 echo ""
 echo "1️⃣ Checking PM2 status..."

@@ -1,101 +1,141 @@
 #!/bin/bash
 
-# اسکریپت کامل رفع خطای 503
-# این اسکریپت تمام مراحل لازم برای رفع خطای 503 را انجام می‌دهد
+# اسکریپت کامل برای رفع خطای 503
+# این اسکریپت فایل‌های build را بررسی می‌کند و PM2 را restart می‌کند
 
-echo "🔧 شروع رفع خطای 503..."
-echo ""
+set -e
 
-cd ~/public_html/saded
+echo "=========================================="
+echo "🔧 Fixing 503 Error - Complete Solution"
+echo "=========================================="
 
-# 1. بررسی وضعیت PM2
-echo "1️⃣ بررسی وضعیت PM2:"
+cd ~/public_html/saded || {
+    echo "❌ Cannot access project directory!"
+    exit 1
+}
+
 export PATH=/opt/alt/alt-nodejs20/root/usr/bin:$PATH
-/opt/alt/alt-nodejs20/root/usr/bin/node ~/.npm-global/lib/node_modules/pm2/bin/pm2 status
+PM2_CMD="/opt/alt/alt-nodejs20/root/usr/bin/node ~/.npm-global/bin/pm2"
+
 echo ""
+echo "1️⃣ Checking .next build files..."
+echo "=========================================="
 
-# 2. بررسی لاگ‌های PM2 برای خطاها
-echo "2️⃣ بررسی آخرین خطاهای PM2:"
-/opt/alt/alt-nodejs20/root/usr/bin/node ~/.npm-global/lib/node_modules/pm2/bin/pm2 logs saded --lines 20 --err --nostream | tail -30
-echo ""
-
-# 3. بررسی وجود BUILD_ID
-echo "3️⃣ بررسی BUILD_ID:"
-if [ -f ".next/BUILD_ID" ]; then
-    echo "   ✅ BUILD_ID موجود است: $(cat .next/BUILD_ID)"
-else
-    echo "   ❌ BUILD_ID موجود نیست!"
-    echo "   ⚠️  باید از Git pull کنید"
-fi
-echo ""
-
-# 4. بررسی فایل‌های مهم
-echo "4️⃣ بررسی فایل‌های مهم:"
-if [ -d ".next/server" ]; then
-    echo "   ✅ .next/server موجود است"
-else
-    echo "   ❌ .next/server موجود نیست!"
-fi
-
-if [ -d ".next/static" ]; then
-    echo "   ✅ .next/static موجود است"
-else
-    echo "   ❌ .next/static موجود نیست!"
-fi
-
-if [ -f "server.js" ]; then
-    echo "   ✅ server.js موجود است"
-else
-    echo "   ❌ server.js موجود نیست!"
-fi
-echo ""
-
-# 5. Pull تغییرات از Git
-echo "5️⃣ Pull تغییرات از Git:"
-git pull origin main
-echo ""
-
-# 6. بررسی environment variables
-echo "6️⃣ بررسی Environment Variables:"
-if [ -f ".env" ]; then
-    echo "   ✅ .env موجود است"
-    if grep -q "DB_PASSWORD" .env; then
-        echo "   ✅ DB_PASSWORD تنظیم شده است"
+BUILD_EXISTS=false
+if [ -f ".next/BUILD_ID" ] && [ -d ".next/server" ] && [ -d ".next/static" ]; then
+    BUILD_ID=$(cat .next/BUILD_ID 2>/dev/null || echo "unknown")
+    SERVER_FILES=$(find .next/server -type f 2>/dev/null | wc -l)
+    STATIC_FILES=$(find .next/static -type f 2>/dev/null | wc -l)
+    
+    if [ "$SERVER_FILES" -gt 0 ] && [ "$STATIC_FILES" -gt 0 ]; then
+        echo "✅ Build files exist:"
+        echo "   BUILD_ID: $BUILD_ID"
+        echo "   Server files: $SERVER_FILES"
+        echo "   Static files: $STATIC_FILES"
+        BUILD_EXISTS=true
     else
-        echo "   ⚠️  DB_PASSWORD تنظیم نشده است!"
+        echo "⚠️  Build files incomplete"
     fi
 else
-    echo "   ⚠️  .env موجود نیست!"
+    echo "❌ Build files missing!"
+    echo "   Checking if .next directory exists..."
+    if [ -d ".next" ]; then
+        echo "   .next directory exists but files are missing"
+        ls -la .next/ | head -10
+    else
+        echo "   .next directory does not exist"
+    fi
 fi
-echo ""
 
-# 7. Restart PM2
-echo "7️⃣ Restart PM2:"
-/opt/alt/alt-nodejs20/root/usr/bin/node ~/.npm-global/lib/node_modules/pm2/bin/pm2 restart saded --update-env
-echo ""
+# If build files don't exist, try to pull from Git
+if [ "$BUILD_EXISTS" = false ]; then
+    echo ""
+    echo "2️⃣ Pulling latest changes from Git (including build files)..."
+    echo "=========================================="
+    git pull origin main || {
+        echo "⚠️  Git pull failed, but continuing..."
+    }
+    
+    # Check again
+    if [ -f ".next/BUILD_ID" ] && [ -d ".next/server" ] && [ -d ".next/static" ]; then
+        BUILD_ID=$(cat .next/BUILD_ID 2>/dev/null || echo "unknown")
+        SERVER_FILES=$(find .next/server -type f 2>/dev/null | wc -l)
+        STATIC_FILES=$(find .next/static -type f 2>/dev/null | wc -l)
+        
+        if [ "$SERVER_FILES" -gt 0 ] && [ "$STATIC_FILES" -gt 0 ]; then
+            echo "✅ Build files found after pull!"
+            BUILD_EXISTS=true
+        fi
+    fi
+fi
 
-# 8. صبر برای راه‌اندازی
-echo "8️⃣ صبر برای راه‌اندازی سرور..."
+# If still no build files, warn user
+if [ "$BUILD_EXISTS" = false ]; then
+    echo ""
+    echo "⚠️  WARNING: Build files are still missing!"
+    echo "   You need to build the app, but host may have memory limitations."
+    echo "   Try: npm run build"
+    echo "   Or build locally and push .next files to Git"
+    echo ""
+    echo "   Continuing with restart anyway..."
+fi
+
+echo ""
+echo "3️⃣ Stopping PM2 process..."
+echo "=========================================="
+$PM2_CMD stop saded 2>/dev/null || echo "   Process not running or already stopped"
+sleep 2
+
+echo ""
+echo "4️⃣ Restarting PM2 process..."
+echo "=========================================="
+
+# Check if ecosystem.config.js exists
+if [ -f "ecosystem.config.js" ]; then
+    echo "   Using ecosystem.config.js"
+    $PM2_CMD start ecosystem.config.js
+else
+    echo "   Using server.js directly"
+    $PM2_CMD start server.js --name saded --env production --update-env
+fi
+
+$PM2_CMD save
+
+echo ""
+echo "5️⃣ Waiting for server to start..."
 sleep 5
-echo ""
 
-# 9. بررسی وضعیت نهایی
-echo "9️⃣ بررسی وضعیت نهایی PM2:"
-/opt/alt/alt-nodejs20/root/usr/bin/node ~/.npm-global/lib/node_modules/pm2/bin/pm2 status
 echo ""
+echo "6️⃣ Final PM2 status:"
+echo "=========================================="
+$PM2_CMD list | grep -i "saded" || {
+    echo "⚠️  PM2 process not found!"
+    echo "   Trying to start again..."
+    $PM2_CMD start server.js --name saded --env production --update-env
+    $PM2_CMD save
+    sleep 3
+    $PM2_CMD list | grep -i "saded" || echo "❌ Failed to start PM2 process"
+}
 
-# 10. تست Health Check
-echo "🔟 تست Health Check:"
-curl -s "http://localhost:3001/api/health/db" | head -c 500
 echo ""
+echo "7️⃣ Recent logs (last 20 lines):"
+echo "=========================================="
+$PM2_CMD logs saded --lines 20 --nostream 2>/dev/null | tail -30 || {
+    echo "⚠️  Could not get logs"
+}
+
 echo ""
-
-echo "✅ بررسی کامل شد!"
+echo "=========================================="
+if [ "$BUILD_EXISTS" = true ]; then
+    echo "✅ Done! Server should be running now."
+else
+    echo "⚠️  Done, but build files may be missing!"
+    echo "   Check logs above for errors."
+fi
+echo "=========================================="
 echo ""
-echo "💡 اگر هنوز خطای 503 دارید:"
-echo "   1. لاگ‌های PM2 را بررسی کنید: pm2 logs saded --lines 50"
-echo "   2. مطمئن شوید که BUILD_ID موجود است"
-echo "   3. مطمئن شوید که .next/server و .next/static موجود هستند"
-echo "   4. مطمئن شوید که environment variables درست تنظیم شده‌اند"
-
-
+echo "💡 If 503 persists:"
+echo "   1. Check build files: ls -la .next/BUILD_ID"
+echo "   2. Check PM2 logs: $PM2_CMD logs saded --lines 100"
+echo "   3. Check PM2 status: $PM2_CMD status"
+echo ""
