@@ -6,85 +6,10 @@ import { cache, cacheKeys } from "@/lib/cache";
 import { logger } from "@/lib/logger";
 import { rateLimit } from "@/lib/rate-limit";
 import { getSessionUserFromRequest } from "@/lib/auth/session";
+import { ensureChatTables as ensureChatTablesShared, getChatSchemaInfo } from "@/lib/chat/schema";
 
 async function ensureChatTables(): Promise<void> {
-  // Create base tables (new installs)
-  await runQuery(`
-    CREATE TABLE IF NOT EXISTS quick_buy_chats (
-      id VARCHAR(255) PRIMARY KEY,
-      userId VARCHAR(255) NULL,
-      customerName VARCHAR(255) NOT NULL,
-      customerPhone VARCHAR(255) NOT NULL,
-      customerEmail VARCHAR(255),
-      status VARCHAR(50) NOT NULL DEFAULT 'active',
-      createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      INDEX idx_quick_buy_chats_userId (userId),
-      INDEX idx_quick_buy_chats_customerPhone (customerPhone)
-    );
-  `);
-
-  await runQuery(`
-    CREATE TABLE IF NOT EXISTS chat_messages (
-      id VARCHAR(255) PRIMARY KEY,
-      chatId VARCHAR(255) NOT NULL,
-      userId VARCHAR(255) NULL,
-      text TEXT,
-      sender VARCHAR(50) NOT NULL,
-      attachments JSON DEFAULT '[]',
-      status VARCHAR(50) DEFAULT 'sent',
-      createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updatedAt TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-      INDEX idx_chat_messages_chatId (chatId),
-      INDEX idx_chat_messages_userId (userId),
-      FOREIGN KEY (chatId) REFERENCES quick_buy_chats(id) ON DELETE CASCADE
-    );
-  `);
-
-  await runQuery(`
-    CREATE TABLE IF NOT EXISTS chat_attachments (
-      id VARCHAR(255) PRIMARY KEY,
-      messageId VARCHAR(255) NOT NULL,
-      type VARCHAR(50) NOT NULL,
-      filePath VARCHAR(500),
-      fileName VARCHAR(255),
-      fileSize BIGINT,
-      fileUrl VARCHAR(500),
-      createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      INDEX idx_chat_attachments_messageId (messageId),
-      FOREIGN KEY (messageId) REFERENCES chat_messages(id) ON DELETE CASCADE
-    );
-  `);
-
-  // Best-effort migrations for existing installs (older schema)
-  try {
-    const chatCols = await getRows<{ COLUMN_NAME: string }>(
-      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'quick_buy_chats'`
-    );
-    const chatColSet = new Set(chatCols.map((c) => String(c.COLUMN_NAME)));
-    if (!chatColSet.has("userId")) {
-      await runQuery(`ALTER TABLE quick_buy_chats ADD COLUMN userId VARCHAR(255) NULL`);
-      await runQuery(`CREATE INDEX idx_quick_buy_chats_userId ON quick_buy_chats (userId)`);
-    }
-  } catch {
-    // ignore
-  }
-
-  try {
-    const msgCols = await getRows<{ COLUMN_NAME: string }>(
-      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'chat_messages'`
-    );
-    const msgColSet = new Set(msgCols.map((c) => String(c.COLUMN_NAME)));
-    if (!msgColSet.has("userId")) {
-      await runQuery(`ALTER TABLE chat_messages ADD COLUMN userId VARCHAR(255) NULL`);
-      await runQuery(`CREATE INDEX idx_chat_messages_userId ON chat_messages (userId)`);
-    }
-    if (!msgColSet.has("updatedAt")) {
-      await runQuery(`ALTER TABLE chat_messages ADD COLUMN updatedAt TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP`);
-    }
-  } catch {
-    // ignore
-  }
+  await ensureChatTablesShared();
 }
 
 /**
@@ -99,6 +24,7 @@ export async function POST(request: NextRequest) {
 
   try {
     await ensureChatTables();
+    const schema = await getChatSchemaInfo();
 
     const sessionUser = await getSessionUserFromRequest(request);
     if (!sessionUser || !sessionUser.enabled) {
@@ -133,34 +59,49 @@ export async function POST(request: NextRequest) {
     if (providedChatId) {
       // Update existing chat
       chatId = providedChatId;
-      const chat = await getRow<any>(`SELECT id, userId FROM quick_buy_chats WHERE id = ?`, [chatId]);
+      const chat = await getRow<any>(`SELECT * FROM quick_buy_chats WHERE id = ?`, [chatId]);
       if (!chat) {
         // stale chatId: create a new chat for this user
         chatId = `chat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         await runQuery(
-          `INSERT INTO quick_buy_chats (id, userId, customerName, customerPhone, customerEmail, status, createdAt, updatedAt)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            chatId,
-            sessionUser.id,
-            sessionUser.name,
-            sessionUser.phone,
-            customerInfo?.email?.trim() || null,
-            "active",
-            now,
-            now,
-          ]
+          schema.chatHasUserId
+            ? `INSERT INTO quick_buy_chats (id, userId, customerName, customerPhone, customerEmail, status, createdAt, updatedAt)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+            : `INSERT INTO quick_buy_chats (id, customerName, customerPhone, customerEmail, status, createdAt, updatedAt)
+               VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          schema.chatHasUserId
+            ? [
+                chatId,
+                sessionUser.id,
+                sessionUser.name,
+                sessionUser.phone,
+                customerInfo?.email?.trim() || null,
+                "active",
+                now,
+                now,
+              ]
+            : [
+                chatId,
+                sessionUser.name,
+                sessionUser.phone,
+                customerInfo?.email?.trim() || null,
+                "active",
+                now,
+                now,
+              ]
         );
       } else {
-        const fullChat = await getRow<any>(`SELECT id, userId, customerPhone FROM quick_buy_chats WHERE id = ?`, [chatId]);
-        const chatUserId = fullChat?.userId ? String(fullChat.userId) : "";
-        const chatPhone = fullChat?.customerPhone ? String(fullChat.customerPhone) : "";
+        const chatUserId = schema.chatHasUserId && chat.userId ? String(chat.userId) : "";
+        const chatPhone = chat.customerPhone ? String(chat.customerPhone) : "";
 
         if (!isAdmin) {
-          if (chatUserId === sessionUser.id) {
+          const isOwnerByUserId = schema.chatHasUserId && chatUserId === sessionUser.id;
+          const isOwnerByPhone = !schema.chatHasUserId && chatPhone === sessionUser.phone;
+          const canClaimByPhone = schema.chatHasUserId && (!chatUserId || chatUserId.trim() === "") && chatPhone === sessionUser.phone;
+
+          if (isOwnerByUserId || isOwnerByPhone) {
             // ok
-          } else if ((!chatUserId || chatUserId.trim() === "") && chatPhone && chatPhone === sessionUser.phone) {
-            // Claim legacy (guest) chat by phone
+          } else if (canClaimByPhone) {
             await runQuery(`UPDATE quick_buy_chats SET userId = ? WHERE id = ?`, [sessionUser.id, chatId]);
           } else {
             throw new AppError("شما به این چت دسترسی ندارید", 403, "FORBIDDEN");
@@ -177,18 +118,31 @@ export async function POST(request: NextRequest) {
       // Create new chat
       chatId = `chat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       await runQuery(
-        `INSERT INTO quick_buy_chats (id, userId, customerName, customerPhone, customerEmail, status, createdAt, updatedAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          chatId,
-          sessionUser.id,
-          sessionUser.name,
-          sessionUser.phone,
-          customerInfo?.email?.trim() || null,
-          "active",
-          now,
-          now,
-        ]
+        schema.chatHasUserId
+          ? `INSERT INTO quick_buy_chats (id, userId, customerName, customerPhone, customerEmail, status, createdAt, updatedAt)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+          : `INSERT INTO quick_buy_chats (id, customerName, customerPhone, customerEmail, status, createdAt, updatedAt)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        schema.chatHasUserId
+          ? [
+              chatId,
+              sessionUser.id,
+              sessionUser.name,
+              sessionUser.phone,
+              customerInfo?.email?.trim() || null,
+              "active",
+              now,
+              now,
+            ]
+          : [
+              chatId,
+              sessionUser.name,
+              sessionUser.phone,
+              customerInfo?.email?.trim() || null,
+              "active",
+              now,
+              now,
+            ]
       );
     }
 
@@ -255,22 +209,39 @@ export async function POST(request: NextRequest) {
       
       // Save message using UPSERT to avoid duplicates
       await runQuery(
-        `INSERT INTO chat_messages (id, chatId, userId, text, sender, attachments, status, createdAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        schema.messageHasUserId
+          ? `INSERT INTO chat_messages (id, chatId, userId, text, sender, attachments, status, createdAt)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE
            text = VALUES(text),
            attachments = VALUES(attachments),
-           status = COALESCE(VALUES(status), chat_messages.status)`,
-        [
-          messageId,
-          chatId,
-          message.sender === "user" ? sessionUser.id : null,
-          message.text || null,
-          message.sender,
-          JSON.stringify(validAttachments),
-          messageStatus,
-          messageCreatedAt,
-        ]
+           status = COALESCE(VALUES(status), chat_messages.status)`
+          : `INSERT INTO chat_messages (id, chatId, text, sender, attachments, status, createdAt)
+             VALUES (?, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+               text = VALUES(text),
+               attachments = VALUES(attachments),
+               status = COALESCE(VALUES(status), chat_messages.status)`,
+        schema.messageHasUserId
+          ? [
+              messageId,
+              chatId,
+              message.sender === "user" ? sessionUser.id : null,
+              message.text || null,
+              message.sender,
+              JSON.stringify(validAttachments),
+              messageStatus,
+              messageCreatedAt,
+            ]
+          : [
+              messageId,
+              chatId,
+              message.text || null,
+              message.sender,
+              JSON.stringify(validAttachments),
+              messageStatus,
+              messageCreatedAt,
+            ]
       );
 
       // ALWAYS save attachments, even if message already exists (important for images)
@@ -386,6 +357,7 @@ export async function GET(request: NextRequest) {
 
   try {
     await ensureChatTables();
+    const schema = await getChatSchemaInfo();
 
     const sessionUser = await getSessionUserFromRequest(request);
     if (!sessionUser || !sessionUser.enabled) {
@@ -419,12 +391,17 @@ export async function GET(request: NextRequest) {
       }
 
       // Access control (user-only chat): guest chats (userId null/empty) are admin-only.
-      const chatUserId = chat.userId ? String(chat.userId) : "";
       if (!isAdmin) {
-        if (chatUserId === sessionUser.id) {
+        const chatPhone = chat.customerPhone ? String(chat.customerPhone) : "";
+        const chatUserId = schema.chatHasUserId && chat.userId ? String(chat.userId) : "";
+
+        const isOwnerByUserId = schema.chatHasUserId && chatUserId === sessionUser.id;
+        const isOwnerByPhone = !schema.chatHasUserId && chatPhone === sessionUser.phone;
+        const canClaimByPhone = schema.chatHasUserId && (!chatUserId || chatUserId.trim() === "") && chatPhone === sessionUser.phone;
+
+        if (isOwnerByUserId || isOwnerByPhone) {
           // ok
-        } else if ((!chatUserId || chatUserId.trim() === "") && chat.customerPhone && String(chat.customerPhone) === sessionUser.phone) {
-          // Claim legacy (guest) chat by phone
+        } else if (canClaimByPhone) {
           await runQuery(`UPDATE quick_buy_chats SET userId = ? WHERE id = ?`, [sessionUser.id, chatId]);
           chat.userId = sessionUser.id;
         } else {
@@ -596,9 +573,13 @@ export async function GET(request: NextRequest) {
           
           const chats = isAdmin
             ? await getRows<any>(`SELECT * FROM quick_buy_chats ORDER BY createdAt DESC LIMIT 50`)
-            : await getRows<any>(`SELECT * FROM quick_buy_chats WHERE userId = ? ORDER BY createdAt DESC LIMIT 50`, [
-                sessionUser.id,
-              ]);
+            : schema.chatHasUserId
+              ? await getRows<any>(`SELECT * FROM quick_buy_chats WHERE userId = ? ORDER BY createdAt DESC LIMIT 50`, [
+                  sessionUser.id,
+                ])
+              : await getRows<any>(`SELECT * FROM quick_buy_chats WHERE customerPhone = ? ORDER BY createdAt DESC LIMIT 50`, [
+                  sessionUser.phone,
+                ]);
 
           // Optimize: Get unread counts for all chats in one query using GROUP BY
           const chatIds = chats.map((c: any) => c.id);

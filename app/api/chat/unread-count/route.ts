@@ -4,6 +4,7 @@ import { createErrorResponse, createSuccessResponse } from "@/lib/api-route-help
 import { AppError } from "@/lib/api-error-handler";
 import { logger } from "@/lib/logger";
 import { getSessionUserFromRequest } from "@/lib/auth/session";
+import { ensureChatTables, getChatSchemaInfo } from "@/lib/chat/schema";
 
 /**
  * GET /api/chat/unread-count - Get unread message count
@@ -13,6 +14,8 @@ import { getSessionUserFromRequest } from "@/lib/auth/session";
  */
 export async function GET(request: NextRequest) {
   try {
+    await ensureChatTables();
+    const schema = await getChatSchemaInfo();
     const sessionUser = await getSessionUserFromRequest(request);
     if (!sessionUser || !sessionUser.enabled) {
       throw new AppError("برای استفاده از چت باید وارد حساب کاربری شوید", 401, "UNAUTHORIZED");
@@ -45,15 +48,18 @@ export async function GET(request: NextRequest) {
     }
 
     if (chatId) {
-      const chat = await getRow<any>(`SELECT id, userId, customerPhone FROM quick_buy_chats WHERE id = ?`, [chatId]);
+      const chat = await getRow<any>(`SELECT * FROM quick_buy_chats WHERE id = ?`, [chatId]);
       if (!chat) {
         throw new AppError("چت یافت نشد", 404, "CHAT_NOT_FOUND");
       }
       if (!isAdmin) {
-        const chatUserId = chat.userId ? String(chat.userId) : "";
-        if (!chatUserId || chatUserId !== sessionUser.id) {
-          // Try legacy claim by phone
-          if ((!chatUserId || chatUserId.trim() === "") && chat.customerPhone && String(chat.customerPhone) === sessionUser.phone) {
+        const chatPhone = chat.customerPhone ? String(chat.customerPhone) : "";
+        const chatUserId = schema.chatHasUserId && chat.userId ? String(chat.userId) : "";
+        const isOwnerByUserId = schema.chatHasUserId && chatUserId === sessionUser.id;
+        const isOwnerByPhone = !schema.chatHasUserId && chatPhone === sessionUser.phone;
+        const canClaimByPhone = schema.chatHasUserId && (!chatUserId || chatUserId.trim() === "") && chatPhone === sessionUser.phone;
+        if (!isOwnerByUserId && !isOwnerByPhone) {
+          if (canClaimByPhone) {
             await runQuery(`UPDATE quick_buy_chats SET userId = ? WHERE id = ?`, [sessionUser.id, chatId]);
           } else {
             throw new AppError("شما به این چت دسترسی ندارید", 403, "FORBIDDEN");
@@ -89,8 +95,8 @@ export async function GET(request: NextRequest) {
               `SELECT DISTINCT m.chatId as id
                FROM chat_messages m
                JOIN quick_buy_chats c ON c.id = m.chatId
-               WHERE c.userId = ?`,
-              [sessionUser.id]
+               WHERE ${schema.chatHasUserId ? "c.userId = ?" : "c.customerPhone = ?"}`,
+              [schema.chatHasUserId ? sessionUser.id : sessionUser.phone]
             );
 
         const chatsWithUnreadCount = await Promise.all(
