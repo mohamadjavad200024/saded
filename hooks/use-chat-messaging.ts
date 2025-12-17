@@ -47,6 +47,7 @@ export function useChatMessaging({
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
           chatId,
           sender,
@@ -81,7 +82,10 @@ export function useChatMessaging({
     if (!chatId) return;
     
     try {
-      const response = await fetch(`/api/chat/typing?chatId=${chatId}&sender=${sender === "user" ? "support" : "user"}`);
+      const response = await fetch(
+        `/api/chat/typing?chatId=${chatId}&sender=${sender === "user" ? "support" : "user"}`,
+        { credentials: "include" }
+      );
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
@@ -180,6 +184,7 @@ export function useChatMessaging({
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify(body),
       });
 

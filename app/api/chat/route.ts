@@ -1,10 +1,91 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getRow, runQuery, getRows } from "@/lib/db/index";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-route-helpers";
 import { AppError } from "@/lib/api-error-handler";
 import { cache, cacheKeys } from "@/lib/cache";
 import { logger } from "@/lib/logger";
 import { rateLimit } from "@/lib/rate-limit";
+import { getSessionUserFromRequest } from "@/lib/auth/session";
+
+async function ensureChatTables(): Promise<void> {
+  // Create base tables (new installs)
+  await runQuery(`
+    CREATE TABLE IF NOT EXISTS quick_buy_chats (
+      id VARCHAR(255) PRIMARY KEY,
+      userId VARCHAR(255) NULL,
+      customerName VARCHAR(255) NOT NULL,
+      customerPhone VARCHAR(255) NOT NULL,
+      customerEmail VARCHAR(255),
+      status VARCHAR(50) NOT NULL DEFAULT 'active',
+      createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_quick_buy_chats_userId (userId),
+      INDEX idx_quick_buy_chats_customerPhone (customerPhone)
+    );
+  `);
+
+  await runQuery(`
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id VARCHAR(255) PRIMARY KEY,
+      chatId VARCHAR(255) NOT NULL,
+      userId VARCHAR(255) NULL,
+      text TEXT,
+      sender VARCHAR(50) NOT NULL,
+      attachments JSON DEFAULT '[]',
+      status VARCHAR(50) DEFAULT 'sent',
+      createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updatedAt TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_chat_messages_chatId (chatId),
+      INDEX idx_chat_messages_userId (userId),
+      FOREIGN KEY (chatId) REFERENCES quick_buy_chats(id) ON DELETE CASCADE
+    );
+  `);
+
+  await runQuery(`
+    CREATE TABLE IF NOT EXISTS chat_attachments (
+      id VARCHAR(255) PRIMARY KEY,
+      messageId VARCHAR(255) NOT NULL,
+      type VARCHAR(50) NOT NULL,
+      filePath VARCHAR(500),
+      fileName VARCHAR(255),
+      fileSize BIGINT,
+      fileUrl VARCHAR(500),
+      createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_chat_attachments_messageId (messageId),
+      FOREIGN KEY (messageId) REFERENCES chat_messages(id) ON DELETE CASCADE
+    );
+  `);
+
+  // Best-effort migrations for existing installs (older schema)
+  try {
+    const chatCols = await getRows<{ COLUMN_NAME: string }>(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'quick_buy_chats'`
+    );
+    const chatColSet = new Set(chatCols.map((c) => String(c.COLUMN_NAME)));
+    if (!chatColSet.has("userId")) {
+      await runQuery(`ALTER TABLE quick_buy_chats ADD COLUMN userId VARCHAR(255) NULL`);
+      await runQuery(`CREATE INDEX idx_quick_buy_chats_userId ON quick_buy_chats (userId)`);
+    }
+  } catch {
+    // ignore
+  }
+
+  try {
+    const msgCols = await getRows<{ COLUMN_NAME: string }>(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'chat_messages'`
+    );
+    const msgColSet = new Set(msgCols.map((c) => String(c.COLUMN_NAME)));
+    if (!msgColSet.has("userId")) {
+      await runQuery(`ALTER TABLE chat_messages ADD COLUMN userId VARCHAR(255) NULL`);
+      await runQuery(`CREATE INDEX idx_chat_messages_userId ON chat_messages (userId)`);
+    }
+    if (!msgColSet.has("updatedAt")) {
+      await runQuery(`ALTER TABLE chat_messages ADD COLUMN updatedAt TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP`);
+    }
+  } catch {
+    // ignore
+  }
+}
 
 /**
  * POST /api/chat - Create a new chat and save messages
@@ -17,6 +98,14 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    await ensureChatTables();
+
+    const sessionUser = await getSessionUserFromRequest(request);
+    if (!sessionUser || !sessionUser.enabled) {
+      throw new AppError("برای استفاده از چت باید وارد حساب کاربری شوید", 401, "UNAUTHORIZED");
+    }
+    const isAdmin = sessionUser.role === "admin";
+
     const body = await request.json().catch(() => {
       throw new AppError("Invalid JSON in request body", 400, "INVALID_JSON");
     });
@@ -38,87 +127,64 @@ export async function POST(request: NextRequest) {
 
     const hasMessages = Array.isArray(messages) && messages.length > 0;
 
-    // If creating a new chat (no chatId), customerInfo is required.
-    if (!providedChatId) {
-      if (!customerInfo || !customerInfo.name || !customerInfo.phone) {
-        throw new AppError("اطلاعات مشتری الزامی است", 400, "MISSING_CUSTOMER_INFO");
-      }
-    }
-
-    // Ensure tables exist (create in order to handle foreign keys)
-    try {
-      // Create chats table first
-      await runQuery(`
-        CREATE TABLE IF NOT EXISTS quick_buy_chats (
-          id VARCHAR(255) PRIMARY KEY,
-          customerName VARCHAR(255) NOT NULL,
-          customerPhone VARCHAR(255) NOT NULL,
-          customerEmail VARCHAR(255),
-          status VARCHAR(50) NOT NULL DEFAULT 'active',
-          createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        );
-      `);
-
-      // Create messages table (depends on chats)
-      await runQuery(`
-        CREATE TABLE IF NOT EXISTS chat_messages (
-          id VARCHAR(255) PRIMARY KEY,
-          chatId VARCHAR(255) NOT NULL,
-          text TEXT,
-          sender VARCHAR(50) NOT NULL,
-          attachments JSON DEFAULT '[]',
-          status VARCHAR(50) DEFAULT 'sent',
-          createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          INDEX idx_chat_messages_chatId (chatId),
-          FOREIGN KEY (chatId) REFERENCES quick_buy_chats(id) ON DELETE CASCADE
-        );
-      `);
-
-      // Create attachments table (depends on messages)
-      await runQuery(`
-        CREATE TABLE IF NOT EXISTS chat_attachments (
-          id VARCHAR(255) PRIMARY KEY,
-          messageId VARCHAR(255) NOT NULL,
-          type VARCHAR(50) NOT NULL,
-          filePath VARCHAR(500),
-          fileName VARCHAR(255),
-          fileSize BIGINT,
-          fileUrl VARCHAR(500),
-          createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          INDEX idx_chat_attachments_messageId (messageId),
-          FOREIGN KEY (messageId) REFERENCES chat_messages(id) ON DELETE CASCADE
-        );
-      `);
-    } catch (createError: any) {
-      if (createError?.code !== "ER_TABLE_EXISTS_ERROR" && !createError?.message?.includes("already exists") && !createError?.message?.includes("Duplicate")) {
-        logger.error("Error creating chat tables:", createError);
-      }
-    }
-
     let chatId: string;
     const now = new Date().toISOString();
 
     if (providedChatId) {
       // Update existing chat
       chatId = providedChatId;
-      await runQuery(
-        `UPDATE quick_buy_chats 
-         SET updatedAt = ? 
-         WHERE id = ?`,
-        [now, chatId]
-      );
+      const chat = await getRow<any>(`SELECT id, userId FROM quick_buy_chats WHERE id = ?`, [chatId]);
+      if (!chat) {
+        // stale chatId: create a new chat for this user
+        chatId = `chat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        await runQuery(
+          `INSERT INTO quick_buy_chats (id, userId, customerName, customerPhone, customerEmail, status, createdAt, updatedAt)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            chatId,
+            sessionUser.id,
+            sessionUser.name,
+            sessionUser.phone,
+            customerInfo?.email?.trim() || null,
+            "active",
+            now,
+            now,
+          ]
+        );
+      } else {
+        const fullChat = await getRow<any>(`SELECT id, userId, customerPhone FROM quick_buy_chats WHERE id = ?`, [chatId]);
+        const chatUserId = fullChat?.userId ? String(fullChat.userId) : "";
+        const chatPhone = fullChat?.customerPhone ? String(fullChat.customerPhone) : "";
+
+        if (!isAdmin) {
+          if (chatUserId === sessionUser.id) {
+            // ok
+          } else if ((!chatUserId || chatUserId.trim() === "") && chatPhone && chatPhone === sessionUser.phone) {
+            // Claim legacy (guest) chat by phone
+            await runQuery(`UPDATE quick_buy_chats SET userId = ? WHERE id = ?`, [sessionUser.id, chatId]);
+          } else {
+            throw new AppError("شما به این چت دسترسی ندارید", 403, "FORBIDDEN");
+          }
+        }
+        await runQuery(
+          `UPDATE quick_buy_chats 
+           SET updatedAt = ? 
+           WHERE id = ?`,
+          [now, chatId]
+        );
+      }
     } else {
       // Create new chat
       chatId = `chat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       await runQuery(
-        `INSERT INTO quick_buy_chats (id, customerName, customerPhone, customerEmail, status, createdAt, updatedAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO quick_buy_chats (id, userId, customerName, customerPhone, customerEmail, status, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           chatId,
-          customerInfo.name.trim(),
-          customerInfo.phone.trim(),
-          customerInfo.email?.trim() || null,
+          sessionUser.id,
+          sessionUser.name,
+          sessionUser.phone,
+          customerInfo?.email?.trim() || null,
           "active",
           now,
           now,
@@ -189,8 +255,8 @@ export async function POST(request: NextRequest) {
       
       // Save message using UPSERT to avoid duplicates
       await runQuery(
-        `INSERT INTO chat_messages (id, chatId, text, sender, attachments, status, createdAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO chat_messages (id, chatId, userId, text, sender, attachments, status, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE
            text = VALUES(text),
            attachments = VALUES(attachments),
@@ -198,6 +264,7 @@ export async function POST(request: NextRequest) {
         [
           messageId,
           chatId,
+          message.sender === "user" ? sessionUser.id : null,
           message.text || null,
           message.sender,
           JSON.stringify(validAttachments),
@@ -318,6 +385,14 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    await ensureChatTables();
+
+    const sessionUser = await getSessionUserFromRequest(request);
+    if (!sessionUser || !sessionUser.enabled) {
+      throw new AppError("برای استفاده از چت باید وارد حساب کاربری شوید", 401, "UNAUTHORIZED");
+    }
+    const isAdmin = sessionUser.role === "admin";
+
     const { searchParams } = new URL(request.url);
     const chatId = searchParams.get("chatId");
     const lastMessageId = searchParams.get("lastMessageId"); // For polling new messages
@@ -341,6 +416,20 @@ export async function GET(request: NextRequest) {
 
       if (!chat) {
         throw new AppError("چت یافت نشد", 404, "CHAT_NOT_FOUND");
+      }
+
+      // Access control (user-only chat): guest chats (userId null/empty) are admin-only.
+      const chatUserId = chat.userId ? String(chat.userId) : "";
+      if (!isAdmin) {
+        if (chatUserId === sessionUser.id) {
+          // ok
+        } else if ((!chatUserId || chatUserId.trim() === "") && chat.customerPhone && String(chat.customerPhone) === sessionUser.phone) {
+          // Claim legacy (guest) chat by phone
+          await runQuery(`UPDATE quick_buy_chats SET userId = ? WHERE id = ?`, [sessionUser.id, chatId]);
+          chat.userId = sessionUser.id;
+        } else {
+          throw new AppError("شما به این چت دسترسی ندارید", 403, "FORBIDDEN");
+        }
       }
 
       // Build query based on polling parameters
@@ -496,171 +585,20 @@ export async function GET(request: NextRequest) {
         messages,
       });
     } else {
-      // Check if we should find chat by customer info
-      const customerPhone = searchParams.get("customerPhone");
-      const customerName = searchParams.get("customerName");
-
-      if (customerPhone) {
-        // Find chat by customer phone (and optionally name)
-        let chat;
-        if (customerName) {
-          chat = await getRow<any>(
-            `SELECT * FROM quick_buy_chats 
-             WHERE customerPhone = ? AND customerName = ? 
-             ORDER BY createdAt DESC LIMIT 1`,
-            [customerPhone, customerName]
-          );
-        } else {
-          chat = await getRow<any>(
-            `SELECT * FROM quick_buy_chats 
-             WHERE customerPhone = ? 
-             ORDER BY createdAt DESC LIMIT 1`,
-            [customerPhone]
-          );
-        }
-
-        if (chat) {
-          // Get messages for this chat
-          const messages = await getRows<any>(
-            `SELECT * FROM chat_messages WHERE chatId = ? ORDER BY createdAt ASC`,
-            [chat.id]
-          );
-
-          // Optimize: Get all attachments in one query instead of N+1 queries
-          const messageIds = messages.map((m: any) => m.id);
-          let allDbAttachments: any[] = [];
-          
-          if (messageIds.length > 0) {
-            try {
-              // Use IN clause to get all attachments in one query
-              const placeholders = messageIds.map(() => '?').join(',');
-              allDbAttachments = await getRows<any>(
-                `SELECT * FROM chat_attachments WHERE messageId IN (${placeholders})`,
-                messageIds
-              );
-            } catch (error: any) {
-              // If table doesn't exist, continue with empty attachments
-              if (error?.code === "ER_NO_SUCH_TABLE" || error?.message?.includes("doesn't exist") || error?.message?.includes("does not exist")) {
-                logger.warn("Chat attachments table does not exist yet, continuing without attachments");
-                allDbAttachments = [];
-              } else {
-                logger.error("Error fetching attachments:", error);
-                allDbAttachments = [];
-              }
-            }
-          }
-          
-          // Group attachments by messageId for O(1) lookup
-          const attachmentsByMessageId = new Map<string, any[]>();
-          allDbAttachments.forEach((att) => {
-            if (!attachmentsByMessageId.has(att.messageId)) {
-              attachmentsByMessageId.set(att.messageId, []);
-            }
-            attachmentsByMessageId.get(att.messageId)!.push(att);
-          });
-
-          // Process messages and merge attachments
-          for (const message of messages) {
-            // First try to get attachments from JSON field
-            let jsonAttachments: any[] = [];
-            if (message.attachments) {
-              if (Array.isArray(message.attachments)) {
-                // MySQL JSON returns as array
-                jsonAttachments = message.attachments;
-              } else if (typeof message.attachments === 'string') {
-                // Try to parse if it's a string
-                try {
-                  const parsed = JSON.parse(message.attachments);
-                  jsonAttachments = Array.isArray(parsed) ? parsed : [parsed];
-                } catch (e) {
-                  // Only log in development
-                  if (process.env.NODE_ENV === 'development') {
-                    logger.error(`Error parsing attachments JSON for message ${message.id}:`, e);
-                  }
-                  jsonAttachments = [];
-                }
-              } else if (typeof message.attachments === 'object' && message.attachments !== null) {
-                // Single object, convert to array
-                jsonAttachments = Array.isArray(message.attachments) ? message.attachments : [message.attachments];
-              }
-            }
-            
-            // Get attachments from database table (already loaded)
-            const dbAttachments = attachmentsByMessageId.get(message.id) || [];
-            
-            // Merge attachments - prefer database table attachments (they are more reliable)
-            const allAttachments: any[] = [];
-            const addedUrls = new Set<string>();
-            
-            // First add database table attachments (these are the source of truth)
-            dbAttachments.forEach((att) => {
-              if (att.fileUrl && !att.fileUrl.startsWith('blob:') && !att.fileUrl.startsWith('data:')) {
-                // Only add if URL exists and is not a temporary blob/data URL
-                // Ensure type is preserved (important for audio, etc.)
-                allAttachments.push({
-                  id: att.id,
-                  type: att.type || "file", // Default to "file" if type is missing
-                  url: att.fileUrl,
-                  name: att.fileName,
-                  size: att.fileSize,
-                });
-                addedUrls.add(att.fileUrl);
-              }
-            });
-            
-            // Then add JSON attachments if not already in database and not temporary URLs
-            if (Array.isArray(jsonAttachments) && jsonAttachments.length > 0) {
-              jsonAttachments.forEach((att) => {
-                const attachmentUrl = att.url || att.fileUrl || att.filePath;
-                // Skip if URL is temporary or already added
-                if (attachmentUrl && 
-                    !attachmentUrl.startsWith('blob:') && 
-                    !attachmentUrl.startsWith('data:') &&
-                    !addedUrls.has(attachmentUrl)) {
-                  // Check if we already have this attachment by URL (even if ID is different)
-                  const existingByUrl = allAttachments.find(a => a.url === attachmentUrl);
-                  if (!existingByUrl) {
-                    allAttachments.push({
-                      id: att.id || `att-${Date.now()}-${Math.random()}`,
-                      type: att.type || "file", // Ensure type is always set
-                      url: attachmentUrl,
-                      name: att.name || att.fileName,
-                      size: att.size || att.fileSize,
-                      duration: att.duration,
-                    });
-                    addedUrls.add(attachmentUrl);
-                  }
-                }
-              });
-            }
-            
-            message.attachments = allAttachments;
-          }
-
-          return createSuccessResponse({
-            chat,
-            messages,
-          });
-        } else {
-          // No chat found
-          return createSuccessResponse({
-            chat: null,
-            messages: [],
-          });
-        }
-      } else {
-        // Get list of chats
-        try {
+      // List chats:
+      // - admin: all chats
+      // - user: only their chats
+      try {
           // Try cache first (cache for 10 seconds since chat list changes frequently)
           const cacheKey = cacheKeys.chatList();
-          const cached = cache.get<any>(cacheKey);
-          if (cached) {
-            return createSuccessResponse({ chats: cached });
-          }
+          const cached = isAdmin ? cache.get<any>(cacheKey) : null;
+          if (cached) return createSuccessResponse({ chats: cached });
           
-          const chats = await getRows<any>(
-            `SELECT * FROM quick_buy_chats ORDER BY createdAt DESC LIMIT 50`
-          );
+          const chats = isAdmin
+            ? await getRows<any>(`SELECT * FROM quick_buy_chats ORDER BY createdAt DESC LIMIT 50`)
+            : await getRows<any>(`SELECT * FROM quick_buy_chats WHERE userId = ? ORDER BY createdAt DESC LIMIT 50`, [
+                sessionUser.id,
+              ]);
 
           // Optimize: Get unread counts for all chats in one query using GROUP BY
           const chatIds = chats.map((c: any) => c.id);
@@ -700,8 +638,10 @@ export async function GET(request: NextRequest) {
             unreadCount: unreadCountsMap.get(chat.id) || 0,
           }));
           
-          // Cache the result for 10 seconds
-          cache.set(cacheKey, chatsWithUnreadCount, 10000);
+          if (isAdmin) {
+            // Cache the result for 10 seconds (admin list only)
+            cache.set(cacheKey, chatsWithUnreadCount, 10000);
+          }
 
           return createSuccessResponse({ chats: chatsWithUnreadCount });
         } catch (dbError: any) {
@@ -712,7 +652,6 @@ export async function GET(request: NextRequest) {
           }
           throw dbError;
         }
-      }
     }
   } catch (error) {
     logger.error("[GET /api/chat] Error:", error);

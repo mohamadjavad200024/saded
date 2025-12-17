@@ -1,7 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { runQuery, getRow } from "@/lib/db/index";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-route-helpers";
 import { AppError } from "@/lib/api-error-handler";
+import { getSessionUserFromRequest } from "@/lib/auth/session";
+
+async function ensureMessageColumns(): Promise<void> {
+  try {
+    await runQuery(`ALTER TABLE chat_messages ADD COLUMN updatedAt TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP`);
+  } catch {
+    // ignore
+  }
+}
 
 /**
  * PATCH /api/chat/message/[id] - Edit a message
@@ -11,6 +20,13 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await ensureMessageColumns();
+    const sessionUser = await getSessionUserFromRequest(request);
+    if (!sessionUser || !sessionUser.enabled) {
+      throw new AppError("برای ویرایش پیام باید وارد حساب کاربری شوید", 401, "UNAUTHORIZED");
+    }
+    const isAdmin = sessionUser.role === "admin";
+
     const { id } = await params;
     const body = await request.json().catch(() => {
       throw new AppError("Invalid JSON in request body", 400, "INVALID_JSON");
@@ -22,9 +38,26 @@ export async function PATCH(
       throw new AppError("text or attachments are required", 400, "MISSING_PARAMS");
     }
 
-    const message = await getRow<any>("SELECT * FROM chat_messages WHERE id = ?", [id]);
+    const message = await getRow<any>(
+      `SELECT m.*, c.userId as chatUserId
+       FROM chat_messages m
+       JOIN quick_buy_chats c ON c.id = m.chatId
+       WHERE m.id = ?
+       LIMIT 1`,
+      [id]
+    );
     if (!message) {
       throw new AppError("پیام یافت نشد", 404, "MESSAGE_NOT_FOUND");
+    }
+
+    if (!isAdmin) {
+      const chatUserId = message.chatUserId ? String(message.chatUserId) : "";
+      if (!chatUserId || chatUserId !== sessionUser.id) {
+        throw new AppError("شما دسترسی به این پیام را ندارید", 403, "FORBIDDEN");
+      }
+      if (String(message.sender) !== "user") {
+        throw new AppError("شما فقط می‌توانید پیام‌های خودتان را ویرایش کنید", 403, "FORBIDDEN");
+      }
     }
 
     await runQuery(
@@ -53,11 +86,34 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const sessionUser = await getSessionUserFromRequest(request);
+    if (!sessionUser || !sessionUser.enabled) {
+      throw new AppError("برای حذف پیام باید وارد حساب کاربری شوید", 401, "UNAUTHORIZED");
+    }
+    const isAdmin = sessionUser.role === "admin";
+
     const { id } = await params;
 
-    const message = await getRow<any>("SELECT * FROM chat_messages WHERE id = ?", [id]);
+    const message = await getRow<any>(
+      `SELECT m.*, c.userId as chatUserId
+       FROM chat_messages m
+       JOIN quick_buy_chats c ON c.id = m.chatId
+       WHERE m.id = ?
+       LIMIT 1`,
+      [id]
+    );
     if (!message) {
       throw new AppError("پیام یافت نشد", 404, "MESSAGE_NOT_FOUND");
+    }
+
+    if (!isAdmin) {
+      const chatUserId = message.chatUserId ? String(message.chatUserId) : "";
+      if (!chatUserId || chatUserId !== sessionUser.id) {
+        throw new AppError("شما دسترسی به این پیام را ندارید", 403, "FORBIDDEN");
+      }
+      if (String(message.sender) !== "user") {
+        throw new AppError("شما فقط می‌توانید پیام‌های خودتان را حذف کنید", 403, "FORBIDDEN");
+      }
     }
 
     await runQuery("DELETE FROM chat_messages WHERE id = ?", [id]);

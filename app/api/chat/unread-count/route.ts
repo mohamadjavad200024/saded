@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getRow, getRows, runQuery } from "@/lib/db/index";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-route-helpers";
 import { AppError } from "@/lib/api-error-handler";
 import { logger } from "@/lib/logger";
+import { getSessionUserFromRequest } from "@/lib/auth/session";
 
 /**
  * GET /api/chat/unread-count - Get unread message count
@@ -12,21 +13,29 @@ import { logger } from "@/lib/logger";
  */
 export async function GET(request: NextRequest) {
   try {
+    const sessionUser = await getSessionUserFromRequest(request);
+    if (!sessionUser || !sessionUser.enabled) {
+      throw new AppError("برای استفاده از چت باید وارد حساب کاربری شوید", 401, "UNAUTHORIZED");
+    }
+    const isAdmin = sessionUser.role === "admin";
+
     const { searchParams } = new URL(request.url);
     const chatId = searchParams.get("chatId");
     const getAll = searchParams.get("all") === "true";
 
-    // Ensure tables exist
+    // Ensure table exists (best-effort)
     try {
       await runQuery(`
         CREATE TABLE IF NOT EXISTS chat_messages (
           id VARCHAR(255) PRIMARY KEY,
           chatId VARCHAR(255) NOT NULL,
+          userId VARCHAR(255) NULL,
           text TEXT,
           sender VARCHAR(50) NOT NULL,
           attachments JSON DEFAULT '[]',
           status VARCHAR(50) DEFAULT 'sent',
-          createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+          createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_chat_messages_chatId (chatId)
         );
       `);
     } catch (createError: any) {
@@ -36,6 +45,22 @@ export async function GET(request: NextRequest) {
     }
 
     if (chatId) {
+      const chat = await getRow<any>(`SELECT id, userId, customerPhone FROM quick_buy_chats WHERE id = ?`, [chatId]);
+      if (!chat) {
+        throw new AppError("چت یافت نشد", 404, "CHAT_NOT_FOUND");
+      }
+      if (!isAdmin) {
+        const chatUserId = chat.userId ? String(chat.userId) : "";
+        if (!chatUserId || chatUserId !== sessionUser.id) {
+          // Try legacy claim by phone
+          if ((!chatUserId || chatUserId.trim() === "") && chat.customerPhone && String(chat.customerPhone) === sessionUser.phone) {
+            await runQuery(`UPDATE quick_buy_chats SET userId = ? WHERE id = ?`, [sessionUser.id, chatId]);
+          } else {
+            throw new AppError("شما به این چت دسترسی ندارید", 403, "FORBIDDEN");
+          }
+        }
+      }
+
       // Get unread count for specific chat
       // WhatsApp style: only count messages from "user" that have NOT been read yet
       // Count messages with status 'sent', 'delivered', or 'sending' (not 'read')
@@ -56,11 +81,17 @@ export async function GET(request: NextRequest) {
         unreadCount,
       });
     } else if (getAll) {
-      // Get unread counts for all chats
+      // Get unread counts for all chats (admin) or user's chats
       try {
-        const chats = await getRows<{ id: string }>(
-          `SELECT DISTINCT chatId as id FROM chat_messages`
-        );
+        const chats = isAdmin
+          ? await getRows<{ id: string }>(`SELECT DISTINCT chatId as id FROM chat_messages`)
+          : await getRows<{ id: string }>(
+              `SELECT DISTINCT m.chatId as id
+               FROM chat_messages m
+               JOIN quick_buy_chats c ON c.id = m.chatId
+               WHERE c.userId = ?`,
+              [sessionUser.id]
+            );
 
         const chatsWithUnreadCount = await Promise.all(
           chats.map(async (chat) => {
