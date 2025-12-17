@@ -2280,7 +2280,13 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
                       <X className="h-3.5 w-3.5" />
                       </Button>
                       <Button
-                        onClick={saveRecording}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          console.log("[Voice Widget] Save button clicked!");
+                          alert("دکمه ذخیره ویس کلیک شد!");
+                          saveRecording();
+                        }}
                         size="sm"
                       className="h-7 px-3 text-xs rounded-lg"
                       >
@@ -2324,7 +2330,11 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log("[Location Widget] Button clicked!");
+                      alert("دکمه لوکیشن کلیک شد!");
                       handleLocationShare();
                       setShowAttachmentOptions(false);
                     }}
@@ -2335,7 +2345,11 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={async () => {
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log("[Voice Widget] Button clicked!");
+                      alert("دکمه ویس کلیک شد!");
                       setShowAttachmentOptions(false);
                       if (isRecording) {
                         stopRecording();

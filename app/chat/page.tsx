@@ -1358,7 +1358,17 @@ function ChatPageContent() {
                         >
                           <X className="h-3.5 w-3.5" />
                         </Button>
-                        <Button onClick={saveRecording} size="sm" className="h-7 px-3 text-xs rounded-lg">
+                        <Button 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log("[Voice] Save button clicked!");
+                            alert("دکمه ذخیره ویس کلیک شد!");
+                            saveRecording();
+                          }} 
+                          size="sm" 
+                          className="h-7 px-3 text-xs rounded-lg"
+                        >
                           ذخیره
                         </Button>
                       </>
@@ -1399,7 +1409,11 @@ function ChatPageContent() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log("[Location] Button clicked!");
+                        alert("دکمه لوکیشن کلیک شد!");
                         handleLocationShare();
                         setShowAttachmentOptions(false);
                       }}
@@ -1410,7 +1424,11 @@ function ChatPageContent() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={async () => {
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log("[Voice] Button clicked!");
+                        alert("دکمه ویس کلیک شد!");
                         setShowAttachmentOptions(false);
                         if (isRecording) {
                           stopRecording();
