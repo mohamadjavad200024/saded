@@ -1597,31 +1597,52 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
   };
 
   const handleLocationShare = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const attachment: Attachment = {
-            id: Date.now().toString(),
-            type: "location",
-            url: `https://www.google.com/maps?q=${position.coords.latitude},${position.coords.longitude}`,
-            name: "موقعیت مکانی",
-          };
-          setAttachments((prev) => [...prev, attachment]);
-          setShowAttachmentOptions(false);
-          
-          // Auto-send message with location attachment
-          setTimeout(() => {
-            handleSendMessage();
-          }, 100);
-        },
-        (error) => {
-          logger.error("Error getting location:", error);
-          alert("خطا در دریافت موقعیت مکانی");
-        }
-      );
-    } else {
+    if (!navigator.geolocation) {
       alert("مرورگر شما از موقعیت مکانی پشتیبانی نمی‌کند");
+      return;
     }
+
+    // Check if we're on a secure origin (HTTPS or localhost)
+    const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (!isSecure) {
+      alert("برای استفاده از موقعیت‌یابی باید از HTTPS استفاده کنید. لطفاً از آدرس امن سایت استفاده کنید.");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const attachment: Attachment = {
+          id: Date.now().toString(),
+          type: "location",
+          url: `https://www.google.com/maps?q=${position.coords.latitude},${position.coords.longitude}`,
+          name: "موقعیت مکانی",
+        };
+        setAttachments((prev) => [...prev, attachment]);
+        setShowAttachmentOptions(false);
+        
+        // Auto-send message with location attachment
+        setTimeout(() => {
+          handleSendMessage();
+        }, 100);
+      },
+      (error) => {
+        logger.error("Error getting location:", error);
+        let errorMessage = "خطا در دریافت موقعیت مکانی";
+        if (error.code === 1) {
+          errorMessage = "دسترسی به موقعیت رد شد. لطفاً در تنظیمات مرورگر اجازه دسترسی به موقعیت را فعال کنید.";
+        } else if (error.code === 2) {
+          errorMessage = "موقعیت در دسترس نیست. لطفاً مطمئن شوید که GPS فعال است.";
+        } else if (error.code === 3) {
+          errorMessage = "دریافت موقعیت زمان‌بر شد. لطفاً دوباره تلاش کنید.";
+        }
+        alert(errorMessage);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
   };
 
   const formatFileSize = (bytes: number) => {
