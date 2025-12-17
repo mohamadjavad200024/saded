@@ -6,7 +6,6 @@ import { requireAuth } from "@/lib/auth/middleware";
 
 /**
  * GET /api/orders - Get orders (filtered by user if not admin)
- * Headers: x-user-id (optional), x-user-role (optional)
  */
 export async function GET(request: NextRequest) {
   try {

@@ -119,21 +119,6 @@ function ChatPageContent() {
   }, [isAuthenticated, user]);
 
   const [customerInfo, setCustomerInfo] = useState(loadCustomerInfo);
-  
-  // Update customer info when auth state changes
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      setCustomerInfo({
-        name: user.name || "",
-        phone: user.phone || "",
-        email: "",
-      });
-      // اگر اطلاعات کامل است، مستقیماً به chat برو
-      if (user.name && user.phone) {
-        setStep("chat");
-      }
-    }
-  }, [isAuthenticated, user]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [showAttachmentOptions, setShowAttachmentOptions] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -145,6 +130,7 @@ function ChatPageContent() {
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [showPermissionGuide, setShowPermissionGuide] = useState(false);
   const [chatId, setChatId] = useState<string | null>(null);
+  const hasAttemptedAutoCreateChatRef = useRef(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -182,40 +168,75 @@ function ChatPageContent() {
     }
   }, [customerInfo]);
 
-  // Handle submit info
-  const handleSubmitInfo = useCallback(async () => {
-    if (!customerInfo.name || !customerInfo.phone) {
-      toast({
-        title: "خطا",
-        description: "لطفاً نام و شماره تماس را وارد کنید",
-        variant: "destructive",
-      });
-      return;
-    }
+  // Poll for new messages (optionally for a specific chatId)
+  const pollForNewMessages = useCallback(async (chatIdOverride?: string) => {
+    const id = chatIdOverride || chatId;
+    if (!id) return;
 
     try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customerInfo: {
-            name: customerInfo.name,
-            phone: customerInfo.phone,
-            email: customerInfo.email || undefined,
-          },
-          // Create chat without messages (messages are sent later)
-          messages: [],
-        }),
-      });
+      const response = await fetch(`/api/chat?chatId=${id}`, { credentials: "include" });
+      if (!response.ok) return;
 
-      const data = await response.json().catch(() => null);
-      if (!response.ok || !data?.success) {
-        const msg = data?.error || "خطا در ایجاد چت";
-        throw new Error(msg);
+      const data = await response.json();
+      if (data.success && data.data?.messages) {
+        const formattedMessages: Message[] = data.data.messages.map((msg: any) => ({
+          id: msg.id,
+          text: msg.text || "",
+          sender: msg.sender as "user" | "support",
+          timestamp: new Date(msg.createdAt),
+          attachments: msg.attachments
+            ? (Array.isArray(msg.attachments) ? msg.attachments : JSON.parse(msg.attachments))
+            : [],
+          status: msg.status || (msg.sender === "user" ? "sent" : undefined),
+        }));
+
+        setMessages(formattedMessages);
+      }
+    } catch (error) {
+      logger.error("Error polling messages:", error);
+    }
+  }, [chatId]);
+
+  const createChat = useCallback(
+    async (info: { name: string; phone: string; email?: string }, opts?: { silent?: boolean }) => {
+      const name = info.name?.trim();
+      const phone = info.phone?.trim();
+      const email = info.email?.trim();
+
+      if (!name || !phone) {
+        if (!opts?.silent) {
+          toast({
+            title: "خطا",
+            description: "لطفاً نام و شماره تماس را وارد کنید",
+            variant: "destructive",
+          });
+        }
+        return null;
       }
 
-      if (data.success && data.data?.id) {
-        const newChatId = data.data.id;
+      try {
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            customerInfo: { name, phone, email: email || undefined },
+            messages: [],
+          }),
+        });
+
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          const msg =
+            data?.error ||
+            (response.status === 429 ? "درخواست‌های شما زیاد است. لطفاً کمی بعد دوباره تلاش کنید." : null) ||
+            "خطا در ایجاد چت";
+          throw new Error(msg);
+        }
+
+        const newChatId = data.data?.id;
+        if (!newChatId) throw new Error("خطا در ایجاد چت");
+
         setChatId(newChatId);
         if (typeof window !== "undefined") {
           localStorage.setItem("quickBuyChat_chatId", newChatId);
@@ -229,17 +250,36 @@ function ChatPageContent() {
             timestamp: new Date(),
           },
         ]);
-        pollForNewMessages();
+
+        // Immediately fetch messages for the newly created chat
+        pollForNewMessages(newChatId);
+
+        return newChatId as string;
+      } catch (error) {
+        logger.error("Error creating chat:", error);
+        if (!opts?.silent) {
+          toast({
+            title: "خطا",
+            description: error instanceof Error ? error.message : "خطا در ایجاد چت. لطفاً دوباره تلاش کنید.",
+            variant: "destructive",
+          });
+        }
+        return null;
       }
-    } catch (error) {
-      logger.error("Error creating chat:", error);
-      toast({
-        title: "خطا",
-        description: "خطا در ایجاد چت. لطفاً دوباره تلاش کنید.",
-        variant: "destructive",
-      });
+    },
+    [toast, pollForNewMessages]
+  );
+
+  // Handle submit info (manual)
+  const handleSubmitInfo = useCallback(async () => {
+    const created = await createChat(
+      { name: customerInfo.name, phone: customerInfo.phone, email: customerInfo.email || undefined },
+      { silent: false }
+    );
+    if (created) {
+      // no-op
     }
-  }, [customerInfo, toast]);
+  }, [createChat, customerInfo]);
 
   // Format time
   const formatTime = useCallback((seconds: number) => {
@@ -473,31 +513,35 @@ function ChatPageContent() {
     [chatId]
   );
 
-  // Poll for new messages
-  const pollForNewMessages = useCallback(async () => {
-    if (!chatId) return;
+  // Update customer info when auth state changes + auto-create chatId for logged-in users
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
 
-    try {
-      const response = await fetch(`/api/chat?chatId=${chatId}`);
-      if (!response.ok) return;
+    const nextInfo = {
+      name: user.name || "",
+      phone: user.phone || "",
+      email: "",
+    };
+    setCustomerInfo(nextInfo);
 
-      const data = await response.json();
-      if (data.success && data.data?.messages) {
-        const formattedMessages: Message[] = data.data.messages.map((msg: any) => ({
-          id: msg.id,
-          text: msg.text || "",
-          sender: msg.sender as "user" | "support",
-          timestamp: new Date(msg.createdAt),
-          attachments: msg.attachments ? (Array.isArray(msg.attachments) ? msg.attachments : JSON.parse(msg.attachments)) : [],
-          status: msg.status || (msg.sender === "user" ? "sent" : undefined),
-        }));
-
-        setMessages(formattedMessages);
+    // If user has valid info and we don't have a chatId yet, auto-create it once
+    if (user.name && user.phone && !chatId && !hasAttemptedAutoCreateChatRef.current) {
+      hasAttemptedAutoCreateChatRef.current = true;
+      // Try to use stored chatId first (if any)
+      if (typeof window !== "undefined") {
+        const storedChatId = localStorage.getItem("quickBuyChat_chatId");
+        if (storedChatId) {
+          setChatId(storedChatId);
+          setStep("chat");
+          pollForNewMessages(storedChatId);
+          return;
+        }
       }
-    } catch (error) {
-      logger.error("Error polling messages:", error);
+
+      // Silent auto-create (no toast spam on page load)
+      createChat({ name: nextInfo.name, phone: nextInfo.phone, email: undefined }, { silent: true }).catch(() => null);
     }
-  }, [chatId]);
+  }, [isAuthenticated, user, chatId, createChat, pollForNewMessages]);
 
   // Check support typing
   const checkSupportTyping = useCallback(async () => {
@@ -614,6 +658,7 @@ function ChatPageContent() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           chatId,
           customerInfo: {
