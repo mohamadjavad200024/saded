@@ -28,6 +28,7 @@
   "/api/categories/[id]/route": "/api/categories/[id]",
   "/api/categories/route": "/api/categories",
   "/api/chat/message/[id]/route": "/api/chat/message/[id]",
+  "/api/chat/my/route": "/api/chat/my",
   "/api/chat/route": "/api/chat",
   "/api/chat/status/route": "/api/chat/status",
   "/api/chat/typing/route": "/api/chat/typing",
