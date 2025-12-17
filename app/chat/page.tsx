@@ -362,10 +362,23 @@ function ChatPageContent() {
 
   // Save recording
   const saveRecording = useCallback(async () => {
-    if (!audioBlob || !audioUrl) return;
+    logger.info("saveRecording called", { hasAudioBlob: !!audioBlob, hasAudioUrl: !!audioUrl });
+    console.log("[Voice] saveRecording called", { hasAudioBlob: !!audioBlob, hasAudioUrl: !!audioUrl, audioBlobSize: audioBlob?.size, audioUrl });
+    
+    if (!audioBlob || !audioUrl) {
+      logger.warn("No audio blob or URL available");
+      console.log("[Voice] No audio blob or URL available, returning");
+      toast({
+        title: "خطا",
+        description: "هیچ ضبط صوتی موجود نیست",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       setIsSaving(true);
+      console.log("[Voice] Starting upload...");
       const formData = new FormData();
       formData.append("file", audioBlob, "recording.webm");
       formData.append("type", "audio");
@@ -379,6 +392,7 @@ function ChatPageContent() {
       if (!response.ok) throw new Error("خطا در آپلود فایل");
 
       const data = await response.json();
+      console.log("[Voice] Upload response:", data);
       if (data.success && data.data?.url) {
         const attachment: Attachment = {
           id: `audio-${Date.now()}`,
@@ -387,13 +401,21 @@ function ChatPageContent() {
           name: "پیام صوتی",
           duration: recordingTime,
         };
-        setAttachments((prev) => [...prev, attachment]);
+        console.log("[Voice] Adding attachment:", attachment);
+        setAttachments((prev) => {
+          const newAttachments = [...prev, attachment];
+          console.log("[Voice] New attachments:", newAttachments);
+          return newAttachments;
+        });
         setAudioUrl(null);
         setAudioBlob(null);
         setRecordingTime(0);
         
         // Set flag to auto-send message with audio attachment
         shouldAutoSendRef.current = true;
+        console.log("[Voice] shouldAutoSendRef set to true");
+      } else {
+        console.error("[Voice] Upload failed:", data);
       }
     } catch (error) {
       logger.error("Error saving recording:", error);
@@ -456,7 +478,12 @@ function ChatPageContent() {
 
   // Handle location share
   const handleLocationShare = useCallback(() => {
+    logger.info("handleLocationShare called");
+    console.log("[Location] handleLocationShare called");
+    
     if (!navigator.geolocation) {
+      logger.warn("Geolocation not supported");
+      console.log("[Location] Geolocation not supported");
       toast({
         title: "خطا",
         description: "مرورگر شما از موقعیت‌یابی پشتیبانی نمی‌کند",
@@ -467,7 +494,10 @@ function ChatPageContent() {
 
     // Check if we're on a secure origin (HTTPS or localhost)
     const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    console.log("[Location] Protocol:", window.location.protocol, "Hostname:", window.location.hostname, "IsSecure:", isSecure);
     if (!isSecure) {
+      logger.warn("Not on secure origin");
+      console.log("[Location] Not on secure origin");
       toast({
         title: "خطا",
         description: "برای استفاده از موقعیت‌یابی باید از HTTPS استفاده کنید. لطفاً از آدرس امن سایت استفاده کنید.",
@@ -476,8 +506,12 @@ function ChatPageContent() {
       return;
     }
 
+    logger.info("Requesting geolocation...");
+    console.log("[Location] Requesting geolocation...");
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        logger.info("Location received:", position.coords);
+        console.log("[Location] Position received:", position.coords);
         const { latitude, longitude } = position.coords;
         const url = `https://www.google.com/maps?q=${latitude},${longitude}`;
         const attachment: Attachment = {
@@ -486,11 +520,17 @@ function ChatPageContent() {
           url,
           name: "موقعیت من",
         };
-        setAttachments((prev) => [...prev, attachment]);
+        console.log("[Location] Adding attachment:", attachment);
+        setAttachments((prev) => {
+          const newAttachments = [...prev, attachment];
+          console.log("[Location] New attachments:", newAttachments);
+          return newAttachments;
+        });
         setShowAttachmentOptions(false);
         
         // Set flag to auto-send message with location attachment
         shouldAutoSendRef.current = true;
+        console.log("[Location] shouldAutoSendRef set to true");
       },
       (error) => {
         logger.error("Error getting location:", error);

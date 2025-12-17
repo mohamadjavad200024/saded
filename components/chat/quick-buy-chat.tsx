@@ -508,8 +508,18 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
   };
 
   const saveRecording = async () => {
-    if (audioBlob && audioUrl) {
-      try {
+    logger.info("saveRecording called", { hasAudioBlob: !!audioBlob, hasAudioUrl: !!audioUrl });
+    console.log("[Voice Widget] saveRecording called", { hasAudioBlob: !!audioBlob, hasAudioUrl: !!audioUrl, audioBlobSize: audioBlob?.size, audioUrl });
+    
+    if (!audioBlob || !audioUrl) {
+      logger.warn("No audio blob or URL available");
+      console.log("[Voice Widget] No audio blob or URL available, returning");
+      alert("هیچ ضبط صوتی موجود نیست");
+      return;
+    }
+
+    try {
+      console.log("[Voice Widget] Starting upload...");
         // Determine file extension based on MIME type
         let extension = "webm";
         let mimeType = audioBlob.type || "audio/webm";
@@ -530,7 +540,9 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
         });
 
         // Upload audio file
+        console.log("[Voice Widget] Uploading audio file...");
         const uploadedUrl = await uploadFile(audioFile, "audio");
+        console.log("[Voice Widget] Upload successful, URL:", uploadedUrl);
 
         const attachment: Attachment = {
           id: Date.now().toString(),
@@ -540,7 +552,12 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
           size: audioBlob.size,
           duration: recordingTime,
         };
-        setAttachments((prev) => [...prev, attachment]);
+        console.log("[Voice Widget] Adding attachment:", attachment);
+        setAttachments((prev) => {
+          const newAttachments = [...prev, attachment];
+          console.log("[Voice Widget] New attachments:", newAttachments);
+          return newAttachments;
+        });
         setAudioBlob(null);
         if (audioUrl) {
           URL.revokeObjectURL(audioUrl);
@@ -549,6 +566,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
         setRecordingTime(0);
         
         // Auto-send message with audio attachment
+        console.log("[Voice Widget] Auto-sending message...");
         setTimeout(() => {
           handleSendMessage();
         }, 100);
@@ -1597,30 +1615,48 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
   };
 
   const handleLocationShare = () => {
+    logger.info("handleLocationShare called");
+    console.log("[Location Widget] handleLocationShare called");
+    
     if (!navigator.geolocation) {
+      logger.warn("Geolocation not supported");
+      console.log("[Location Widget] Geolocation not supported");
       alert("مرورگر شما از موقعیت مکانی پشتیبانی نمی‌کند");
       return;
     }
 
     // Check if we're on a secure origin (HTTPS or localhost)
     const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    console.log("[Location Widget] Protocol:", window.location.protocol, "Hostname:", window.location.hostname, "IsSecure:", isSecure);
     if (!isSecure) {
+      logger.warn("Not on secure origin");
+      console.log("[Location Widget] Not on secure origin");
       alert("برای استفاده از موقعیت‌یابی باید از HTTPS استفاده کنید. لطفاً از آدرس امن سایت استفاده کنید.");
       return;
     }
 
+    logger.info("Requesting geolocation...");
+    console.log("[Location Widget] Requesting geolocation...");
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        logger.info("Location received:", position.coords);
+        console.log("[Location Widget] Position received:", position.coords);
         const attachment: Attachment = {
           id: Date.now().toString(),
           type: "location",
           url: `https://www.google.com/maps?q=${position.coords.latitude},${position.coords.longitude}`,
           name: "موقعیت مکانی",
         };
-        setAttachments((prev) => [...prev, attachment]);
+        console.log("[Location Widget] Adding attachment:", attachment);
+        setAttachments((prev) => {
+          const newAttachments = [...prev, attachment];
+          console.log("[Location Widget] New attachments:", newAttachments);
+          return newAttachments;
+        });
         setShowAttachmentOptions(false);
         
         // Auto-send message with location attachment
+        console.log("[Location Widget] Auto-sending message...");
         setTimeout(() => {
           handleSendMessage();
         }, 100);
