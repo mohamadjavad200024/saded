@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-route-helpers";
-import { AppError } from "@/lib/api-error-handler";
 import { getSessionUserFromRequest } from "@/lib/auth/session";
 
 /**
@@ -9,11 +8,19 @@ import { getSessionUserFromRequest } from "@/lib/auth/session";
 export async function GET(request: NextRequest) {
   try {
     const user = await getSessionUserFromRequest(request);
+    // IMPORTANT:
+    // This endpoint is used for "check auth" on the client.
+    // Returning 401 here creates noisy console/network errors for normal visitors.
+    // So we always return 200 with { authenticated: false } when not logged-in.
     if (!user || !user.enabled) {
-      throw new AppError("لطفاً دوباره وارد شوید", 401, "UNAUTHORIZED");
+      return createSuccessResponse({
+        authenticated: false,
+        user: null,
+      });
     }
 
     return createSuccessResponse({
+      authenticated: true,
       user: {
         id: user.id,
         name: user.name,
@@ -23,6 +30,6 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    return createErrorResponse(error instanceof AppError ? error : error);
+    return createErrorResponse(error);
   }
 }

@@ -55,6 +55,7 @@
   "/blog/page": "app/blog/page.js",
   "/cart/page": "app/cart/page.js",
   "/categories/[id]/page": "app/categories/[id]/page.js",
+  "/categories/page": "app/categories/page.js",
   "/chat/page": "app/chat/page.js",
   "/checkout/page": "app/checkout/page.js",
   "/contact/page": "app/contact/page.js",
@@ -68,8 +69,10 @@
   "/payment/verify/page": "app/payment/verify/page.js",
   "/products/[id]/page": "app/products/[id]/page.js",
   "/products/page": "app/products/page.js",
+  "/profile/page": "app/profile/page.js",
   "/returns/page": "app/returns/page.js",
   "/robots.txt/route": "app/robots.txt/route.js",
+  "/services/page": "app/services/page.js",
   "/shipping/page": "app/shipping/page.js",
   "/sitemap.xml/route": "app/sitemap.xml/route.js",
   "/warranty/page": "app/warranty/page.js"

@@ -55,6 +55,7 @@
   "/blog/page": "/blog",
   "/cart/page": "/cart",
   "/categories/[id]/page": "/categories/[id]",
+  "/categories/page": "/categories",
   "/chat/page": "/chat",
   "/checkout/page": "/checkout",
   "/contact/page": "/contact",
@@ -68,8 +69,10 @@
   "/payment/verify/page": "/payment/verify",
   "/products/[id]/page": "/products/[id]",
   "/products/page": "/products",
+  "/profile/page": "/profile",
   "/returns/page": "/returns",
   "/robots.txt/route": "/robots.txt",
+  "/services/page": "/services",
   "/shipping/page": "/shipping",
   "/sitemap.xml/route": "/sitemap.xml",
   "/warranty/page": "/warranty"

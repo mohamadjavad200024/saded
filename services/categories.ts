@@ -30,7 +30,9 @@ async function fetchCategories(): Promise<Category[]> {
     const result: ApiResponse<Category[]> = await response.json();
 
     if (!result.success || !result.data) {
-      console.error("API Error:", result.error || "Failed to fetch categories", result);
+      if (process.env.NODE_ENV === "development") {
+        console.error("API Error:", result.error || "Failed to fetch categories", result);
+      }
       throw new Error(result.error || "Failed to fetch categories");
     }
     
@@ -65,7 +67,9 @@ async function fetchCategories(): Promise<Category[]> {
     });
   } catch (error) {
     // Log error for debugging
-    console.error("Error fetching categories:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Error fetching categories:", error);
+    }
     // Return empty array instead of throwing to prevent UI crash
     return [];
   }
