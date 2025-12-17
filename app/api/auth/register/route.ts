@@ -115,7 +115,17 @@ export async function POST(request: NextRequest) {
 
       // بررسی خطاهای خاص
       if (insertError?.code === "ER_DUP_ENTRY" || insertError?.errno === 1062) {
-        throw new AppError("شماره تماس قبلاً ثبت شده است", 400, "DUPLICATE_PHONE");
+        const msg =
+          insertError?.sqlMessage ||
+          insertError?.message ||
+          "";
+        // Only show DUPLICATE_PHONE when the duplicate key is actually the phone unique index.
+        // Otherwise, return a generic duplicate key error to avoid misleading the user.
+        const isPhoneDuplicate = /phone/i.test(msg) || /uniq_users_phone/i.test(msg);
+        if (isPhoneDuplicate) {
+          throw new AppError("شماره تماس قبلاً ثبت شده است", 400, "DUPLICATE_PHONE");
+        }
+        throw new AppError("خطا: رکورد تکراری (کلید یکتا)", 409, "DUPLICATE_KEY");
       }
 
       if (
