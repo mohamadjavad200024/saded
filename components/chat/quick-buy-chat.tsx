@@ -547,6 +547,11 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
         }
         setAudioUrl(null);
         setRecordingTime(0);
+        
+        // Auto-send message with audio attachment
+        setTimeout(() => {
+          handleSendMessage();
+        }, 100);
       } catch (error) {
         // Error already handled in uploadFile
       }
@@ -1603,6 +1608,11 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
           };
           setAttachments((prev) => [...prev, attachment]);
           setShowAttachmentOptions(false);
+          
+          // Auto-send message with location attachment
+          setTimeout(() => {
+            handleSendMessage();
+          }, 100);
         },
         (error) => {
           logger.error("Error getting location:", error);
