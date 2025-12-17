@@ -1621,7 +1621,11 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
     if (!navigator.geolocation) {
       logger.warn("Geolocation not supported");
       console.log("[Location Widget] Geolocation not supported");
-      alert("مرورگر شما از موقعیت مکانی پشتیبانی نمی‌کند");
+      toast({
+        title: "خطا",
+        description: "مرورگر شما از موقعیت مکانی پشتیبانی نمی‌کند",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -1631,12 +1635,23 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
     if (!isSecure) {
       logger.warn("Not on secure origin");
       console.log("[Location Widget] Not on secure origin");
-      alert("برای استفاده از موقعیت‌یابی باید از HTTPS استفاده کنید. لطفاً از آدرس امن سایت استفاده کنید.");
+      toast({
+        title: "خطا",
+        description: "برای استفاده از موقعیت‌یابی باید از HTTPS استفاده کنید. لطفاً از آدرس امن سایت استفاده کنید.",
+        variant: "destructive",
+      });
       return;
     }
 
-    logger.info("Requesting geolocation...");
-    console.log("[Location Widget] Requesting geolocation...");
+    // Show loading toast
+    toast({
+      title: "در حال دریافت موقعیت...",
+      description: "لطفاً اجازه دسترسی به موقعیت را در مرورگر بدهید",
+      duration: 3000,
+    });
+
+    logger.info("Requesting geolocation permission...");
+    console.log("[Location Widget] Requesting geolocation permission...");
     navigator.geolocation.getCurrentPosition(
       (position) => {
         logger.info("Location received:", position.coords);
@@ -2284,11 +2299,11 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
                           e.preventDefault();
                           e.stopPropagation();
                           console.log("[Voice Widget] Save button clicked!");
-                          alert("دکمه ذخیره ویس کلیک شد!");
                           saveRecording();
                         }}
                         size="sm"
                       className="h-7 px-3 text-xs rounded-lg"
+                      title="ذخیره و ارسال پیام صوتی"
                       >
                         ذخیره
                       </Button>
@@ -2337,11 +2352,11 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
                       e.preventDefault();
                       e.stopPropagation();
                       console.log("[Location Widget] Button clicked!");
-                      alert("دکمه لوکیشن کلیک شد!");
                       handleLocationShare();
                       setShowAttachmentOptions(false);
                     }}
                   className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-all rounded-lg"
+                  title="اشتراک‌گذاری موقعیت مکانی"
                   >
                   <MapPin className="h-3.5 w-3.5" />
                   </Button>
@@ -2352,23 +2367,26 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
                       e.preventDefault();
                       e.stopPropagation();
                       console.log("[Voice Widget] Button clicked!");
-                      alert("دکمه ویس کلیک شد!");
                       setShowAttachmentOptions(false);
                       if (isRecording) {
                         stopRecording();
                       } else {
-                        const hasPermission = await checkMicrophonePermission();
-                        if (!hasPermission) {
-                          toast({
-                            title: "نیاز به دسترسی میکروفون",
-                            description: "برای ضبط صدا، لطفاً دسترسی میکروفون را در تنظیمات مرورگر فعال کنید.",
-                            variant: "destructive",
-                            duration: 5000,
-                          });
+                        // Show loading toast
+                        toast({
+                          title: "در حال درخواست دسترسی...",
+                          description: "لطفاً اجازه دسترسی به میکروفون را در مرورگر بدهید",
+                          duration: 3000,
+                        });
+                        
+                        try {
+                          await startRecording();
+                        } catch (error) {
+                          console.error("[Voice Widget] Error starting recording:", error);
                         }
-                        startRecording();
                       }
                     }}
+                    title="ضبط پیام صوتی"
+                  >
                   className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-all rounded-lg"
                     disabled={isRecording}
                   >
