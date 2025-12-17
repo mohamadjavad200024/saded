@@ -93,7 +93,7 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
   const loadChats = useCallback(async (showLoading = true) => {
     try {
       if (showLoading) setIsLoading(true);
-      const response = await fetch("/api/chat");
+      const response = await fetch("/api/chat", { credentials: "include" });
       if (!response.ok) throw new Error("خطا در بارگذاری چت‌ها");
       
       const data = await response.json();
@@ -101,7 +101,7 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
         const chatsWithLastMessage = await Promise.all(
           data.data.chats.map(async (chat: Chat) => {
             try {
-              const msgResponse = await fetch(`/api/chat?chatId=${chat.id}`);
+              const msgResponse = await fetch(`/api/chat?chatId=${chat.id}`, { credentials: "include" });
               if (msgResponse.ok) {
                 const msgData = await msgResponse.json();
                 if (msgData.success && msgData.data.messages) {
@@ -140,14 +140,14 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
   // Silent refresh
   const silentRefreshChats = useCallback(async () => {
     try {
-      const response = await fetch("/api/chat");
+      const response = await fetch("/api/chat", { credentials: "include" });
       if (!response.ok) return;
       
       const data = await response.json();
       if (data.success && data.data.chats) {
         const chatPromises = data.data.chats.map(async (chat: Chat) => {
           try {
-            const msgResponse = await fetch(`/api/chat?chatId=${chat.id}`);
+            const msgResponse = await fetch(`/api/chat?chatId=${chat.id}`, { credentials: "include" });
             if (msgResponse.ok) {
               const msgData = await msgResponse.json();
               if (msgData.success && msgData.data.messages) {
@@ -298,6 +298,7 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
       await fetch("/api/chat/status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ chatId, sender: "support", action: "delivered" }),
       });
     } catch (error) {
@@ -310,6 +311,7 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
       await fetch("/api/chat/status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ chatId, sender: "support", action: "read" }),
       });
     } catch (error) {
@@ -342,7 +344,7 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
   const checkUserTyping = useCallback(async () => {
     if (!selectedChat) return;
     try {
-      const response = await fetch(`/api/chat/typing?chatId=${selectedChat.id}&sender=user`);
+      const response = await fetch(`/api/chat/typing?chatId=${selectedChat.id}&sender=user`, { credentials: "include" });
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
@@ -635,7 +637,7 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
           handleSelectChat(chat);
         } else {
           try {
-            const response = await fetch(`/api/chat?chatId=${chatId}`);
+            const response = await fetch(`/api/chat?chatId=${chatId}`, { credentials: "include" });
             if (response.ok) {
               const data = await response.json();
               if (data.success && data.data) {

@@ -1,13 +1,20 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getRow, runQuery } from "@/lib/db/index";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-route-helpers";
 import { AppError } from "@/lib/api-error-handler";
+import { getSessionUserFromRequest } from "@/lib/auth/session";
 
 /**
  * POST /api/chat/typing - Set typing status
  */
 export async function POST(request: NextRequest) {
   try {
+    const sessionUser = await getSessionUserFromRequest(request);
+    if (!sessionUser || !sessionUser.enabled) {
+      throw new AppError("برای استفاده از چت باید وارد حساب کاربری شوید", 401, "UNAUTHORIZED");
+    }
+    const isAdmin = sessionUser.role === "admin";
+
     const body = await request.json().catch(() => {
       throw new AppError("Invalid JSON in request body", 400, "INVALID_JSON");
     });
@@ -16,6 +23,22 @@ export async function POST(request: NextRequest) {
 
     if (!chatId || !sender) {
       throw new AppError("chatId and sender are required", 400, "MISSING_PARAMS");
+    }
+
+    const chat = await getRow<any>(`SELECT id, userId, customerPhone FROM quick_buy_chats WHERE id = ?`, [chatId]);
+    if (!chat) {
+      throw new AppError("چت یافت نشد", 404, "CHAT_NOT_FOUND");
+    }
+    if (!isAdmin) {
+      const chatUserId = chat.userId ? String(chat.userId) : "";
+      if (!chatUserId || chatUserId !== sessionUser.id) {
+        // Try legacy claim by phone
+        if ((!chatUserId || chatUserId.trim() === "") && chat.customerPhone && String(chat.customerPhone) === sessionUser.phone) {
+          await runQuery(`UPDATE quick_buy_chats SET userId = ? WHERE id = ?`, [sessionUser.id, chatId]);
+        } else {
+          throw new AppError("شما به این چت دسترسی ندارید", 403, "FORBIDDEN");
+        }
+      }
     }
 
     // Store typing status in memory (or Redis in production)
@@ -55,12 +78,34 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
+    const sessionUser = await getSessionUserFromRequest(request);
+    if (!sessionUser || !sessionUser.enabled) {
+      throw new AppError("برای استفاده از چت باید وارد حساب کاربری شوید", 401, "UNAUTHORIZED");
+    }
+    const isAdmin = sessionUser.role === "admin";
+
     const { searchParams } = new URL(request.url);
     const chatId = searchParams.get("chatId");
     const sender = searchParams.get("sender"); // The sender we want to check (opposite of current user)
 
     if (!chatId || !sender) {
       throw new AppError("chatId and sender are required", 400, "MISSING_PARAMS");
+    }
+
+    const chat = await getRow<any>(`SELECT id, userId, customerPhone FROM quick_buy_chats WHERE id = ?`, [chatId]);
+    if (!chat) {
+      throw new AppError("چت یافت نشد", 404, "CHAT_NOT_FOUND");
+    }
+    if (!isAdmin) {
+      const chatUserId = chat.userId ? String(chat.userId) : "";
+      if (!chatUserId || chatUserId !== sessionUser.id) {
+        // Try legacy claim by phone
+        if ((!chatUserId || chatUserId.trim() === "") && chat.customerPhone && String(chat.customerPhone) === sessionUser.phone) {
+          await runQuery(`UPDATE quick_buy_chats SET userId = ? WHERE id = ?`, [sessionUser.id, chatId]);
+        } else {
+          throw new AppError("شما به این چت دسترسی ندارید", 403, "FORBIDDEN");
+        }
+      }
     }
 
     // Check typing status from memory store

@@ -85,35 +85,18 @@ function ChatPageContent() {
   const [message, setMessage] = useState("");
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
-  const [step, setStep] = useState<"info" | "chat">("info");
+  const [step, setStep] = useState<"info" | "chat">("chat");
   
-  // Load customer info from auth store or localStorage
+  // Load customer info from auth store (chat is protected, so we expect an authenticated user)
   const loadCustomerInfo = useCallback(() => {
     if (typeof window === "undefined") return { name: "", phone: "", email: "" };
     
-    // اگر کاربر لاگین است، از اطلاعات کاربر استفاده کن
     if (isAuthenticated && user) {
       return {
         name: user.name || "",
         phone: user.phone || "",
         email: "",
       };
-    }
-    
-    // در غیر این صورت از localStorage استفاده کن
-    try {
-      const stored = localStorage.getItem("quickBuyChat_customerInfo");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        const expiration = parsed.expiration;
-        if (expiration && new Date(expiration) > new Date()) {
-          return parsed.data;
-        } else {
-          localStorage.removeItem("quickBuyChat_customerInfo");
-        }
-      }
-    } catch (error) {
-      logger.error("Error loading customer info:", error);
     }
     return { name: "", phone: "", email: "" };
   }, [isAuthenticated, user]);
@@ -130,7 +113,6 @@ function ChatPageContent() {
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [showPermissionGuide, setShowPermissionGuide] = useState(false);
   const [chatId, setChatId] = useState<string | null>(null);
-  const hasAttemptedAutoCreateChatRef = useRef(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -142,31 +124,30 @@ function ChatPageContent() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const hasScrolledOnOpenRef = useRef<boolean>(false);
 
-  // Load chatId from localStorage
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const storedChatId = localStorage.getItem("quickBuyChat_chatId");
-      if (storedChatId) {
-        setChatId(storedChatId);
-        setStep("chat");
+  // Initialize user's chat (server-side, session-based)
+  const initMyChat = useCallback(async (opts?: { silent?: boolean }) => {
+    try {
+      const res = await fetch("/api/chat/my", { credentials: "include" });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success || !json?.data?.chatId) {
+        const msg = json?.error || json?.message || "خطا در دریافت چت";
+        throw new Error(msg);
       }
+      const id = String(json.data.chatId);
+      setChatId(id);
+      setStep("chat");
+      return id;
+    } catch (e) {
+      if (!opts?.silent) {
+        toast({
+          title: "خطا",
+          description: e instanceof Error ? e.message : "خطا در دریافت چت",
+          variant: "destructive",
+        });
+      }
+      return null;
     }
-  }, []);
-
-  // Save customer info to localStorage
-  useEffect(() => {
-    if (customerInfo.name && customerInfo.phone) {
-      const expiration = new Date();
-      expiration.setHours(expiration.getHours() + 24);
-      localStorage.setItem(
-        "quickBuyChat_customerInfo",
-        JSON.stringify({
-          data: customerInfo,
-          expiration: expiration.toISOString(),
-        })
-      );
-    }
-  }, [customerInfo]);
+  }, [toast]);
 
   // Poll for new messages (optionally for a specific chatId)
   const pollForNewMessages = useCallback(async (chatIdOverride?: string) => {
@@ -196,6 +177,21 @@ function ChatPageContent() {
       logger.error("Error polling messages:", error);
     }
   }, [chatId]);
+
+  // Auto-init chat once user is available
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    if (chatId) return;
+    initMyChat({ silent: true }).catch(() => null);
+  }, [isAuthenticated, user, chatId, initMyChat]);
+
+  // Start polling when chatId is available
+  useEffect(() => {
+    if (!chatId) return;
+    pollForNewMessages(chatId);
+    const t = setInterval(() => pollForNewMessages(chatId), 3000);
+    return () => clearInterval(t);
+  }, [chatId, pollForNewMessages]);
 
   const createChat = useCallback(
     async (info: { name: string; phone: string; email?: string }, opts?: { silent?: boolean }) => {
@@ -238,20 +234,8 @@ function ChatPageContent() {
         if (!newChatId) throw new Error("خطا در ایجاد چت");
 
         setChatId(newChatId);
-        if (typeof window !== "undefined") {
-          localStorage.setItem("quickBuyChat_chatId", newChatId);
-        }
         setStep("chat");
-        setMessages([
-          {
-            id: "1",
-            text: "سلام! خوش آمدید. برای خرید سریع لطفاً اطلاعات زیر را وارد کنید:",
-            sender: "support",
-            timestamp: new Date(),
-          },
-        ]);
-
-        // Immediately fetch messages for the newly created chat
+        // Fetch messages for the chat (new chat will be empty)
         pollForNewMessages(newChatId);
 
         return newChatId as string;
@@ -272,14 +256,9 @@ function ChatPageContent() {
 
   // Handle submit info (manual)
   const handleSubmitInfo = useCallback(async () => {
-    const created = await createChat(
-      { name: customerInfo.name, phone: customerInfo.phone, email: customerInfo.email || undefined },
-      { silent: false }
-    );
-    if (created) {
-      // no-op
-    }
-  }, [createChat, customerInfo]);
+    // Chat is session-based; just ensure we have a chatId for the current user
+    await initMyChat({ silent: false });
+  }, [initMyChat]);
 
   // Format time
   const formatTime = useCallback((seconds: number) => {
@@ -500,6 +479,7 @@ function ChatPageContent() {
         await fetch("/api/chat/typing", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({
             chatId,
             sender: "user",
@@ -513,7 +493,7 @@ function ChatPageContent() {
     [chatId]
   );
 
-  // Update customer info when auth state changes + auto-create chatId for logged-in users
+  // Update customer info when auth state changes
   useEffect(() => {
     if (!isAuthenticated || !user) return;
 
@@ -524,31 +504,15 @@ function ChatPageContent() {
     };
     setCustomerInfo(nextInfo);
 
-    // If user has valid info and we don't have a chatId yet, auto-create it once
-    if (user.name && user.phone && !chatId && !hasAttemptedAutoCreateChatRef.current) {
-      hasAttemptedAutoCreateChatRef.current = true;
-      // Try to use stored chatId first (if any)
-      if (typeof window !== "undefined") {
-        const storedChatId = localStorage.getItem("quickBuyChat_chatId");
-        if (storedChatId) {
-          setChatId(storedChatId);
-          setStep("chat");
-          pollForNewMessages(storedChatId);
-          return;
-        }
-      }
-
-      // Silent auto-create (no toast spam on page load)
-      createChat({ name: nextInfo.name, phone: nextInfo.phone, email: undefined }, { silent: true }).catch(() => null);
-    }
-  }, [isAuthenticated, user, chatId, createChat, pollForNewMessages]);
+    // ChatId is initialized server-side via /api/chat/my
+  }, [isAuthenticated, user]);
 
   // Check support typing
   const checkSupportTyping = useCallback(async () => {
     if (!chatId) return;
 
     try {
-      const response = await fetch(`/api/chat/typing?chatId=${chatId}&sender=support`);
+      const response = await fetch(`/api/chat/typing?chatId=${chatId}&sender=support`, { credentials: "include" });
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
@@ -562,13 +526,18 @@ function ChatPageContent() {
 
   // Handle send message
   const handleSendMessage = useCallback(async () => {
-    if (!chatId) {
-      toast({
-        title: "خطا",
-        description: "لطفاً ابتدا اطلاعات خود را وارد کنید",
-        variant: "destructive",
-      });
-      return;
+    let activeChatId = chatId;
+    if (!activeChatId) {
+      const created = await initMyChat({ silent: true });
+      if (!created) {
+        toast({
+          title: "خطا",
+          description: "چت آماده نیست. لطفاً دوباره تلاش کنید",
+          variant: "destructive",
+        });
+        return;
+      }
+      activeChatId = created;
     }
 
     if (!message.trim() && attachments.length === 0) return;
@@ -660,7 +629,7 @@ function ChatPageContent() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          chatId,
+          chatId: activeChatId,
           customerInfo: {
             name: customerInfo.name,
             phone: customerInfo.phone,
@@ -690,12 +659,9 @@ function ChatPageContent() {
           )
         );
         
-        // Update chatId if provided
-        if (data.data.chatId && data.data.chatId !== chatId) {
+        // Update chatId if server returned a new one (stale local state)
+        if (data.data.chatId && data.data.chatId !== activeChatId) {
           setChatId(data.data.chatId);
-          if (typeof window !== "undefined") {
-            localStorage.setItem("quickBuyChat_chatId", data.data.chatId);
-          }
         }
       }
     } catch (error) {
@@ -711,7 +677,7 @@ function ChatPageContent() {
     setTimeout(() => {
       scrollToBottom(false);
     }, 100);
-  }, [chatId, customerInfo, attachments, replyingTo, editingMessage, sendTypingStatus, toast, setStep]);
+  }, [chatId, customerInfo, attachments, replyingTo, editingMessage, sendTypingStatus, toast, setStep, initMyChat]);
 
   // Handle reply
   const handleReply = useCallback((msg: Message) => {

@@ -4,6 +4,7 @@ import { join } from "path";
 import { existsSync } from "fs";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-route-helpers";
 import { AppError } from "@/lib/api-error-handler";
+import { getSessionUserFromRequest } from "@/lib/auth/session";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const UPLOAD_DIR = join(process.cwd(), "public", "uploads", "chat");
@@ -20,6 +21,11 @@ async function ensureUploadDir() {
  */
 export async function POST(request: NextRequest) {
   try {
+    const sessionUser = await getSessionUserFromRequest(request);
+    if (!sessionUser || !sessionUser.enabled) {
+      throw new AppError("برای ارسال فایل در چت باید وارد حساب کاربری شوید", 401, "UNAUTHORIZED");
+    }
+
     await ensureUploadDir();
 
     const formData = await request.formData();
