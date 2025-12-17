@@ -123,6 +123,7 @@ function ChatPageContent() {
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const hasScrolledOnOpenRef = useRef<boolean>(false);
+  const shouldAutoSendRef = useRef<boolean>(false);
 
   // Initialize user's chat (server-side, session-based)
   const initMyChat = useCallback(async (opts?: { silent?: boolean }) => {
@@ -391,10 +392,8 @@ function ChatPageContent() {
         setAudioBlob(null);
         setRecordingTime(0);
         
-        // Auto-send message with audio attachment
-        setTimeout(() => {
-          handleSendMessage();
-        }, 100);
+        // Set flag to auto-send message with audio attachment
+        shouldAutoSendRef.current = true;
       }
     } catch (error) {
       logger.error("Error saving recording:", error);
@@ -406,7 +405,7 @@ function ChatPageContent() {
     } finally {
       setIsSaving(false);
     }
-  }, [audioBlob, audioUrl, recordingTime, toast, handleSendMessage]);
+  }, [audioBlob, audioUrl, recordingTime, toast]);
 
   // Handle file select
   const handleFileSelect = useCallback(
@@ -466,6 +465,17 @@ function ChatPageContent() {
       return;
     }
 
+    // Check if we're on a secure origin (HTTPS or localhost)
+    const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (!isSecure) {
+      toast({
+        title: "خطا",
+        description: "برای استفاده از موقعیت‌یابی باید از HTTPS استفاده کنید. لطفاً از آدرس امن سایت استفاده کنید.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
@@ -479,21 +489,32 @@ function ChatPageContent() {
         setAttachments((prev) => [...prev, attachment]);
         setShowAttachmentOptions(false);
         
-        // Auto-send message with location attachment
-        setTimeout(() => {
-          handleSendMessage();
-        }, 100);
+        // Set flag to auto-send message with location attachment
+        shouldAutoSendRef.current = true;
       },
       (error) => {
         logger.error("Error getting location:", error);
+        let errorMessage = "خطا در دریافت موقعیت";
+        if (error.code === 1) {
+          errorMessage = "دسترسی به موقعیت رد شد. لطفاً در تنظیمات مرورگر اجازه دسترسی به موقعیت را فعال کنید.";
+        } else if (error.code === 2) {
+          errorMessage = "موقعیت در دسترس نیست. لطفاً مطمئن شوید که GPS فعال است.";
+        } else if (error.code === 3) {
+          errorMessage = "دریافت موقعیت زمان‌بر شد. لطفاً دوباره تلاش کنید.";
+        }
         toast({
           title: "خطا",
-          description: "خطا در دریافت موقعیت",
+          description: errorMessage,
           variant: "destructive",
         });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
       }
     );
-  }, [toast, handleSendMessage]);
+  }, [toast]);
 
   // Remove attachment
   const handleRemoveAttachment = useCallback((id: string) => {
@@ -726,6 +747,19 @@ function ChatPageContent() {
       scrollToBottom(false);
     }, 100);
   }, [chatId, customerInfo, attachments, replyingTo, editingMessage, sendTypingStatus, toast, setStep, initMyChat, pollForNewMessages]);
+
+  // Auto-send when attachments are added (for location and voice)
+  // Use a ref to track if we should auto-send (set by saveRecording/handleLocationShare)
+  useEffect(() => {
+    // Only auto-send if flag is set and we have attachments
+    if (shouldAutoSendRef.current && attachments.length > 0) {
+      shouldAutoSendRef.current = false; // Reset flag
+      const timer = setTimeout(() => {
+        handleSendMessage();
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [attachments, handleSendMessage]);
 
   // Handle reply
   const handleReply = useCallback((msg: Message) => {
