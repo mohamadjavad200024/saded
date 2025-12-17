@@ -1,20 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AppError } from "@/lib/api-error-handler";
+import { getSessionUserFromRequest } from "@/lib/auth/session";
 
 /**
  * استخراج اطلاعات کاربر از header یا body
  * در این سیستم، userId از header 'x-user-id' یا از body استخراج می‌شود
  */
+// Deprecated: header-based auth is insecure. Keep for backward compat only.
 export function getUserIdFromRequest(request: NextRequest): string | null {
-  // اول از header تلاش کن
   const userIdFromHeader = request.headers.get("x-user-id");
-  if (userIdFromHeader) {
-    return userIdFromHeader;
-  }
-  
-  // اگر در body است، از body بخوان (برای POST requests)
-  // توجه: این فقط برای API routes است که body را parse می‌کنند
-  return null;
+  return userIdFromHeader || null;
 }
 
 /**
@@ -23,20 +18,22 @@ export function getUserIdFromRequest(request: NextRequest): string | null {
  */
 export async function requireAuth(request: NextRequest): Promise<{
   userId: string;
-  userRole?: string;
+  userRole: string;
 }> {
-  const userId = getUserIdFromRequest(request);
-  
-  if (!userId || userId === "guest" || userId.trim() === "") {
-    throw new AppError("برای دسترسی به این بخش باید وارد حساب کاربری خود شوید", 401, "UNAUTHORIZED");
+  // Prefer session cookie
+  const sessionUser = await getSessionUserFromRequest(request);
+  if (sessionUser && sessionUser.enabled) {
+    return { userId: sessionUser.id, userRole: sessionUser.role || "user" };
   }
-  
-  // در اینجا می‌توانید بررسی کنید که کاربر در دیتابیس وجود دارد و فعال است
-  // برای حال حاضر، فقط userId را برمی‌گردانیم
-  
-  return {
-    userId: userId.trim(),
-  };
+
+  // Backward compat (old header-based system)
+  const legacyUserId = getUserIdFromRequest(request);
+  if (legacyUserId && legacyUserId !== "guest" && legacyUserId.trim() !== "") {
+    const role = request.headers.get("x-user-role") || "user";
+    return { userId: legacyUserId.trim(), userRole: role };
+  }
+
+  throw new AppError("برای دسترسی به این بخش باید وارد حساب کاربری خود شوید", 401, "UNAUTHORIZED");
 }
 
 /**
@@ -47,19 +44,10 @@ export async function requireAdmin(request: NextRequest): Promise<{
   userRole: string;
 }> {
   const auth = await requireAuth(request);
-  
-  // در اینجا باید از دیتابیس نقش کاربر را بررسی کنید
-  // برای حال حاضر، فرض می‌کنیم که role در header ارسال می‌شود
-  const userRole = request.headers.get("x-user-role") || "user";
-  
-  if (userRole !== "admin") {
+  if (auth.userRole !== "admin") {
     throw new AppError("شما دسترسی به این بخش را ندارید", 403, "FORBIDDEN");
   }
-  
-  return {
-    userId: auth.userId,
-    userRole,
-  };
+  return auth;
 }
 
 /**

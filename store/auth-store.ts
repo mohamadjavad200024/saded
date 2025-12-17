@@ -14,13 +14,15 @@ export interface AuthUser {
 interface AuthStore {
   user: AuthUser | null;
   isAuthenticated: boolean;
+  isCheckingAuth: boolean;
+  hasCheckedAuth: boolean;
   
   // Actions
   register: (name: string, phone: string, password: string) => Promise<void>;
   login: (phone: string, password: string) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
+  checkAuth: () => Promise<void>;
   updateUser: (userData: Partial<AuthUser>) => void;
-  loadUser: (userId: string) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthStore>()(
@@ -28,6 +30,8 @@ export const useAuthStore = create<AuthStore>()(
     (set, get) => ({
       user: null,
       isAuthenticated: false,
+      isCheckingAuth: false,
+      hasCheckedAuth: false,
 
       register: async (name: string, phone: string, password: string) => {
         const response = await fetch("/api/auth/register", {
@@ -35,6 +39,7 @@ export const useAuthStore = create<AuthStore>()(
           headers: {
             "Content-Type": "application/json",
           },
+          credentials: "include",
           body: JSON.stringify({ name, phone, password }),
         });
 
@@ -67,13 +72,8 @@ export const useAuthStore = create<AuthStore>()(
         set({
           user,
           isAuthenticated: true,
+          hasCheckedAuth: true,
         });
-
-        // ذخیره در localStorage برای استفاده در header ها
-        if (typeof window !== "undefined") {
-          localStorage.setItem("saded_user_id", user.id);
-          localStorage.setItem("saded_user_role", user.role || "user");
-        }
       },
 
       login: async (phone: string, password: string): Promise<boolean> => {
@@ -82,6 +82,7 @@ export const useAuthStore = create<AuthStore>()(
           headers: {
             "Content-Type": "application/json",
           },
+          credentials: "include",
           body: JSON.stringify({ phone, password }),
         });
 
@@ -105,27 +106,57 @@ export const useAuthStore = create<AuthStore>()(
         set({
           user,
           isAuthenticated: true,
+          hasCheckedAuth: true,
         });
-
-        // ذخیره در localStorage برای استفاده در header ها
-        if (typeof window !== "undefined") {
-          localStorage.setItem("saded_user_id", user.id);
-          localStorage.setItem("saded_user_role", user.role || "user");
-        }
 
         return true;
       },
 
-      logout: () => {
-        set({
-          user: null,
-          isAuthenticated: false,
-        });
+      logout: async () => {
+        try {
+          await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+        } catch {
+          // ignore
+        } finally {
+          set({
+            user: null,
+            isAuthenticated: false,
+            hasCheckedAuth: true,
+          });
+        }
+      },
 
-        // حذف از localStorage
-        if (typeof window !== "undefined") {
-          localStorage.removeItem("saded_user_id");
-          localStorage.removeItem("saded_user_role");
+      checkAuth: async () => {
+        const { isCheckingAuth, hasCheckedAuth } = get();
+        if (isCheckingAuth) return;
+        // Always allow re-check, but avoid spamming if already checked recently
+        set({ isCheckingAuth: true });
+        try {
+          const res = await fetch("/api/auth/me", { credentials: "include" });
+          const json = await res.json().catch(() => null);
+          if (res.ok && json?.success && json?.data?.user) {
+            const u = json.data.user;
+            set({
+              user: {
+                id: u.id,
+                name: u.name,
+                phone: u.phone,
+                role: u.role || "user",
+                createdAt: u.createdAt,
+              },
+              isAuthenticated: true,
+              hasCheckedAuth: true,
+            });
+          } else {
+            set({ user: null, isAuthenticated: false, hasCheckedAuth: true });
+          }
+        } catch {
+          // Network fail: don't force logout, but mark checked to prevent infinite spinner
+          if (!hasCheckedAuth) {
+            set({ hasCheckedAuth: true });
+          }
+        } finally {
+          set({ isCheckingAuth: false });
         }
       },
 
@@ -134,36 +165,6 @@ export const useAuthStore = create<AuthStore>()(
         if (user) {
           const updatedUser = { ...user, ...userData };
           set({ user: updatedUser });
-        }
-      },
-
-      loadUser: async (userId: string) => {
-        try {
-          const response = await fetch(`/api/auth/me?userId=${userId}`);
-          const result = await response.json();
-
-          if (result.success && result.data.user) {
-            const user = {
-              id: result.data.user.id,
-              name: result.data.user.name,
-              phone: result.data.user.phone,
-              role: result.data.user.role || "user",
-              createdAt: result.data.user.createdAt,
-            };
-
-            set({
-              user,
-              isAuthenticated: true,
-            });
-
-            // ذخیره در localStorage
-            if (typeof window !== "undefined") {
-              localStorage.setItem("saded_user_id", user.id);
-              localStorage.setItem("saded_user_role", user.role || "user");
-            }
-          }
-        } catch (error) {
-          console.error("Error loading user:", error);
         }
       },
     }),

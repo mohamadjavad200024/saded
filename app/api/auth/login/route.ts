@@ -5,12 +5,14 @@ import { AppError } from "@/lib/api-error-handler";
 import { logger } from "@/lib/logger";
 import bcrypt from "bcryptjs";
 import { loginSchema, normalizePhone } from "@/lib/validations/auth";
+import { createSession, ensureAuthTables, setSessionCookie } from "@/lib/auth/session";
 
 /**
  * POST /api/auth/login - Login user
  */
 export async function POST(request: NextRequest) {
   try {
+    await ensureAuthTables();
     const body = await request.json().catch(() => {
       throw new AppError("Invalid JSON in request body", 400, "INVALID_JSON");
     });
@@ -90,8 +92,10 @@ export async function POST(request: NextRequest) {
 
     logger.info("User logged in successfully:", { id: user.id, phone: user.phone });
 
+    const sessionToken = await createSession(user.id, request);
+
     // Return user without password
-    return createSuccessResponse({
+    const res = createSuccessResponse({
       user: {
         id: user.id,
         name: user.name,
@@ -101,6 +105,8 @@ export async function POST(request: NextRequest) {
       },
       message: "ورود موفق",
     });
+    setSessionCookie(res, sessionToken, request);
+    return res;
   } catch (error: any) {
     logger.error("POST /api/auth/login error:", error);
     

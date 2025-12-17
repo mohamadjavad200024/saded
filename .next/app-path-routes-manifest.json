@@ -19,6 +19,7 @@
   "/api/auth/cleanup-db/route": "/api/auth/cleanup-db",
   "/api/auth/debug-db/route": "/api/auth/debug-db",
   "/api/auth/login/route": "/api/auth/login",
+  "/api/auth/logout/route": "/api/auth/logout",
   "/api/auth/me/route": "/api/auth/me",
   "/api/auth/register/route": "/api/auth/register",
   "/api/auth/test-phone/route": "/api/auth/test-phone",

@@ -4,6 +4,7 @@ import { createErrorResponse, createSuccessResponse } from "@/lib/api-route-help
 import { AppError } from "@/lib/api-error-handler";
 import { runQuery, getRow } from "@/lib/db/index";
 import { logger } from "@/lib/logger";
+import { requireAuth } from "@/lib/auth/middleware";
 
 /**
  * Sanitize و اعتبارسنجی ورودی‌ها
@@ -20,6 +21,15 @@ function sanitizeNumber(value: any): number {
 
 export async function POST(request: NextRequest) {
   try {
+    // If user is logged in, attach order to userId. (Guest orders remain "guest")
+    let userIdForOrder: string = "guest";
+    try {
+      const auth = await requireAuth(request);
+      userIdForOrder = auth.userId;
+    } catch {
+      // ignore - allow guest checkout
+    }
+
     const body = await request.json().catch(() => {
       throw new AppError("Invalid JSON in request body", 400, "INVALID_JSON");
     });
@@ -235,7 +245,7 @@ export async function POST(request: NextRequest) {
         postalCode: sanitizedFormData.postalCode || undefined,
       },
       notes: sanitizedFormData.notes || undefined,
-      userId: request.headers.get("x-user-id") || "guest",
+      userId: userIdForOrder,
       orderNumber: generateOrderNumber(),
     };
 

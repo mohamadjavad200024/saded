@@ -1,0 +1,1 @@
+(globalThis.TURBOPACK||(globalThis.TURBOPACK=[])).push(["object"==typeof document?document.currentScript:void 0,40171,e=>{"use strict";async function t(e,n={}){let c=new Headers(n.headers);return!c.has("Content-Type")&&n.body&&c.set("Content-Type","application/json"),fetch(e,{...n,credentials:"include",headers:c})}e.s(["fetchWithAuth",()=>t])}]);

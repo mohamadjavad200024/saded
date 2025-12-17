@@ -3,7 +3,7 @@ import { getRow, runQuery } from "@/lib/db/index";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-route-helpers";
 import { AppError } from "@/lib/api-error-handler";
 import type { Order } from "@/types/order";
-import { getUserIdFromRequest } from "@/lib/auth/middleware";
+import { requireAuth } from "@/lib/auth/middleware";
 
 /**
  * GET /api/orders/[id] - Get order by ID
@@ -17,11 +17,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    
-    // دریافت userId و role از header
-    const userId = request.headers.get("x-user-id");
-    const userRole = request.headers.get("x-user-role") || "user";
-    const isAdmin = userRole === "admin";
+    const auth = await requireAuth(request);
+    const isAdmin = auth.userRole === "admin";
 
     const order = await getRow<any>("SELECT * FROM orders WHERE id = ?", [id]);
 
@@ -31,7 +28,7 @@ export async function GET(
 
     // بررسی دسترسی: فقط admin یا صاحب سفارش می‌تواند سفارش را ببیند
     if (!isAdmin && order.userId && order.userId !== "guest") {
-      if (!userId || userId.trim() === "" || userId !== order.userId) {
+      if (auth.userId !== order.userId) {
         throw new AppError("شما دسترسی به این سفارش را ندارید", 403, "FORBIDDEN");
       }
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,7 @@ import { validateIranianPhone, normalizePhone, validateStrongPassword } from "@/
 export default function AuthPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { register, login, isAuthenticated } = useAuthStore();
+  const { register, login, isAuthenticated, checkAuth, hasCheckedAuth, isCheckingAuth } = useAuthStore();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [isLoading, setIsLoading] = useState(false);
   
@@ -96,11 +96,19 @@ export default function AuthPage() {
     setValidationErrors(errors);
   };
 
-  // Redirect if already authenticated
-  if (isAuthenticated) {
-    router.push("/");
-    return null;
-  }
+  // Check cookie-based session before redirecting away from /auth
+  useEffect(() => {
+    if (!hasCheckedAuth && !isCheckingAuth) {
+      checkAuth();
+    }
+  }, [hasCheckedAuth, isCheckingAuth, checkAuth]);
+
+  // Redirect if already authenticated (after session check)
+  useEffect(() => {
+    if (hasCheckedAuth && isAuthenticated) {
+      router.push("/");
+    }
+  }, [hasCheckedAuth, isAuthenticated, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

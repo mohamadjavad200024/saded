@@ -71,3 +71,4 @@ ps aux | grep node | grep server.js | awk '{print $11}'
 # (نیاز به پیدا کردن script restart)
 ```
 
+
