@@ -48,7 +48,9 @@ export function Header() {
         initializeSession();
         await loadFromDatabase();
       } catch (error) {
-        console.error("Error initializing cart in header:", error);
+        if (process.env.NODE_ENV === "development") {
+          console.error("Error initializing cart in header:", error);
+        }
       }
     };
     initCart();

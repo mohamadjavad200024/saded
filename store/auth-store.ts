@@ -50,12 +50,14 @@ export const useAuthStore = create<AuthStore>()(
           const errorMessage = result.error || result.message || "خطا در ثبت‌نام";
           
           // Log کامل برای debugging
-          console.error("Register API error:", {
-            status: response.status,
-            statusText: response.statusText,
-            result,
-            body: { name, phone: "***", password: "***" },
-          });
+          if (process.env.NODE_ENV === "development") {
+            console.error("Register API error:", {
+              status: response.status,
+              statusText: response.statusText,
+              result,
+              body: { name, phone: "***", password: "***" },
+            });
+          }
           
           throw new Error(errorMessage);
         }
@@ -90,7 +92,9 @@ export const useAuthStore = create<AuthStore>()(
 
         if (!result.success) {
           // می‌توانیم پیام خطا را لاگ کنیم برای debugging
-          console.error("Login error:", result.error || result.message);
+          if (process.env.NODE_ENV === "development") {
+            console.error("Login error:", result.error || result.message);
+          }
           return false;
         }
 
