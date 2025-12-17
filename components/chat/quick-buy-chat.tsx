@@ -1127,6 +1127,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
           chatId: chatId || undefined, // Send chatId if exists
           customerInfo,
@@ -1242,7 +1243,9 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
   };
 
   const handleSendMessage = async () => {
-    if (!message.trim() && attachments.length === 0) return;
+    // IMPORTANT: Read from textarea ref first (IME/composition can make React state lag behind)
+    const currentText = (textareaRef.current?.value ?? message) as string;
+    if (!currentText.trim() && attachments.length === 0) return;
 
     // If editing, update the message instead of sending new one
     if (editingMessage) {
@@ -1252,7 +1255,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({
-            text: message,
+            text: currentText,
             attachments: attachments,
           }),
         });
@@ -1261,7 +1264,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === editingMessage.id
-                ? { ...msg, text: message, attachments: attachments }
+                ? { ...msg, text: currentText, attachments: attachments }
                 : msg
             )
           );
@@ -1295,7 +1298,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
     });
 
     // Don't send message if no valid attachments and no text
-    if (!message.trim() && validAttachments.length === 0) {
+    if (!currentText.trim() && validAttachments.length === 0) {
       toast({
         title: "خطا",
         description: "لطفاً یک پیام یا فایل معتبر اضافه کنید",
@@ -1304,9 +1307,9 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
       return;
     }
 
-    let messageText = message;
+    let messageText = currentText;
     if (replyingTo) {
-      messageText = `در پاسخ به: ${replyingTo.text}\n\n${message}`;
+      messageText = `در پاسخ به: ${replyingTo.text}\n\n${currentText}`;
     }
 
     const newMessage: Message = {
@@ -2394,9 +2397,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
                         clearTimeout(typingTimeoutRef.current);
                       }
                       sendTypingStatus(false);
-                      if (message.trim() || attachments.length > 0) {
                       handleSendMessage();
-                      }
                     }
                   }}
                   placeholder="پیام خود را بنویسید..."
@@ -2422,7 +2423,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
                   </Button>
 
                   {/* Send Button - only show when there's content */}
-                  {(message.trim() || attachments.length > 0) && !isRecording && (
+                  {!isRecording && (
                     <>
                       {isSaving ? (
                         <Loader2 className="h-4 w-4 text-primary animate-spin" />
