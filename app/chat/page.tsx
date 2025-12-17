@@ -540,7 +540,9 @@ function ChatPageContent() {
       activeChatId = created;
     }
 
-    if (!message.trim() && attachments.length === 0) return;
+    // IMPORTANT: Read from textarea ref first (IME/composition can make React state lag behind)
+    const currentText = (textareaRef.current?.value ?? message) as string;
+    if (!currentText.trim() && attachments.length === 0) return;
 
     // Ensure customerInfo is available
     if (!customerInfo.name || !customerInfo.phone) {
@@ -561,7 +563,7 @@ function ChatPageContent() {
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({
-            text: message,
+            text: currentText,
             attachments: attachments,
           }),
         });
@@ -570,7 +572,7 @@ function ChatPageContent() {
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === editingMessage.id
-                ? { ...msg, text: message, attachments: attachments }
+                ? { ...msg, text: currentText, attachments: attachments }
                 : msg
             )
           );
@@ -595,7 +597,7 @@ function ChatPageContent() {
     };
 
     // Save message text before clearing
-    const messageText = message;
+    const messageText = currentText;
     
     setMessages((prev) => [...prev, newMessage]);
     setMessage("");
@@ -1427,9 +1429,7 @@ function ChatPageContent() {
                             clearTimeout(typingTimeoutRef.current);
                           }
                           sendTypingStatus(false);
-                          if (message.trim() || attachments.length > 0) {
-                            handleSendMessage();
-                          }
+                          handleSendMessage();
                         }
                       }}
                       placeholder="پیام خود را بنویسید..."
@@ -1452,7 +1452,7 @@ function ChatPageContent() {
                       >
                         <Paperclip className="h-4 w-4" />
                       </Button>
-                      {(message.trim() || attachments.length > 0) && !isRecording && (
+                      {!isRecording && (
                         <>
                           {isSaving ? (
                             <Loader2 className="h-4 w-4 text-primary animate-spin" />
