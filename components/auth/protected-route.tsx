@@ -21,18 +21,31 @@ export function ProtectedRoute({
   requireAdmin = false,
 }: ProtectedRouteProps) {
   const router = useRouter();
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, checkAuth, isCheckingAuth, hasCheckedAuth } = useAuthStore();
 
   useEffect(() => {
-    if (requireAuth && !isAuthenticated) {
+    // Ensure we check cookie-based session before redirecting
+    if (requireAuth && !hasCheckedAuth && !isCheckingAuth) {
+      checkAuth();
+    }
+  }, [requireAuth, hasCheckedAuth, isCheckingAuth, checkAuth]);
+
+  useEffect(() => {
+    if (!requireAuth) return;
+    if (!hasCheckedAuth || isCheckingAuth) return;
+
+    if (!isAuthenticated) {
       router.push("/auth?redirect=" + encodeURIComponent(window.location.pathname));
-    } else if (requireAdmin && (!isAuthenticated || user?.role !== "admin")) {
+      return;
+    }
+
+    if (requireAdmin && user?.role !== "admin") {
       router.push("/");
     }
-  }, [isAuthenticated, user, requireAuth, requireAdmin, router]);
+  }, [isAuthenticated, user, requireAuth, requireAdmin, router, hasCheckedAuth, isCheckingAuth]);
 
   // نمایش loading در حال بررسی
-  if (requireAuth && !isAuthenticated) {
+  if (requireAuth && (!hasCheckedAuth || isCheckingAuth)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">

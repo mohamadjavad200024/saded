@@ -88,3 +88,4 @@ ps aux | grep node | grep saded
 - ✅ `sleep 3` برای اطمینان از restart کامل مفید است
 - ⚠️ در صورت نیاز به build، می‌توانید `npm run build` را قبل از restart اضافه کنید
 
+

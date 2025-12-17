@@ -1,16 +1,18 @@
 import { NextRequest } from "next/server";
-import { getRow, runQuery, getRows } from "@/lib/db/index";
+import { getRow, runQuery } from "@/lib/db/index";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-route-helpers";
 import { AppError } from "@/lib/api-error-handler";
 import { logger } from "@/lib/logger";
 import bcrypt from "bcryptjs";
 import { registerSchema, normalizePhone, validateStrongPassword } from "@/lib/validations/auth";
+import { createSession, ensureAuthTables, setSessionCookie } from "@/lib/auth/session";
 
 /**
  * POST /api/auth/register - Register new user
  */
 export async function POST(request: NextRequest) {
   try {
+    await ensureAuthTables();
     // Parse request body
     let body: any;
     try {
@@ -77,155 +79,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Ensure users table exists
-    try {
-      await runQuery(`
-        CREATE TABLE IF NOT EXISTS users (
-          id VARCHAR(255) PRIMARY KEY,
-          name VARCHAR(255) NOT NULL,
-          phone VARCHAR(255) UNIQUE NOT NULL,
-          password VARCHAR(255) NOT NULL,
-          role VARCHAR(50) NOT NULL DEFAULT 'user',
-          enabled BOOLEAN DEFAULT TRUE,
-          createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )
-      `);
-      logger.debug("Users table checked/created successfully");
-    } catch (createError: any) {
-      // Ignore table already exists errors
-      if (
-        createError?.code !== "ER_TABLE_EXISTS_ERROR" &&
-        !createError?.message?.includes("already exists") &&
-        !createError?.message?.includes("Duplicate table")
-      ) {
-        logger.error("Error creating users table:", {
-          code: createError?.code,
-          message: createError?.message,
-          sqlState: createError?.sqlState,
-        });
-        throw new AppError("خطا در ایجاد جدول کاربران", 500, "TABLE_CREATION_ERROR");
-      }
-    }
-
-    // Check if user with this phone already exists
-    let existingUser: { id: string; phone: string } | null = null;
-    try {
-      // ابتدا بررسی کن که آیا شماره normalize شده معتبر است
-      if (!normalizedPhone || normalizedPhone.length !== 11 || !normalizedPhone.startsWith("09")) {
-        logger.error("Invalid normalized phone:", {
-          normalizedPhone,
-          length: normalizedPhone?.length,
-          startsWith09: normalizedPhone?.startsWith("09")
-        });
-        throw new AppError("شماره تماس معتبر نیست", 400, "INVALID_PHONE");
-      }
-
-      // بررسی دقیق‌تر - فقط شماره‌های معتبر را چک کن
-      // استفاده از TRIM و بررسی دقیق برای اطمینان از عدم وجود فاصله یا کاراکتر اضافی
-      const queryResult = await getRows<{ id: string; phone: string }>(
-        "SELECT id, TRIM(phone) as phone FROM users WHERE TRIM(phone) = ? AND phone IS NOT NULL AND phone != '' AND LENGTH(TRIM(phone)) = 11 AND TRIM(phone) LIKE '09%'",
-        [normalizedPhone.trim()]
-      );
-      
-      existingUser = queryResult && queryResult.length > 0 ? queryResult[0] : null;
-      
-      // اگر پیدا نشد، یک بار دیگر بدون TRIM چک کن (برای backward compatibility)
-      if (!existingUser) {
-        const queryResult2 = await getRows<{ id: string; phone: string }>(
-          "SELECT id, phone FROM users WHERE phone = ? AND phone IS NOT NULL AND phone != '' AND LENGTH(phone) = 11 AND phone LIKE '09%'",
-          [normalizedPhone]
-        );
-        existingUser = queryResult2 && queryResult2.length > 0 ? queryResult2[0] : null;
-      }
-      
-      logger.info("Duplicate check result:", {
-        normalizedPhone,
-        normalizedPhoneTrimmed: normalizedPhone.trim(),
-        normalizedPhoneLength: normalizedPhone.length,
-        normalizedPhoneBytes: Buffer.from(normalizedPhone).length,
-        queryResultCount: queryResult?.length || 0,
-        found: !!existingUser,
-        existingPhone: existingUser?.phone,
-        existingPhoneTrimmed: existingUser?.phone?.trim(),
-        existingPhoneLength: existingUser?.phone?.length,
-        existingPhoneBytes: existingUser?.phone ? Buffer.from(existingUser.phone).length : 0,
-        existingId: existingUser?.id,
-        phonesMatch: existingUser?.phone === normalizedPhone,
-        phonesMatchTrimmed: existingUser?.phone?.trim() === normalizedPhone.trim(),
-        phonesEqual: existingUser?.phone ? existingUser.phone.localeCompare(normalizedPhone) === 0 : false
-      });
-
-      // اگر پیدا نشد، بررسی کن که آیا شماره‌های مشابه وجود دارد
-      if (!existingUser) {
-        try {
-          const similarUsers = await getRows<{ id: string; phone: string }>(
-            "SELECT id, phone FROM users WHERE phone LIKE ? AND phone IS NOT NULL AND phone != '' AND LENGTH(phone) = 11 LIMIT 5",
-            [`%${normalizedPhone.slice(-4)}%`]
-          );
-          
-          if (similarUsers && similarUsers.length > 0) {
-            logger.info("Similar phones found:", {
-              normalizedPhone,
-              similarPhones: similarUsers.map(u => ({
-                phone: u.phone,
-                trimmed: u.phone.trim(),
-                length: u.phone.length,
-                bytes: Buffer.from(u.phone).length
-              }))
-            });
-          }
-        } catch (similarError: any) {
-          // Ignore errors in similar phones check
-          logger.debug("Error checking similar phones:", similarError.message);
-        }
-      }
-    } catch (dbError: any) {
-      logger.error("Error checking existing user:", {
-        code: dbError?.code,
-        message: dbError?.message,
-        phone: normalizedPhone,
-        sqlState: dbError?.sqlState,
-        errno: dbError?.errno,
-        stack: process.env.NODE_ENV === "development" ? dbError?.stack : undefined
-      });
-      
-      // اگر AppError است، مستقیماً throw کن
-      if (dbError instanceof AppError) {
-        throw dbError;
-      }
-      
-      // اگر خطای دیتابیس بود، آن را throw کن
-      if (
-        dbError?.code === "ECONNREFUSED" ||
-        dbError?.code === "ETIMEDOUT" ||
-        dbError?.code === "ECONNRESET" ||
-        dbError?.message?.includes("connect") ||
-        dbError?.message?.includes("timeout")
-      ) {
-        throw new AppError("دیتابیس در دسترس نیست", 503, "DATABASE_NOT_AVAILABLE");
-      }
-      throw dbError;
-    }
-
-    if (existingUser) {
-      logger.warn("Duplicate phone detected:", {
-        normalizedPhone,
-        normalizedPhoneTrimmed: normalizedPhone.trim(),
-        normalizedPhoneBytes: Buffer.from(normalizedPhone).length,
-        existingUserId: existingUser.id,
-        existingUserPhone: existingUser.phone,
-        existingUserPhoneTrimmed: existingUser.phone?.trim(),
-        existingUserPhoneBytes: Buffer.from(existingUser.phone).length,
-        phonesMatch: existingUser.phone === normalizedPhone,
-        phonesMatchTrimmed: existingUser.phone?.trim() === normalizedPhone.trim(),
-        phonesEqual: existingUser.phone.localeCompare(normalizedPhone) === 0,
-        phoneComparison: {
-          normalized: normalizedPhone.split("").map(c => c.charCodeAt(0)),
-          existing: existingUser.phone.split("").map(c => c.charCodeAt(0))
-        }
-      });
-      throw new AppError("شماره تماس قبلاً ثبت شده است", 400, "DUPLICATE_PHONE");
-    }
+    // NOTE: We do NOT pre-check duplicates anymore.
+    // We rely on UNIQUE index on users.phone (atomic + reliable).
 
     // Hash password
     let hashedPassword: string;
@@ -318,7 +173,8 @@ export async function POST(request: NextRequest) {
 
     logger.info("User registered successfully:", { id, phone: phone.trim() });
 
-    return createSuccessResponse({
+    const sessionToken = await createSession(newUser.id, request);
+    const res = createSuccessResponse({
       user: {
         id: newUser.id,
         name: newUser.name,
@@ -327,6 +183,8 @@ export async function POST(request: NextRequest) {
       },
       message: "ثبت‌نام با موفقیت انجام شد",
     });
+    setSessionCookie(res, sessionToken, request);
+    return res;
   } catch (error: any) {
     // Log کامل خطا برای debugging
     logger.error("POST /api/auth/register error:", {

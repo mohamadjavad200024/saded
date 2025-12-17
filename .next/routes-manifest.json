@@ -235,6 +235,12 @@
       "namedRegex": "^/api/auth/login(?:/)?$"
     },
     {
+      "page": "/api/auth/logout",
+      "regex": "^/api/auth/logout(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/logout(?:/)?$"
+    },
+    {
       "page": "/api/auth/me",
       "regex": "^/api/auth/me(?:/)?$",
       "routeKeys": {},
