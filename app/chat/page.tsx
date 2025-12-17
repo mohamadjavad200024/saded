@@ -371,6 +371,7 @@ function ChatPageContent() {
 
       const response = await fetch("/api/chat/upload", {
         method: "POST",
+        credentials: "include",
         body: formData,
       });
 
@@ -389,6 +390,11 @@ function ChatPageContent() {
         setAudioUrl(null);
         setAudioBlob(null);
         setRecordingTime(0);
+        
+        // Auto-send message with audio attachment
+        setTimeout(() => {
+          handleSendMessage();
+        }, 100);
       }
     } catch (error) {
       logger.error("Error saving recording:", error);
@@ -400,7 +406,7 @@ function ChatPageContent() {
     } finally {
       setIsSaving(false);
     }
-  }, [audioBlob, audioUrl, recordingTime, toast]);
+  }, [audioBlob, audioUrl, recordingTime, toast, handleSendMessage]);
 
   // Handle file select
   const handleFileSelect = useCallback(
@@ -472,6 +478,11 @@ function ChatPageContent() {
         };
         setAttachments((prev) => [...prev, attachment]);
         setShowAttachmentOptions(false);
+        
+        // Auto-send message with location attachment
+        setTimeout(() => {
+          handleSendMessage();
+        }, 100);
       },
       (error) => {
         logger.error("Error getting location:", error);
@@ -482,7 +493,7 @@ function ChatPageContent() {
         });
       }
     );
-  }, [toast]);
+  }, [toast, handleSendMessage]);
 
   // Remove attachment
   const handleRemoveAttachment = useCallback((id: string) => {
