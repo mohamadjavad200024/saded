@@ -121,7 +121,13 @@ export async function POST(request: NextRequest) {
           "";
         // Only show DUPLICATE_PHONE when the duplicate key is actually the phone unique index.
         // Otherwise, return a generic duplicate key error to avoid misleading the user.
-        const isPhoneDuplicate = /phone/i.test(msg) || /uniq_users_phone/i.test(msg);
+        const keyMatch = msg.match(/for key '([^']+)'/i);
+        const dupKey = keyMatch?.[1] || "";
+        const isPhoneDuplicate =
+          /phone/i.test(msg) ||
+          /uniq_users_phone/i.test(msg) ||
+          /phone/i.test(dupKey) ||
+          /uniq_users_phone/i.test(dupKey);
         if (isPhoneDuplicate) {
           throw new AppError("شماره تماس قبلاً ثبت شده است", 400, "DUPLICATE_PHONE");
         }
