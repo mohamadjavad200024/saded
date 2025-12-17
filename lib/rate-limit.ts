@@ -132,7 +132,10 @@ export function rateLimit(
 ) {
   return async (request: NextRequest): Promise<Response | null> => {
     const key = keyGenerator ? keyGenerator(request) : getClientId(request);
-    const fullKey = `${request.nextUrl.pathname}:${key}`;
+    // IMPORTANT:
+    // Include HTTP method in the key so GET polling does NOT consume POST quotas on the same path.
+    // Example: /api/chat uses GET polling frequently; without method separation, POST /api/chat would hit 429 unexpectedly.
+    const fullKey = `${request.nextUrl.pathname}:${request.method}:${key}`;
 
     if (rateLimiter.isRateLimited(fullKey, maxRequests, windowMs)) {
       const resetTime = rateLimiter.getResetTime(fullKey);
