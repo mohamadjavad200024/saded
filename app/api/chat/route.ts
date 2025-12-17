@@ -21,14 +21,28 @@ export async function POST(request: NextRequest) {
       throw new AppError("Invalid JSON in request body", 400, "INVALID_JSON");
     });
 
-    const { customerInfo, messages } = body;
+    // Support both payloads:
+    // - { customerInfo: {name, phone, email?}, messages?: [], chatId?: string }
+    // - legacy: { customerName, customerPhone, customerEmail } (create chat without messages)
+    const providedChatId: string | undefined = body.chatId;
+    const customerInfo =
+      body.customerInfo ||
+      (body.customerName || body.customerPhone
+        ? {
+            name: body.customerName,
+            phone: body.customerPhone,
+            email: body.customerEmail,
+          }
+        : null);
+    const messages = body.messages;
 
-    if (!customerInfo || !customerInfo.name || !customerInfo.phone) {
-      throw new AppError("اطلاعات مشتری الزامی است", 400, "MISSING_CUSTOMER_INFO");
-    }
+    const hasMessages = Array.isArray(messages) && messages.length > 0;
 
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      throw new AppError("حداقل یک پیام الزامی است", 400, "MISSING_MESSAGES");
+    // If creating a new chat (no chatId), customerInfo is required.
+    if (!providedChatId) {
+      if (!customerInfo || !customerInfo.name || !customerInfo.phone) {
+        throw new AppError("اطلاعات مشتری الزامی است", 400, "MISSING_CUSTOMER_INFO");
+      }
     }
 
     // Ensure tables exist (create in order to handle foreign keys)
@@ -82,8 +96,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check if chatId is provided (for updating existing chat)
-    const providedChatId = body.chatId;
     let chatId: string;
     const now = new Date().toISOString();
 
@@ -112,6 +124,21 @@ export async function POST(request: NextRequest) {
           now,
         ]
       );
+    }
+
+    // Allow "create chat" without messages (used by chat UI step=info)
+    if (!hasMessages) {
+      // Clear cache so admin polling sees the new chat
+      try {
+        cache.delete(cacheKeys.chatList());
+      } catch {
+        // ignore
+      }
+      return createSuccessResponse({
+        id: chatId,
+        chatId,
+        messages: [],
+      });
     }
 
     // Get existing message IDs to avoid duplicates

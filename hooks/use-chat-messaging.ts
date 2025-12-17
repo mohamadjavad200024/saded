@@ -183,7 +183,14 @@ export function useChatMessaging({
         body: JSON.stringify(body),
       });
 
-      if (!response.ok) throw new Error("خطا در ارسال پیام");
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => null);
+        const msg =
+          errJson?.error ||
+          (response.status === 429 ? "درخواست‌های شما زیاد است. لطفاً کمی بعد دوباره تلاش کنید." : null) ||
+          "خطا در ارسال پیام";
+        throw new Error(msg);
+      }
 
       if (onMessageSent) {
         onMessageSent();
@@ -191,10 +198,12 @@ export function useChatMessaging({
 
       return newMessage;
     } catch (error) {
-      logger.error("Error sending message:", error);
+      if (process.env.NODE_ENV === "development") {
+        logger.error("Error sending message:", error);
+      }
       toast({
         title: "خطا",
-        description: "خطا در ارسال پیام",
+        description: error instanceof Error ? error.message : "خطا در ارسال پیام",
         variant: "destructive",
       });
       return null;
