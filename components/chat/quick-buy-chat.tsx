@@ -50,26 +50,13 @@ import { useAdminPresence } from "@/hooks/use-admin-presence";
 import { usePersistentNotifications } from "@/hooks/use-persistent-notifications";
 import { TypingIndicator } from "@/components/chat/typing-indicator";
 import { logger } from "@/lib/logger-client";
-
-type MessageStatus = "sending" | "sent" | "delivered" | "read" | "failed";
-
-interface Message {
-  id: string;
-  text: string;
-  sender: "user" | "support";
-  timestamp: Date;
-  attachments?: Attachment[];
-  status?: MessageStatus;
-}
-
-interface Attachment {
-  id: string;
-  type: "image" | "file" | "location" | "audio";
-  url?: string;
-  name?: string;
-  size?: number;
-  duration?: number;
-}
+import { ChatMessages } from "@/components/chat/chat-messages";
+import { ChatInput } from "@/components/chat/chat-input";
+import { ChatHeader } from "@/components/chat/chat-header";
+import type { Message, Attachment, MessageStatus } from "@/components/chat/chat-types";
+import { formatTime, formatFileSize } from "@/lib/chat/chat-helpers";
+import { useChatRecording } from "@/hooks/use-chat-recording";
+import { useChatAttachments } from "@/hooks/use-chat-attachments";
 
 interface QuickBuyChatProps {
   isOpen: boolean;
@@ -141,29 +128,18 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
   };
 
   const [customerInfo, setCustomerInfo] = useState(loadCustomerInfo);
-  const [step, setStep] = useState<"info" | "chat">("info");
+  const step: "chat" = "chat"; // Always in chat mode, info form moved to auth page
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [showAttachmentOptions, setShowAttachmentOptions] = useState(false);
-  
-  // Voice recording states
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [isPlayingAudio, setIsPlayingAudio] = useState<string | null>(null);
-  const [recordingPermission, setRecordingPermission] = useState<boolean | null>(null);
-  const [showPermissionGuide, setShowPermissionGuide] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [chatId, setChatId] = useState<string | null>(loadChatId());
   const [isPolling, setIsPolling] = useState(false);
   const [isSupportTyping, setIsSupportTyping] = useState(false);
+  const [isPlayingAudio, setIsPlayingAudio] = useState<string | null>(null);
+  
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const typingPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
   const lastPolledMessageIdRef = useRef<string | null>(null);
   const processedNotificationIdsRef = useRef<Set<string>>(new Set());
@@ -175,8 +151,6 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
   const hasScrolledOnOpenRef = useRef<boolean>(false);
   const lastUserMessageIdRef = useRef<string | null>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
@@ -304,21 +278,12 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
   useEffect(() => {
     if (!isOpen) {
       // Reset state when chat is closed (but keep customer info in localStorage)
-      setStep("info");
+      // Info form moved to auth page
       setMessage("");
       setAttachments([]);
       setShowAttachmentOptions(false);
-      setIsRecording(false);
-      setRecordingTime(0);
-      setAudioBlob(null);
-      setAudioUrl(null);
+      // Recording state is now managed by useChatRecording hook
       setIsPlayingAudio(null);
-      if (recordingIntervalRef.current) {
-        clearInterval(recordingIntervalRef.current);
-      }
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-        mediaRecorderRef.current.stop();
-      }
       // Stop polling when chat closes
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
@@ -335,25 +300,21 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
       if (savedInfo.name && savedInfo.phone) {
         // Auto-restore: if we have saved info, go directly to chat
         setCustomerInfo(savedInfo);
-        setStep("chat"); // Set step to chat immediately
+        // Always in chat mode
         // Load chat history from database
         loadChatHistory(savedInfo, savedChatId);
       } else {
-        // No saved info, show info form
-        setStep("info");
-        setMessages([
-          {
-            id: "1",
-            text: "سلام! خوش آمدید. برای خرید سریع لطفاً اطلاعات زیر را وارد کنید:",
-            sender: "support",
-            timestamp: new Date(),
-          },
-        ]);
+        // No saved info, redirect to auth page
+        if (typeof window !== "undefined") {
+          window.location.href = "/auth";
+        }
       }
     }
   }, [isOpen]);
 
   // Check microphone permission
+  // Recording functions moved to useChatRecording hook (defined after uploadFile)
+  /*
   const checkMicrophonePermission = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -575,12 +536,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
       }
     }
   };
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
+  */
 
   const loadChatHistory = async (customerInfo: { name: string; phone: string; email?: string }, savedChatId: string | null) => {
     try {
@@ -747,10 +703,10 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
           } else {
             systemMessageShownRef.current = false; // Reset for new conversation
           }
-          setStep("chat");
+          // Always in chat mode
         } else {
           // No chat found, start new chat
-          setStep("chat");
+          // Always in chat mode
           setMessages([
             {
               id: "1",
@@ -763,7 +719,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
         }
       } else {
         // No chat found, start new chat
-        setStep("chat");
+        // Always in chat mode
         setMessages([
           {
             id: "1",
@@ -777,7 +733,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
     } catch (error) {
       logger.error("Error loading chat history:", error);
       // On error, still go to chat step
-      setStep("chat");
+      // Always in chat mode
       setMessages([
         {
           id: "1",
@@ -1032,7 +988,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
         
         // Navigate to chat step
         if (step !== "chat") {
-          setStep("chat");
+          // Always in chat mode
         }
         
         // If we have a chatId from localStorage or event, use it
@@ -1521,6 +1477,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
     }
   };
 
+  // Define uploadFile and handleSendMessage first (needed by hooks)
   const uploadFile = async (file: File, type: "image" | "file" | "audio", retryCount = 0): Promise<string> => {
     const MAX_RETRIES = 3;
     const RETRY_DELAY = 2000; // 2 seconds
@@ -1579,980 +1536,36 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
     }
   };
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>, type: "image" | "file") => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+  // Use hooks for recording and attachments
+  const recordingHook = useChatRecording(uploadFile, setAttachments, handleSendMessage);
+  const attachmentsHook = useChatAttachments(uploadFile, setAttachments, setShowAttachmentOptions, handleSendMessage);
 
-    for (const file of Array.from(files)) {
-      try {
-        // Upload file to server
-        const fileUrl = await uploadFile(file, type);
-        
-        const attachment: Attachment = {
-          id: Date.now().toString() + Math.random(),
-          type,
-          name: file.name,
-          size: file.size,
-          url: fileUrl,
-        };
-        setAttachments((prev) => [...prev, attachment]);
-      } catch (error) {
-        // Error already handled in uploadFile
-      }
-    }
+  // Extract values from hooks
+  const {
+    isRecording,
+    recordingTime,
+    audioUrl,
+    showPermissionGuide,
+    setShowPermissionGuide,
+    checkMicrophonePermission,
+    startRecording,
+    stopRecording,
+    cancelRecording,
+    saveRecording,
+  } = recordingHook;
 
-    e.target.value = "";
-  };
+  const {
+    imageInputRef,
+    fileInputRef,
+    handleFileSelect,
+    handleRemoveAttachment,
+    handleLocationShare,
+  } = attachmentsHook;
 
-  const handleRemoveAttachment = (id: string) => {
-    setAttachments((prev) => {
-      const attachment = prev.find((a) => a.id === id);
-      if (attachment?.url) {
-        URL.revokeObjectURL(attachment.url);
-      }
-      return prev.filter((a) => a.id !== id);
-    });
-  };
+  // formatFileSize moved to lib/chat/chat-helpers.ts
 
-  const handleLocationShare = () => {
-    logger.info("handleLocationShare called");
-    console.log("[Location Widget] handleLocationShare called");
-    
-    if (!navigator.geolocation) {
-      logger.warn("Geolocation not supported");
-      console.log("[Location Widget] Geolocation not supported");
-      toast({
-        title: "خطا",
-        description: "مرورگر شما از موقعیت مکانی پشتیبانی نمی‌کند",
-        variant: "destructive",
-      });
-      return;
-    }
+  // handleSubmitInfo removed - info form moved to auth page
 
-    // Check if we're on a secure origin (HTTPS or localhost)
-    const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    console.log("[Location Widget] Protocol:", window.location.protocol, "Hostname:", window.location.hostname, "IsSecure:", isSecure);
-    if (!isSecure) {
-      logger.warn("Not on secure origin");
-      console.log("[Location Widget] Not on secure origin");
-      toast({
-        title: "خطا",
-        description: "برای استفاده از موقعیت‌یابی باید از HTTPS استفاده کنید. لطفاً از آدرس امن سایت استفاده کنید.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Show loading toast
-    toast({
-      title: "در حال دریافت موقعیت...",
-      description: "لطفاً اجازه دسترسی به موقعیت را در مرورگر بدهید",
-      duration: 3000,
-    });
-
-    logger.info("Requesting geolocation permission...");
-    console.log("[Location Widget] Requesting geolocation permission...");
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        logger.info("Location received:", position.coords);
-        console.log("[Location Widget] Position received:", position.coords);
-        const attachment: Attachment = {
-          id: Date.now().toString(),
-          type: "location",
-          url: `https://www.google.com/maps?q=${position.coords.latitude},${position.coords.longitude}`,
-          name: "موقعیت مکانی",
-        };
-        console.log("[Location Widget] Adding attachment:", attachment);
-        setAttachments((prev) => {
-          const newAttachments = [...prev, attachment];
-          console.log("[Location Widget] New attachments:", newAttachments);
-          return newAttachments;
-        });
-        setShowAttachmentOptions(false);
-        
-        // Auto-send message with location attachment
-        console.log("[Location Widget] Auto-sending message...");
-        setTimeout(() => {
-          handleSendMessage();
-        }, 100);
-      },
-      (error) => {
-        logger.error("Error getting location:", error);
-        let errorMessage = "خطا در دریافت موقعیت مکانی";
-        if (error.code === 1) {
-          errorMessage = "دسترسی به موقعیت رد شد. لطفاً در تنظیمات مرورگر اجازه دسترسی به موقعیت را فعال کنید.";
-        } else if (error.code === 2) {
-          errorMessage = "موقعیت در دسترس نیست. لطفاً مطمئن شوید که GPS فعال است.";
-        } else if (error.code === 3) {
-          errorMessage = "دریافت موقعیت زمان‌بر شد. لطفاً دوباره تلاش کنید.";
-        }
-        alert(errorMessage);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      }
-    );
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + " B";
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
-  };
-
-  const handleSubmitInfo = async () => {
-    if (!customerInfo.name || !customerInfo.phone) {
-      return;
-    }
-
-    // Save customer info to localStorage
-    if (typeof window !== "undefined") {
-      localStorage.setItem("quickBuyChat_customerInfo", JSON.stringify(customerInfo));
-    }
-
-    // Reset system message flag for new chat
-    systemMessageShownRef.current = false;
-    systemMessageIdRef.current = null;
-
-    setStep("chat");
-    const welcomeMessage: Message = {
-      id: Date.now().toString(),
-      text: `سلام ${customerInfo.name}! اطلاعات شما ثبت شد. لطفاً محصول مورد نظر خود را ذکر کنید یا سوال خود را بپرسید.`,
-      sender: "support",
-      timestamp: new Date(),
-    };
-    setMessages((prev) => [...prev, welcomeMessage]);
-
-    // Save initial chat to database
-    await saveChatToDatabase(false); // Don't show toast for welcome message
-  };
-
-
-  const renderContent = () => (
-    <>
-      <SheetHeader className="px-4 sm:px-6 py-2 border-b border-border/40">
-        <div className="flex items-center gap-2">
-          <div className="flex-1 min-w-0">
-            <SheetTitle className="text-base font-semibold text-foreground flex items-center gap-2">
-              خرید سریع
-              {step === "chat" && (
-                <OnlineStatusBadge isOnline={isOnline} lastSeen={lastSeen} showText={false} />
-              )}
-            </SheetTitle>
-          </div>
-          {step === "chat" && customerInfo.name && customerInfo.phone && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => {
-                setStep("info");
-                setMessages([
-                  {
-                    id: "1",
-                    text: "سلام! خوش آمدید. برای خرید سریع لطفاً اطلاعات زیر را وارد کنید:",
-                    sender: "support",
-                    timestamp: new Date(),
-                  },
-                ]);
-              }}
-              className="h-8 w-8 rounded-lg hover:bg-primary/10 transition-colors"
-              title="تغییر اطلاعات"
-            >
-              <svg
-                className="h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <circle
-                  cx="12"
-                  cy="7"
-                  r="4"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </Button>
-          )}
-        </div>
-      </SheetHeader>
-
-      {step === "info" ? (
-          <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 bg-gradient-to-b from-background via-background to-muted/10">
-          {/* Welcome Message */}
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center pb-2"
-          >
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 mb-3 shadow-lg">
-              <svg
-                className="h-8 w-8 text-primary"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M8 10h.01M12 10h.01M16 10h.01"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </div>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              لطفاً اطلاعات زیر را برای شروع خرید سریع وارد کنید
-            </p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-5"
-          >
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground flex items-center gap-2">
-                <svg
-                  className="h-4 w-4 text-primary"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <circle
-                    cx="12"
-                    cy="7"
-                    r="4"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                نام و نام خانوادگی
-                <span className="text-destructive text-xs">*</span>
-              </label>
-              <div className="relative group">
-                <Input
-                  type="text"
-                  placeholder="مثال: علی احمدی"
-                  value={customerInfo.name}
-                  onChange={(e) =>
-                    setCustomerInfo({ ...customerInfo, name: e.target.value })
-                  }
-                  className="pr-12 h-12 text-base border-2 border-border/40 focus:border-primary/60 focus:ring-2 focus:ring-primary/20 rounded-xl transition-all bg-background/50 hover:bg-background"
-                />
-                <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                  <svg
-                    className="h-5 w-5 text-muted-foreground/60 group-focus-within:text-primary transition-colors"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <circle
-                      cx="12"
-                      cy="7"
-                      r="4"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground flex items-center gap-2">
-                <Phone className="h-4 w-4 text-primary" />
-                شماره تماس
-                <span className="text-destructive text-xs">*</span>
-              </label>
-              <div className="relative group">
-                <Input
-                  type="tel"
-                  placeholder="09123456789"
-                  value={customerInfo.phone}
-                  onChange={(e) =>
-                    setCustomerInfo({ ...customerInfo, phone: e.target.value })
-                  }
-                  className="pr-12 h-12 text-base border-2 border-border/40 focus:border-primary/60 focus:ring-2 focus:ring-primary/20 rounded-xl transition-all bg-background/50 hover:bg-background"
-                />
-                <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                  <Phone className="h-5 w-5 text-muted-foreground/60 group-focus-within:text-primary transition-colors" />
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground flex items-center gap-2">
-                <Mail className="h-4 w-4 text-primary" />
-                ایمیل
-                <span className="text-xs text-muted-foreground font-normal">(اختیاری)</span>
-              </label>
-              <div className="relative group">
-                <Input
-                  type="email"
-                  placeholder="example@email.com"
-                  value={customerInfo.email}
-                  onChange={(e) =>
-                    setCustomerInfo({ ...customerInfo, email: e.target.value })
-                  }
-                  className="pr-12 h-12 text-base border-2 border-border/40 focus:border-primary/60 focus:ring-2 focus:ring-primary/20 rounded-xl transition-all bg-background/50 hover:bg-background"
-                />
-                <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                  <Mail className="h-5 w-5 text-muted-foreground/60 group-focus-within:text-primary transition-colors" />
-                </div>
-              </div>
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            className="pt-2"
-          >
-            <Button
-              onClick={handleSubmitInfo}
-              disabled={!customerInfo.name || !customerInfo.phone}
-              className="w-full h-13 text-base font-semibold bg-gradient-to-r from-primary via-primary to-primary/90 hover:from-primary/90 hover:via-primary/80 hover:to-primary/70 shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 transition-all duration-300 disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed rounded-xl"
-            >
-              <span className="flex items-center justify-center gap-2">
-                ادامه
-                <motion.div
-                  animate={{ x: [0, 4, 0] }}
-                  transition={{ repeat: Infinity, duration: 1.5, delay: 0.5 }}
-                >
-                  →
-                </motion.div>
-              </span>
-            </Button>
-            <p className="text-xs text-muted-foreground text-center mt-3">
-              با ادامه، شما شرایط و قوانین ما را می‌پذیرید
-            </p>
-          </motion.div>
-        </div>
-      ) : (
-        <>
-          <div ref={messagesContainerRef} className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-6 md:p-8 space-y-5 sm:space-y-6 bg-gradient-to-b from-background via-background/95 to-muted/5 scroll-smooth">
-            {messages.length === 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex flex-col items-center justify-center h-full min-h-[200px] text-center px-4"
-              >
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mb-4 shadow-lg">
-                  <svg
-                    className="h-10 w-10 text-primary/60"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M8 10h.01M12 10h.01M16 10h.01"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </div>
-                <p className="text-muted-foreground text-base font-medium leading-relaxed">هنوز پیامی ارسال نشده است</p>
-                <p className="text-muted-foreground/70 text-sm mt-2 leading-relaxed">پیام خود را بنویسید...</p>
-              </motion.div>
-            )}
-            {messages.map((msg, index) => (
-              <motion.div
-                key={msg.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ 
-                  duration: 0.2,
-                  ease: "easeOut"
-                }}
-                className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"} items-end gap-2 group`}
-              >
-                <div
-                    className={`max-w-[85%] sm:max-w-[75%] md:max-w-[70%] rounded-lg px-2.5 sm:px-3 py-2 transition-all ${
-                      msg.sender === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-foreground border border-border/40"
-                    }`}
-                  >
-                    {msg.text && (
-                      <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap break-words mb-1.5">
-                        {msg.text}
-                      </p>
-                    )}
-                    {msg.attachments && msg.attachments.length > 0 && (
-                      <div className={`space-y-2 ${msg.text ? "mt-2" : ""}`}>
-                        {msg.attachments.map((attachment, attIndex) => (
-                          <motion.div
-                            key={attachment.id || `att-${index}-${attIndex}`}
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ delay: attIndex * 0.1 }}
-                            className="rounded-xl overflow-hidden"
-                          >
-                            {attachment.type === "image" && attachment.url && (
-                              <img
-                                  src={attachment.url}
-                                  alt={attachment.name || "تصویر"}
-                                className="max-w-full max-h-[150px] sm:max-h-[180px] rounded cursor-pointer hover:opacity-90 transition-all"
-                                  onClick={() => window.open(attachment.url, "_blank")}
-                                  onError={(e) => {
-                                    logger.error("Image load error:", attachment.url);
-                                    (e.target as HTMLImageElement).style.display = "none";
-                                  }}
-                                />
-                            )}
-                            {attachment.type === "file" && (
-                              <a
-                                href={attachment.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                download={attachment.name}
-                                className="flex items-center gap-2 p-2 bg-background/50 rounded hover:bg-background/70 transition-all text-xs"
-                              >
-                                <FileText className="h-3.5 w-3.5" />
-                                <span className="font-medium truncate">{attachment.name || "فایل"}</span>
-                              </a>
-                            )}
-                            {attachment.type === "location" && (
-                              <a
-                                href={attachment.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-2 p-2 bg-background/50 rounded hover:bg-background/70 transition-all text-xs"
-                              >
-                                <MapPin className="h-3.5 w-3.5" />
-                                <span className="font-medium">{attachment.name || "موقعیت"}</span>
-                              </a>
-                            )}
-                            {attachment.type === "audio" && attachment.url && (
-                              <div className="flex items-center gap-2 p-2 bg-background/50 rounded">
-                                <Mic className="h-3.5 w-3.5" />
-                                <audio controls className="flex-1 h-7 text-xs">
-                                  <source src={attachment.url} />
-                                </audio>
-                              </div>
-                            )}
-                          </motion.div>
-                        ))}
-                      </div>
-                    )}
-                    <div className={`flex items-center gap-1.5 mt-1.5 pt-1.5 border-t ${
-                      msg.sender === "user" 
-                        ? "border-primary-foreground/20 justify-end" 
-                        : "border-border/30 justify-start"
-                    }`}>
-                      <span className={`text-[10px] sm:text-xs ${
-                          msg.sender === "user" 
-                          ? "text-primary-foreground/70" 
-                          : "text-muted-foreground"
-                      }`}>
-                        {new Date(msg.timestamp).toLocaleTimeString("fa-IR", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                      {msg.sender === "user" && (
-                        <>
-                          {msg.status === "sending" && (
-                            <Loader2 className="h-3 w-3 text-primary-foreground/50 animate-spin" />
-                          )}
-                          {msg.status === "sent" && (
-                            <Check className="h-3 w-3 text-primary-foreground/40" />
-                          )}
-                          {msg.status === "delivered" && (
-                            <CheckCheck className="h-3 w-3 text-primary-foreground/40" />
-                          )}
-                          {msg.status === "read" && (
-                            <CheckCheck className="h-3 w-3 text-primary-foreground/70" />
-                          )}
-                          {msg.status === "failed" && (
-                            <X className="h-3 w-3 text-destructive" />
-                          )}
-                          {!msg.status && (
-                            <Check className="h-3 w-3 text-primary-foreground/40" />
-                          )}
-                        </>
-                      )}
-                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 hover:bg-background/20"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                              }}
-                              title="گزینه‌های بیشتر"
-                            >
-                              <MoreVertical className="h-3.5 w-3.5" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent 
-                            align={msg.sender === "user" ? "end" : "start"}
-                            className="min-w-[140px]"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleReply(msg);
-                              }}
-                              className="cursor-pointer"
-                            >
-                              <Reply className="h-4 w-4 ml-2" />
-                              <span>پاسخ</span>
-                            </DropdownMenuItem>
-                            {msg.sender === "user" && (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleEdit(msg);
-                                  }}
-                                  className="cursor-pointer"
-                                >
-                                  <Edit2 className="h-4 w-4 ml-2" />
-                                  <span>ویرایش</span>
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (confirm("آیا مطمئن هستید که می‌خواهید این پیام را حذف کنید؟")) {
-                                  handleDelete(msg.id);
-                                }
-                              }}
-                              className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
-                            >
-                              <Trash2 className="h-4 w-4 ml-2" />
-                              <span>حذف</span>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            {isSupportTyping && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 10 }}
-                className="flex justify-start items-end gap-2.5"
-              >
-                <TypingIndicator />
-              </motion.div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-
-          <div className="border-t border-border/40 bg-background p-2 sm:p-3 space-y-2 relative flex-shrink-0">
-            {/* Scroll to bottom button */}
-            <AnimatePresence>
-              {showScrollToBottom && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10, scale: 0.9 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                  className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-10"
-                >
-                  <Button
-                    onClick={() => scrollToBottom(false)}
-                    size="icon"
-                    className="h-9 w-9 rounded-full shadow-lg hover:shadow-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all"
-                    title="برو به آخرین پیام"
-                  >
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-            {/* Permission Guide */}
-            {showPermissionGuide && (
-              <motion.div
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 5 }}
-                className="p-3 bg-destructive/5 border-2 border-destructive/20 rounded-xl shadow-sm"
-              >
-                <div className="flex items-start gap-2">
-                  <Mic className="h-3.5 w-3.5 text-destructive mt-0.5 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-destructive mb-1.5 leading-tight">
-                      دسترسی میکروفون نیاز است
-                    </p>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      لطفاً در تنظیمات مرورگر دسترسی میکروفون را فعال کنید
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setShowPermissionGuide(false)}
-                    className="p-0.5 rounded hover:bg-destructive/10 transition-colors flex-shrink-0"
-                  >
-                    <X className="h-3 w-3 text-destructive" />
-                  </button>
-                </div>
-              </motion.div>
-            )}
-
-            {/* Recording UI */}
-            {(isRecording || audioUrl) && (
-              <motion.div
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                className="flex items-center gap-2 p-2 bg-destructive/10 border border-destructive/30 rounded-lg"
-              >
-                {isRecording ? (
-                  <>
-                    <motion.div
-                      animate={{ scale: [1, 1.1, 1] }}
-                      transition={{ repeat: Infinity, duration: 1 }}
-                      className="p-1.5 rounded-full bg-destructive/20"
-                    >
-                      <Mic className="h-3.5 w-3.5 text-destructive" />
-                    </motion.div>
-                    <div className="flex-1">
-                      <p className="text-xs font-medium text-destructive leading-tight">در حال ضبط</p>
-                      <p className="text-xs text-muted-foreground font-mono">{formatTime(recordingTime)}</p>
-                    </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={stopRecording}
-                      className="h-7 w-7 text-destructive hover:bg-destructive/10 rounded-lg"
-                      >
-                      <Square className="h-3 w-3 fill-current" />
-                      </Button>
-                  </>
-                ) : (
-                  <>
-                    <div className="p-1.5 rounded-full bg-primary/20">
-                      <Mic className="h-3.5 w-3.5 text-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-xs font-medium leading-tight">پیام صوتی آماده است</p>
-                      <p className="text-xs text-muted-foreground font-mono">{formatTime(recordingTime)}</p>
-                    </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={cancelRecording}
-                      className="h-7 w-7 text-muted-foreground hover:text-destructive rounded-lg"
-                      >
-                      <X className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          console.log("[Voice Widget] Save button clicked!");
-                          saveRecording();
-                        }}
-                        size="sm"
-                      className="h-7 px-3 text-xs rounded-lg"
-                      title="ذخیره و ارسال پیام صوتی"
-                      >
-                        ذخیره
-                      </Button>
-                  </>
-                )}
-              </motion.div>
-            )}
-
-            {/* Attachment Options */}
-            {showAttachmentOptions && (
-              <motion.div
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                className="flex gap-2 p-2 bg-card rounded-lg border border-border/50 shadow-lg"
-                onClick={(e) => {
-                  console.log("[Attachment Options Widget] Container clicked!", e.target);
-                }}
-              >
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      imageInputRef.current?.click();
-                      setShowAttachmentOptions(false);
-                    }}
-                  className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-all rounded-lg"
-                  >
-                  <Image className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      fileInputRef.current?.click();
-                      setShowAttachmentOptions(false);
-                    }}
-                  className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-all rounded-lg"
-                  >
-                  <FileText className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      console.log("[Location Widget] Button clicked!");
-                      handleLocationShare();
-                      setShowAttachmentOptions(false);
-                    }}
-                  className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-all rounded-lg"
-                  title="اشتراک‌گذاری موقعیت مکانی"
-                  >
-                  <MapPin className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={async (e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      console.log("[Voice Widget] Button clicked!");
-                      setShowAttachmentOptions(false);
-                      if (isRecording) {
-                        stopRecording();
-                      } else {
-                        // Show loading toast
-                        toast({
-                          title: "در حال درخواست دسترسی...",
-                          description: "لطفاً اجازه دسترسی به میکروفون را در مرورگر بدهید",
-                          duration: 3000,
-                        });
-                        
-                        try {
-                          await startRecording();
-                        } catch (error) {
-                          console.error("[Voice Widget] Error starting recording:", error);
-                        }
-                      }
-                    }}
-                    title="ضبط پیام صوتی"
-                  >
-                  className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-all rounded-lg"
-                    disabled={isRecording}
-                  >
-                    {isRecording ? (
-                    <Pause className="h-3.5 w-3.5 text-destructive" />
-                    ) : (
-                    <Mic className="h-3.5 w-3.5" />
-                    )}
-                  </Button>
-              </motion.div>
-            )}
-
-            {/* Hidden Inputs */}
-            <input
-              ref={imageInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={(e) => handleFileSelect(e, "image")}
-            />
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              className="hidden"
-              onChange={(e) => handleFileSelect(e, "file")}
-            />
-            <div className="flex items-end gap-2">
-              <div className="flex-1 relative">
-                {/* Attachments Preview inside input */}
-                {attachments.length > 0 && (
-                  <div className="absolute top-2 right-2 left-2 z-10 pointer-events-none overflow-hidden">
-                    <div className="overflow-x-auto overflow-y-hidden scroll-smooth w-full [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                      <div className="flex items-center gap-1.5 flex-nowrap">
-                        {attachments.map((attachment) => (
-                          <div
-                            key={attachment.id}
-                            className="relative group pointer-events-auto flex-shrink-0 w-auto"
-                          >
-                            <div className="bg-card/95 backdrop-blur-sm rounded-md p-1 border border-border/40 shadow-sm">
-                              {attachment.type === "image" && attachment.url && (
-                                <img
-                                  src={attachment.url}
-                                  alt={attachment.name || "تصویر"}
-                                  className="w-10 h-10 object-cover rounded"
-                                />
-                              )}
-                              {attachment.type === "file" && (
-                                <div className="flex items-center gap-1 px-1.5 py-1">
-                                  <FileText className="h-3 w-3 flex-shrink-0 text-primary" />
-                                  <p className="text-[10px] truncate max-w-[50px] font-medium leading-tight">{attachment.name}</p>
-                                </div>
-                              )}
-                              {attachment.type === "location" && (
-                                <div className="flex items-center gap-1 px-1.5 py-1">
-                                  <MapPin className="h-3 w-3 flex-shrink-0 text-primary" />
-                                  <span className="text-[10px] font-medium whitespace-nowrap leading-tight">موقعیت</span>
-                                </div>
-                              )}
-                              {attachment.type === "audio" && (
-                                <div className="flex items-center gap-1 px-1.5 py-1">
-                                  <Mic className="h-3 w-3 flex-shrink-0 text-primary" />
-                                  <span className="text-[10px] font-medium whitespace-nowrap leading-tight">
-                                    {attachment.duration ? formatTime(attachment.duration) : "صدا"}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                            <button
-                              onClick={() => handleRemoveAttachment(attachment.id)}
-                              className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm z-20 hover:scale-110"
-                            >
-                              <X className="h-2.5 w-2.5" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <Textarea
-                  ref={textareaRef}
-                  value={message}
-                  onChange={(e) => {
-                    setMessage(e.target.value);
-                    
-                    // Clear existing timeout
-                    if (typingTimeoutRef.current) {
-                      clearTimeout(typingTimeoutRef.current);
-                    }
-                    
-                    // Send typing status
-                    if (e.target.value.trim().length > 0) {
-                      sendTypingStatus(true);
-                      
-                      // Stop typing after 2 seconds of no input
-                      typingTimeoutRef.current = setTimeout(() => {
-                        sendTypingStatus(false);
-                      }, 2000);
-                    } else {
-                      sendTypingStatus(false);
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      if (typingTimeoutRef.current) {
-                        clearTimeout(typingTimeoutRef.current);
-                      }
-                      sendTypingStatus(false);
-                      handleSendMessage();
-                    }
-                  }}
-                  placeholder="پیام خود را بنویسید..."
-                  className={`min-h-[44px] max-h-[100px] resize-none text-sm leading-relaxed rounded-lg border pr-20 pl-3 py-2 ${
-                    attachments.length > 0 ? "pt-12" : ""
-                  }`}
-                />
-
-                {/* Buttons - inside input */}
-                <div className="absolute bottom-2 right-2 flex items-center gap-1">
-                  {/* Attachment Button */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      console.log("[Paperclip Widget] Button clicked! showAttachmentOptions:", !showAttachmentOptions);
-                      setShowAttachmentOptions(!showAttachmentOptions);
-                    }}
-                    className={`h-7 w-7 rounded-lg transition-all ${
-                      showAttachmentOptions 
-                        ? "bg-primary/10 text-primary" 
-                        : "hover:bg-muted/60 text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <Paperclip className="h-4 w-4" />
-                  </Button>
-
-                  {/* Send Button - only show when there's content */}
-                  {!isRecording && (
-                    <>
-                      {isSaving ? (
-                        <Loader2 className="h-4 w-4 text-primary animate-spin" />
-                      ) : (
-                    <Button
-                      onClick={handleSendMessage}
-                      size="icon"
-                          className="h-7 w-7 rounded-lg transition-all"
-                    >
-                          <Send className="h-3.5 w-3.5" />
-                    </Button>
-                )}
-                    </>
-                )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-    </>
-  );
 
   return (
     <>
@@ -2563,7 +1576,57 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
           side="left"
           className="w-full sm:w-[420px] md:w-[480px] p-0 flex flex-col border-l-2 border-border/40 bg-background shadow-2xl"
         >
-          {renderContent()}
+      <ChatHeader
+        step={step}
+        isOnline={isOnline}
+        lastSeen={lastSeen}
+        customerInfo={customerInfo}
+        onEditInfo={() => {
+          window.location.href = "/auth";
+        }}
+      />
+
+        <ChatMessages
+          messages={messages}
+          messagesContainerRef={messagesContainerRef}
+          messagesEndRef={messagesEndRef}
+          isSupportTyping={isSupportTyping}
+          onReply={handleReply}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+        />
+
+        <ChatInput
+          message={message}
+          setMessage={setMessage}
+          attachments={attachments}
+          setAttachments={setAttachments}
+          showAttachmentOptions={showAttachmentOptions}
+          setShowAttachmentOptions={setShowAttachmentOptions}
+          isRecording={isRecording}
+          recordingTime={recordingTime}
+          audioUrl={audioUrl}
+          isSaving={isSaving}
+          showScrollToBottom={showScrollToBottom}
+          showPermissionGuide={showPermissionGuide}
+          setShowPermissionGuide={setShowPermissionGuide}
+          textareaRef={textareaRef}
+          imageInputRef={imageInputRef}
+          fileInputRef={fileInputRef}
+          typingTimeoutRef={typingTimeoutRef}
+          handleSendMessage={handleSendMessage}
+          handleFileSelect={handleFileSelect}
+          handleRemoveAttachment={handleRemoveAttachment}
+          handleLocationShare={handleLocationShare}
+          startRecording={startRecording}
+          stopRecording={stopRecording}
+          saveRecording={saveRecording}
+          cancelRecording={cancelRecording}
+          sendTypingStatus={sendTypingStatus}
+          scrollToBottom={scrollToBottom}
+          formatTime={formatTime}
+          toast={toast}
+        />
         </SheetContent>
       </Sheet>
     </>
