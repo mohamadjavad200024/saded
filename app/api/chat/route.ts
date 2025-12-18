@@ -462,6 +462,11 @@ export async function GET(request: NextRequest) {
           normalizedChatPhone && 
           normalizedUserPhone && 
           normalizedChatPhone === normalizedUserPhone;
+        
+        // ULTRA LENIENT: If chat has no userId and user is logged in, allow access and claim it
+        // This handles old chats that were created before userId was added
+        const canAutoClaim = schema.chatHasUserId && 
+          (!chatUserId || chatUserId === "" || chatUserId === "null" || chatUserId === "undefined");
 
         logger.debug("Chat access check:", {
           chatId,
@@ -474,6 +479,7 @@ export async function GET(request: NextRequest) {
           isOwnerByUserId,
           isOwnerByPhone,
           canClaimByPhone,
+          canAutoClaim,
           schemaHasUserId: schema.chatHasUserId,
         });
 
@@ -489,6 +495,18 @@ export async function GET(request: NextRequest) {
           } catch (updateError: any) {
             logger.error(`Failed to claim chat ${chatId}:`, updateError);
             // Continue anyway - user can still access if phone matches
+          }
+        } else if (canAutoClaim) {
+          // Auto-claim chat if it has no userId and user is logged in
+          // This is a fallback for old chats
+          try {
+            await runQuery(`UPDATE quick_buy_chats SET userId = ? WHERE id = ?`, [sessionUser.id, chatId]);
+            chat.userId = sessionUser.id;
+            logger.info(`Chat ${chatId} auto-claimed by logged-in user ${sessionUser.id} (no userId in chat)`);
+          } catch (updateError: any) {
+            logger.error(`Failed to auto-claim chat ${chatId}:`, updateError);
+            // Allow access anyway for logged-in users with unclaimed chats
+            logger.warn(`Allowing access to unclaimed chat ${chatId} for logged-in user ${sessionUser.id}`);
           }
         } else {
           // More detailed logging for debugging

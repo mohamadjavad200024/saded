@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       const auth = await requireAuth(request);
       if (auth && auth.userId) {
         userIdForOrder = auth.userId;
-        logger.info(`Order will be linked to userId: ${userIdForOrder}`);
+        logger.info(`✅ Order will be linked to userId: ${userIdForOrder}`);
       }
     } catch (error) {
       // User not authenticated - allow guest checkout
@@ -38,6 +38,13 @@ export async function POST(request: NextRequest) {
     
     // If userId is null, use "guest" for backward compatibility
     const finalUserId = userIdForOrder || "guest";
+    
+    // Log final userId for debugging
+    if (userIdForOrder) {
+      logger.info(`📦 Creating order with userId: ${finalUserId} (authenticated user)`);
+    } else {
+      logger.info(`📦 Creating order with userId: ${finalUserId} (guest)`);
+    }
 
     const body = await request.json().catch(() => {
       throw new AppError("Invalid JSON in request body", 400, "INVALID_JSON");
@@ -284,6 +291,9 @@ export async function POST(request: NextRequest) {
         now,
       ]
     );
+    
+    // Log successful order creation with userId
+    logger.info(`✅ Order created successfully: ${orderData.orderNumber} with userId: ${finalUserId}`);
 
     // Fetch the saved order
     const savedOrder = await getRow<any>("SELECT * FROM orders WHERE id = ?", [id]);
