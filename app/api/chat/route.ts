@@ -432,26 +432,45 @@ export async function GET(request: NextRequest) {
 
       // Access control (user-only chat): guest chats (userId null/empty) are admin-only.
       if (!isAdmin) {
-        const chatPhone = chat.customerPhone ? String(chat.customerPhone).trim() : "";
+        const chatPhone = chat.customerPhone ? String(chat.customerPhone).trim().replace(/\s+/g, "") : "";
         const chatUserId = schema.chatHasUserId && chat.userId ? String(chat.userId).trim() : "";
-        const userPhone = sessionUser.phone ? String(sessionUser.phone).trim() : "";
+        const userPhone = sessionUser.phone ? String(sessionUser.phone).trim().replace(/\s+/g, "") : "";
         const userId = String(sessionUser.id).trim();
 
+        // Normalize phone numbers for comparison (remove spaces, ensure consistent format)
+        const normalizePhoneForComparison = (phone: string): string => {
+          if (!phone) return "";
+          // Remove all spaces and non-digit characters (except +)
+          let cleaned = phone.trim().replace(/\s+/g, "").replace(/[^\d+]/g, "");
+          // Remove +98 and 0098 prefixes
+          cleaned = cleaned.replace(/^(\+98|0098)/, "");
+          // Ensure it starts with 0
+          if (cleaned && !cleaned.startsWith("0") && cleaned.length === 10) {
+            cleaned = "0" + cleaned;
+          }
+          return cleaned;
+        };
+        
+        const normalizedChatPhone = chatPhone ? normalizePhoneForComparison(chatPhone) : "";
+        const normalizedUserPhone = userPhone ? normalizePhoneForComparison(userPhone) : "";
+
         const isOwnerByUserId = schema.chatHasUserId && chatUserId && chatUserId === userId;
-        const isOwnerByPhone = !schema.chatHasUserId && chatPhone && userPhone && chatPhone === userPhone;
-        // More lenient: allow claiming if userId is null/empty/undefined and phone matches
+        const isOwnerByPhone = !schema.chatHasUserId && normalizedChatPhone && normalizedUserPhone && normalizedChatPhone === normalizedUserPhone;
+        // More lenient: allow claiming if userId is null/empty/undefined and phone matches (normalized)
         const canClaimByPhone = schema.chatHasUserId && 
           (!chatUserId || chatUserId === "" || chatUserId === "null" || chatUserId === "undefined") && 
-          chatPhone && 
-          userPhone && 
-          chatPhone === userPhone;
+          normalizedChatPhone && 
+          normalizedUserPhone && 
+          normalizedChatPhone === normalizedUserPhone;
 
         logger.debug("Chat access check:", {
           chatId,
-          chatUserId,
-          chatPhone,
+          chatUserId: chatUserId || "(empty)",
+          chatPhone: chatPhone || "(empty)",
+          normalizedChatPhone: normalizedChatPhone || "(empty)",
           userId,
-          userPhone,
+          userPhone: userPhone || "(empty)",
+          normalizedUserPhone: normalizedUserPhone || "(empty)",
           isOwnerByUserId,
           isOwnerByPhone,
           canClaimByPhone,
@@ -466,7 +485,7 @@ export async function GET(request: NextRequest) {
           try {
             await runQuery(`UPDATE quick_buy_chats SET userId = ? WHERE id = ?`, [sessionUser.id, chatId]);
             chat.userId = sessionUser.id;
-            logger.info(`Chat ${chatId} claimed by user ${sessionUser.id} via phone match`);
+            logger.info(`Chat ${chatId} claimed by user ${sessionUser.id} via phone match (${normalizedUserPhone})`);
           } catch (updateError: any) {
             logger.error(`Failed to claim chat ${chatId}:`, updateError);
             // Continue anyway - user can still access if phone matches
@@ -476,9 +495,12 @@ export async function GET(request: NextRequest) {
           logger.warn(`Access denied for chat ${chatId} by user ${sessionUser.id}`, {
             chatUserId: chatUserId || "(empty)",
             chatPhone: chatPhone || "(empty)",
+            normalizedChatPhone: normalizedChatPhone || "(empty)",
             userPhone: userPhone || "(empty)",
+            normalizedUserPhone: normalizedUserPhone || "(empty)",
             userId,
             schemaHasUserId: schema.chatHasUserId,
+            phoneMatch: normalizedChatPhone === normalizedUserPhone,
           });
           throw new AppError("شما به این چت دسترسی ندارید", 403, "FORBIDDEN");
         }
