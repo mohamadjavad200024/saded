@@ -14,9 +14,14 @@ import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useAuthStore } from "@/store/auth-store";
 
 function MyOrdersPageContent() {
-  const { orders } = useOrderStore();
+  const { orders, loadOrdersFromDB, isLoading } = useOrderStore();
   const router = useRouter();
   const { toast } = useToast();
+  
+  // Load orders on mount and when user changes
+  useEffect(() => {
+    loadOrdersFromDB();
+  }, [loadOrdersFromDB]);
 
   // دسته‌بندی سفارش‌ها
   const ordersByStatus = useMemo(() => {

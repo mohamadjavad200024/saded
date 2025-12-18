@@ -94,9 +94,14 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
     try {
       if (showLoading) setIsLoading(true);
       const response = await fetch("/api/chat", { credentials: "include" });
-      if (!response.ok) throw new Error("خطا در بارگذاری چت‌ها");
+      if (!response.ok) {
+        const errorText = await response.text();
+        logger.error("Failed to load chats:", response.status, errorText);
+        throw new Error("خطا در بارگذاری چت‌ها");
+      }
       
       const data = await response.json();
+      logger.info("Loaded chats:", data.success ? data.data.chats?.length : 0, "chats");
       if (data.success && data.data.chats) {
         const chatsWithLastMessage = await Promise.all(
           data.data.chats.map(async (chat: Chat) => {
