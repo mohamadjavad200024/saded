@@ -22,13 +22,22 @@ function sanitizeNumber(value: any): number {
 export async function POST(request: NextRequest) {
   try {
     // If user is logged in, attach order to userId. (Guest orders remain "guest")
-    let userIdForOrder: string = "guest";
+    // IMPORTANT: Always try to get userId from session, even for guest checkout
+    // This ensures registered users' orders are always linked to their account
+    let userIdForOrder: string | null = null;
     try {
       const auth = await requireAuth(request);
-      userIdForOrder = auth.userId;
-    } catch {
-      // ignore - allow guest checkout
+      if (auth && auth.userId) {
+        userIdForOrder = auth.userId;
+        logger.info(`Order will be linked to userId: ${userIdForOrder}`);
+      }
+    } catch (error) {
+      // User not authenticated - allow guest checkout
+      logger.debug("Guest checkout - no userId");
     }
+    
+    // If userId is null, use "guest" for backward compatibility
+    const finalUserId = userIdForOrder || "guest";
 
     const body = await request.json().catch(() => {
       throw new AppError("Invalid JSON in request body", 400, "INVALID_JSON");
@@ -245,7 +254,7 @@ export async function POST(request: NextRequest) {
         postalCode: sanitizedFormData.postalCode || undefined,
       },
       notes: sanitizedFormData.notes || undefined,
-      userId: userIdForOrder,
+      userId: finalUserId,
       orderNumber: generateOrderNumber(),
     };
 
@@ -259,7 +268,7 @@ export async function POST(request: NextRequest) {
       [
         id,
         orderData.orderNumber,
-        orderData.userId,
+        finalUserId,
         orderData.customerName,
         orderData.customerPhone,
         orderData.customerEmail || null,

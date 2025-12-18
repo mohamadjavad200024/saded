@@ -611,13 +611,15 @@ export async function GET(request: NextRequest) {
           const cached = isAdmin ? cache.get<any>(cacheKey) : null;
           if (cached) return createSuccessResponse({ chats: cached });
           
+          // Admin should see ALL chats, not filtered
+          // User should see only their own chats
           const chats = isAdmin
-            ? await getRows<any>(`SELECT * FROM quick_buy_chats ORDER BY createdAt DESC LIMIT 50`)
+            ? await getRows<any>(`SELECT * FROM quick_buy_chats ORDER BY updatedAt DESC, createdAt DESC LIMIT 100`)
             : schema.chatHasUserId
-              ? await getRows<any>(`SELECT * FROM quick_buy_chats WHERE userId = ? ORDER BY createdAt DESC LIMIT 50`, [
+              ? await getRows<any>(`SELECT * FROM quick_buy_chats WHERE userId = ? ORDER BY updatedAt DESC, createdAt DESC LIMIT 50`, [
                   sessionUser.id,
                 ])
-              : await getRows<any>(`SELECT * FROM quick_buy_chats WHERE customerPhone = ? ORDER BY createdAt DESC LIMIT 50`, [
+              : await getRows<any>(`SELECT * FROM quick_buy_chats WHERE customerPhone = ? ORDER BY updatedAt DESC, createdAt DESC LIMIT 50`, [
                   sessionUser.phone,
                 ]);
 
