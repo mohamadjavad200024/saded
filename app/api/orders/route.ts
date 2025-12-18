@@ -20,8 +20,9 @@ export async function GET(request: NextRequest) {
 
     // اگر admin نیست، فقط سفارش‌های خودش را ببیند
     // IMPORTANT: Filter out "guest" orders for registered users
+    // Only show orders that belong to this specific userId
     if (!isAdmin) {
-      conditions.push("`userId` = ? AND `userId` != 'guest'");
+      conditions.push("`userId` = ?");
       params.push(auth.userId);
     }
 
@@ -73,9 +74,9 @@ export async function POST(request: NextRequest) {
     const params: any[] = [];
 
     // اگر admin نیست، فقط سفارش‌های خودش را ببیند
-    // IMPORTANT: Filter out "guest" orders for registered users
+    // IMPORTANT: Only show orders that belong to this specific userId
     if (!isAdmin) {
-      query += " AND `userId` = ? AND `userId` != 'guest'";
+      query += " AND `userId` = ?";
       params.push(auth.userId);
     }
 
