@@ -17,11 +17,15 @@ function MyOrdersPageContent() {
   const { orders, loadOrdersFromDB, isLoading } = useOrderStore();
   const router = useRouter();
   const { toast } = useToast();
+  const { user, isAuthenticated, hasCheckedAuth } = useAuthStore();
   
   // Load orders on mount and when user changes
   useEffect(() => {
-    loadOrdersFromDB();
-  }, [loadOrdersFromDB]);
+    // Wait for auth check to complete, then load orders if authenticated
+    if (hasCheckedAuth && isAuthenticated && user) {
+      loadOrdersFromDB();
+    }
+  }, [hasCheckedAuth, isAuthenticated, user?.id, loadOrdersFromDB]);
 
   // دسته‌بندی سفارش‌ها
   const ordersByStatus = useMemo(() => {

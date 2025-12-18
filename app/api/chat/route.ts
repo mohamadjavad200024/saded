@@ -439,7 +439,12 @@ export async function GET(request: NextRequest) {
 
         const isOwnerByUserId = schema.chatHasUserId && chatUserId && chatUserId === userId;
         const isOwnerByPhone = !schema.chatHasUserId && chatPhone && userPhone && chatPhone === userPhone;
-        const canClaimByPhone = schema.chatHasUserId && (!chatUserId || chatUserId === "" || chatUserId === "null") && chatPhone && userPhone && chatPhone === userPhone;
+        // More lenient: allow claiming if userId is null/empty/undefined and phone matches
+        const canClaimByPhone = schema.chatHasUserId && 
+          (!chatUserId || chatUserId === "" || chatUserId === "null" || chatUserId === "undefined") && 
+          chatPhone && 
+          userPhone && 
+          chatPhone === userPhone;
 
         logger.debug("Chat access check:", {
           chatId,
@@ -455,13 +460,26 @@ export async function GET(request: NextRequest) {
 
         if (isOwnerByUserId || isOwnerByPhone) {
           // ok - user owns this chat
+          logger.debug(`Access granted: user ${userId} owns chat ${chatId}`);
         } else if (canClaimByPhone) {
           // Claim guest chat by phone match
-          await runQuery(`UPDATE quick_buy_chats SET userId = ? WHERE id = ?`, [sessionUser.id, chatId]);
-          chat.userId = sessionUser.id;
-          logger.info(`Chat ${chatId} claimed by user ${sessionUser.id} via phone match`);
+          try {
+            await runQuery(`UPDATE quick_buy_chats SET userId = ? WHERE id = ?`, [sessionUser.id, chatId]);
+            chat.userId = sessionUser.id;
+            logger.info(`Chat ${chatId} claimed by user ${sessionUser.id} via phone match`);
+          } catch (updateError: any) {
+            logger.error(`Failed to claim chat ${chatId}:`, updateError);
+            // Continue anyway - user can still access if phone matches
+          }
         } else {
-          logger.warn(`Access denied for chat ${chatId} by user ${sessionUser.id}`);
+          // More detailed logging for debugging
+          logger.warn(`Access denied for chat ${chatId} by user ${sessionUser.id}`, {
+            chatUserId: chatUserId || "(empty)",
+            chatPhone: chatPhone || "(empty)",
+            userPhone: userPhone || "(empty)",
+            userId,
+            schemaHasUserId: schema.chatHasUserId,
+          });
           throw new AppError("شما به این چت دسترسی ندارید", 403, "FORBIDDEN");
         }
       }
