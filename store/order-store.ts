@@ -97,8 +97,10 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
       
       // استفاده از fetchWithAuth برای ارسال header های احراز هویت
       const { fetchWithAuth } = await import("@/lib/api/fetch-with-auth");
+      logger.debug("Loading orders from database...");
       const response = await fetchWithAuth("/api/orders", {
         signal: controller.signal,
+        credentials: "include", // Ensure session cookies are sent
       });
       
       clearTimeout(timeoutId);
@@ -146,6 +148,7 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
                 updatedAt: o.updatedAt instanceof Date ? o.updatedAt : new Date(o.updatedAt),
               };
             });
+            logger.info(`✅ Loaded ${parsedOrders.length} orders from database`);
             set({ orders: parsedOrders, isLoading: false });
           } catch (parseError) {
             logger.error("Error parsing orders data:", parseError);
@@ -153,10 +156,12 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
           }
         } else {
           // Empty result is valid
+          logger.info("No orders found in database");
           set({ orders: [], isLoading: false });
         }
       } else {
-        logger.error("Failed to load orders:", response.status);
+        const errorText = await response.text().catch(() => "Unknown error");
+        logger.error(`Failed to load orders: ${response.status} - ${errorText}`);
         // Set empty orders and stop loading on error
         set({ orders: [], isLoading: false });
       }
