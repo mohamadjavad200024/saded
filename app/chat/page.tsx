@@ -1463,7 +1463,6 @@ function ChatPageContent() {
                         }
                       }}
                       title="ضبط پیام صوتی"
-                    >
                       className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-all rounded-lg"
                       disabled={isRecording}
                     >
