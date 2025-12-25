@@ -14,16 +14,21 @@ interface SiteContent {
       title: string;
       description: string;
       socialLinks: {
-        instagram: string;
-        facebook: string;
-        twitter: string;
+        instagram: { url: string; enabled: boolean };
+        facebook: { url: string; enabled: boolean };
+        twitter: { url: string; enabled: boolean };
+        whatsapp: { url: string; enabled: boolean };
+        telegram: { url: string; enabled: boolean };
+        youtube: { url: string; enabled: boolean };
+        linkedin: { url: string; enabled: boolean };
+        tiktok: { url: string; enabled: boolean };
       };
     };
-    quickLinks: {
+    quickLinks?: {
       title: string;
       links: Array<{ label: string; href: string }>;
     };
-    support: {
+    support?: {
       title: string;
       links: Array<{ label: string; href: string }>;
     };
@@ -42,28 +47,15 @@ const defaultContent: SiteContent = {
       title: "درباره ساد",
       description: "فروشگاه آنلاین قطعات خودرو وارداتی با بهترین کیفیت و قیمت. ما متعهد به ارائه بهترین خدمات به مشتریان خود هستیم.",
       socialLinks: {
-        instagram: "#",
-        facebook: "#",
-        twitter: "#",
+        instagram: { url: "#", enabled: false },
+        facebook: { url: "#", enabled: false },
+        twitter: { url: "#", enabled: false },
+        whatsapp: { url: "#", enabled: false },
+        telegram: { url: "#", enabled: false },
+        youtube: { url: "#", enabled: false },
+        linkedin: { url: "#", enabled: false },
+        tiktok: { url: "#", enabled: false },
       },
-    },
-    quickLinks: {
-      title: "دسترسی سریع",
-      links: [
-        { label: "محصولات", href: "/products" },
-        { label: "درباره ما", href: "/about" },
-        { label: "تماس با ما", href: "/contact" },
-        { label: "وبلاگ", href: "/blog" },
-      ],
-    },
-    support: {
-      title: "پشتیبانی",
-      links: [
-        { label: "سوالات متداول", href: "/faq" },
-        { label: "ارسال و تحویل", href: "/shipping" },
-        { label: "بازگشت کالا", href: "/returns" },
-        { label: "گارانتی", href: "/warranty" },
-      ],
     },
     contact: {
       title: "تماس با ما",
@@ -89,6 +81,13 @@ export async function GET(request: NextRequest) {
     // Parse JSON content
     try {
       const parsedContent = JSON.parse(content.value);
+      // اگر quickLinks و support در دیتابیس نیستند، از defaultContent استفاده کن
+      if (!parsedContent.footer?.quickLinks) {
+        parsedContent.footer.quickLinks = defaultContent.footer.quickLinks;
+      }
+      if (!parsedContent.footer?.support) {
+        parsedContent.footer.support = defaultContent.footer.support;
+      }
       return createSuccessResponse(parsedContent);
     } catch (parseError) {
       // If parsing fails, return default
@@ -131,22 +130,6 @@ export async function PUT(request: NextRequest) {
       throw new AppError("فرمت ایمیل معتبر نیست", 400, "INVALID_EMAIL");
     }
 
-    // Validate links structure
-    if (content.footer.quickLinks && Array.isArray(content.footer.quickLinks.links)) {
-      for (const link of content.footer.quickLinks.links) {
-        if (!link.label || !link.href) {
-          throw new AppError("تمام لینک‌های دسترسی سریع باید عنوان و آدرس داشته باشند", 400, "INVALID_LINKS");
-        }
-      }
-    }
-
-    if (content.footer.support && Array.isArray(content.footer.support.links)) {
-      for (const link of content.footer.support.links) {
-        if (!link.label || !link.href) {
-          throw new AppError("تمام لینک‌های پشتیبانی باید عنوان و آدرس داشته باشند", 400, "INVALID_LINKS");
-        }
-      }
-    }
 
     // Check if table exists, if not create it
     try {

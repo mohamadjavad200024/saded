@@ -6,7 +6,7 @@ import { useProductStore } from "@/store/product-store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Trash2, Plus, Minus, ShoppingBag, Plane, Ship } from "lucide-react";
-import Image from "next/image";
+import { SafeImage } from "@/components/ui/safe-image";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 
@@ -46,34 +46,59 @@ export function CartContent() {
     initCart();
   }, [initializeSession, loadFromDatabase, loadProductsFromDB]);
 
+  // Helper function to validate if a string is a valid URL
+  const isValidUrl = (str: string): boolean => {
+    if (!str || typeof str !== 'string' || str.trim() === '') return false;
+    
+    // Check if it's a base64 data URL
+    if (str.startsWith('data:image')) return true;
+    
+    // Check if it's a valid HTTP/HTTPS URL
+    try {
+      const url = new URL(str);
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+      // Check if it's a relative path starting with /
+      if (str.startsWith('/')) return true;
+      return false;
+    }
+  };
+
   // Helper function to get image for cart item
-  const getItemImage = (item: { id: string; image?: string }) => {
-    // First, try to get from item itself (if it exists and is not empty)
-    if (item.image && item.image.trim() !== "") {
-      // If it's a base64 image and too large, try to get from product
-      if (item.image.startsWith("data:image") && item.image.length > 50000) {
-        // Too large base64, will fetch from product
-      } else {
-        // Valid image (URL or small base64) - use it
-        return item.image;
+  const getItemImage = (item: { id: string; image?: string }): string | null => {
+    // First, try to get from item itself (if it exists and is valid)
+    if (item.image && item.image.trim() !== "" && isValidUrl(item.image)) {
+      // If it's a base64 image, Next.js Image doesn't support it directly
+      // We'll need to use a regular img tag for base64
+      if (item.image.startsWith("data:image")) {
+        return item.image; // Return it, but we'll handle it differently in the render
+      }
+      
+      // Valid URL - use it
+      return item.image;
+    }
+    
+    // If image is empty or invalid, try to get from product store
+    const product = getProduct(item.id);
+    if (product && product.images && product.images.length > 0) {
+      const productImage = product.images[0];
+      if (productImage && isValidUrl(productImage)) {
+        if (process.env.NODE_ENV === "development") {
+          console.log("Using product image for cart item:", {
+            itemId: item.id,
+            productImage: productImage.substring(0, 50),
+          });
+        }
+        return productImage;
       }
     }
     
-    // If image is empty or too large base64, try to get from product store
-    const product = getProduct(item.id);
-    if (product && product.images && product.images.length > 0) {
-      console.log("Using product image for cart item:", {
-        itemId: item.id,
-        productImage: product.images[0]?.substring(0, 50),
-      });
-      return product.images[0];
-    }
-    
-    // Log if no image found
+    // Log if no valid image found
     if (process.env.NODE_ENV === "development") {
-      console.warn("No image found for cart item:", {
+      console.warn("No valid image found for cart item:", {
         itemId: item.id,
         hasItemImage: !!item.image,
+        itemImageValid: item.image ? isValidUrl(item.image) : false,
         hasProduct: !!product,
         productImages: product?.images?.length || 0,
       });
@@ -243,30 +268,17 @@ export function CartContent() {
           >
             <div className="flex gap-3 sm:gap-4">
               <div className="relative w-20 h-20 sm:w-24 sm:h-24 bg-muted rounded-lg overflow-hidden flex-shrink-0">
-                {getItemImage(item) ? (
-                <Image
-                    src={getItemImage(item)!}
+                <SafeImage
+                  src={getItemImage(item)}
                   alt={`${item.name} - سبد خرید`}
                   fill
-                  className="object-cover"
-                    onError={(e) => {
-                      // If image fails to load, show placeholder
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = "none";
-                      const parent = target.parentElement;
-                      if (parent && !parent.querySelector(".image-placeholder")) {
-                        const placeholder = document.createElement("div");
-                        placeholder.className = "image-placeholder w-full h-full flex items-center justify-center text-muted-foreground";
-                        placeholder.innerHTML = '<svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>';
-                        parent.appendChild(placeholder);
-                      }
-                    }}
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                    <ShoppingBag className="h-8 w-8" />
-                  </div>
-                )}
+                  className="w-full h-full"
+                  width={80}
+                  height={80}
+                  priority
+                  loading="eager"
+                  productId={item.id}
+                />
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold mb-2 text-sm sm:text-base line-clamp-2">{item.name}</h3>
@@ -392,14 +404,14 @@ export function CartContent() {
                 )}
               </span>
             </div>
-            {shipping > 0 && shipping === 50000 && total < 500000 && (
+            {/* {shipping > 0 && shipping === 50000 && total < 500000 && (
               <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
                 برای ارسال رایگان، {(
                   500000 - total
                 ).toLocaleString("fa-IR")} تومان دیگر به سبد خرید خود اضافه
                 کنید
               </p>
-            )}
+            )} */}
             <div className="border-t-[0.25px] border-border/30 pt-3 sm:pt-4 flex justify-between text-base sm:text-lg font-bold">
               <span>مبلغ نهایی:</span>
               <span>{finalTotal.toLocaleString("fa-IR")} تومان</span>
@@ -414,21 +426,11 @@ export function CartContent() {
                 variant="outline"
                 className="h-11 sm:h-12 text-xs sm:text-sm whitespace-nowrap flex-shrink-0"
                 size="lg"
-                onClick={() => {
-                  // TODO: Implement send invoice functionality
-                  // This feature will be implemented in a future update
-                }}
+                onClick={clearCart}
               >
-                ارسال فاکتور خرید
+                پاک کردن سبد خرید
               </Button>
             </div>
-            <Button
-              variant="outline"
-              className="w-full h-10 sm:h-11 text-sm sm:text-base"
-              onClick={clearCart}
-            >
-              پاک کردن سبد خرید
-            </Button>
           </CardContent>
         </Card>
       </div>

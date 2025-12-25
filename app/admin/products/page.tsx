@@ -47,6 +47,33 @@ export default function ProductsPage() {
     loadProducts();
   }, [loadProductsFromDB, pathname]);
 
+  // Listen for custom events and storage events to refresh when product is created/updated
+  useEffect(() => {
+    const handleProductCreated = () => {
+      loadProductsFromDB(true);
+    };
+
+    const handleProductUpdated = () => {
+      loadProductsFromDB(true);
+    };
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'product-created' || e.key === 'product-updated') {
+        loadProductsFromDB(true);
+      }
+    };
+
+    window.addEventListener('product-created', handleProductCreated);
+    window.addEventListener('product-updated', handleProductUpdated);
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('product-created', handleProductCreated);
+      window.removeEventListener('product-updated', handleProductUpdated);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [loadProductsFromDB]);
+
   useEffect(() => {
     refreshStats();
   }, [refreshStats, products]);

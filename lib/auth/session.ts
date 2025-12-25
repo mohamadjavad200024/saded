@@ -5,18 +5,16 @@ import { AppError } from "@/lib/api-error-handler";
 
 export const SESSION_COOKIE_NAME = "saded_session";
 
-const SESSION_DAYS = 30;
+// Session نامحدود - تا زمانی که کاربر logout نکند
+// برای امنیت، از maxAge بسیار طولانی استفاده می‌کنیم (10 سال)
+const SESSION_MAX_AGE_SECONDS = 10 * 365 * 24 * 60 * 60; // 10 years in seconds
 
 function nowIso(): string {
   // MySQL friendly datetime (YYYY-MM-DD HH:mm:ss)
   return new Date().toISOString().slice(0, 19).replace("T", " ");
 }
 
-function addDays(date: Date, days: number): Date {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
-  return d;
-}
+// Function removed - sessions are now unlimited, no expiration needed
 
 export function sha256Hex(input: string): string {
   return crypto.createHash("sha256").update(input).digest("hex");
@@ -29,20 +27,35 @@ export function isHttpsRequest(request: NextRequest): boolean {
 
 export function getSessionCookieOptions(request: NextRequest) {
   // Important: if your site is served over http (Not secure), Secure cookies won't set.
-  const secure = process.env.NODE_ENV === "production" ? isHttpsRequest(request) : false;
+  // In development, we use http, so secure must be false
+  const isProduction = process.env.NODE_ENV === "production";
+  const isLocalhost = request.nextUrl.hostname === "localhost" || 
+                      request.nextUrl.hostname === "127.0.0.1" ||
+                      request.nextUrl.hostname === "::1";
+  
+  // Never use secure on localhost - it prevents cookie from being set
+  const secure = isProduction && !isLocalhost && isHttpsRequest(request);
+  
   return {
     httpOnly: true,
-    secure,
-    sameSite: "lax" as const,
+    secure: secure, // false on localhost, true only in production with HTTPS
+    sameSite: "lax" as const, // lax allows cookies to be sent with same-site requests
     path: "/",
-    maxAge: SESSION_DAYS * 24 * 60 * 60,
+    maxAge: SESSION_MAX_AGE_SECONDS, // 10 years - effectively unlimited until logout
+    // Ensure domain is not set (allows cookie to work on localhost)
+    // domain is not set by default, which is correct for localhost
+    // In development, explicitly set sameSite to 'lax' to ensure cookies work
+    ...(process.env.NODE_ENV === 'development' && {
+      sameSite: "lax" as const,
+    }),
   };
 }
 
 export async function ensureAuthTables(): Promise<void> {
-  // Users table
-  await runQuery(`
-    CREATE TABLE IF NOT EXISTS users (
+  try {
+    // Users table
+    await runQuery(`
+      CREATE TABLE IF NOT EXISTS users (
       id VARCHAR(255) PRIMARY KEY,
       name VARCHAR(255) NOT NULL,
       phone VARCHAR(32) NOT NULL,
@@ -114,12 +127,13 @@ export async function ensureAuthTables(): Promise<void> {
   }
 
   // Sessions table
+  // Note: expiresAt is kept for backward compatibility but not enforced (sessions are unlimited)
   await runQuery(`
     CREATE TABLE IF NOT EXISTS sessions (
       id VARCHAR(255) PRIMARY KEY,
       userId VARCHAR(255) NOT NULL,
       tokenHash CHAR(64) NOT NULL,
-      expiresAt TIMESTAMP NOT NULL,
+      expiresAt TIMESTAMP NULL DEFAULT NULL,
       createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       lastSeenAt TIMESTAMP NULL DEFAULT NULL,
       userAgent VARCHAR(255) NULL DEFAULT NULL,
@@ -129,6 +143,28 @@ export async function ensureAuthTables(): Promise<void> {
       KEY idx_sessions_expiresAt (expiresAt)
     )
   `);
+  
+    // Migrate existing sessions: set expiresAt to NULL for unlimited sessions
+    try {
+      await runQuery(`UPDATE sessions SET expiresAt = NULL WHERE expiresAt IS NOT NULL`);
+    } catch {
+      // Best-effort migration, ignore errors
+    }
+  } catch (error: any) {
+    // If database is not available, log but don't throw - allow app to continue
+    if (error?.code === 'ECONNRESET' || 
+        error?.code === 'PROTOCOL_CONNECTION_LOST' ||
+        error?.code === 'ETIMEDOUT' ||
+        error?.code === 'ECONNREFUSED' ||
+        error?.message?.includes('closed state')) {
+      logger.warn("Database connection error in ensureAuthTables, will retry on next request:", error?.code);
+      // Don't throw - allow route to continue (it will handle the error)
+      return;
+    }
+    // For other errors, log and rethrow
+    logger.error("Error ensuring auth tables:", error);
+    throw error;
+  }
 }
 
 export type SessionUser = {
@@ -146,7 +182,8 @@ export async function createSession(userId: string, request: NextRequest): Promi
   const token = crypto.randomBytes(32).toString("base64url");
   const tokenHash = sha256Hex(token);
   const sessionId = `sess_${Date.now()}_${crypto.randomBytes(6).toString("hex")}`;
-  const expiresAt = addDays(new Date(), SESSION_DAYS);
+  // Session نامحدود - expiresAt را NULL می‌گذاریم
+  const expiresAt = null;
 
   const ua = request.headers.get("user-agent");
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
@@ -158,7 +195,7 @@ export async function createSession(userId: string, request: NextRequest): Promi
       sessionId,
       userId,
       tokenHash,
-      expiresAt.toISOString().slice(0, 19).replace("T", " "),
+      expiresAt,
       nowIso(),
       nowIso(),
       ua || null,
@@ -170,42 +207,125 @@ export async function createSession(userId: string, request: NextRequest): Promi
 }
 
 export async function getSessionUserFromRequest(request: NextRequest): Promise<SessionUser | null> {
-  const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
-  if (!token) return null;
+  // Try to get cookie from both cookies.get() and headers
+  let token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+  
+  // Fallback: try to parse from cookie header directly
+  if (!token) {
+    const cookieHeader = request.headers.get('cookie');
+    if (cookieHeader) {
+      const cookies = cookieHeader.split(';').map(c => c.trim());
+      for (const cookie of cookies) {
+        const [name, value] = cookie.split('=');
+        if (name === SESSION_COOKIE_NAME && value) {
+          token = decodeURIComponent(value);
+          break;
+        }
+      }
+    }
+  }
+  
+  if (!token) {
+    // Debug: log if cookie is missing - use console.log for visibility
+    const allCookies = request.cookies.getAll();
+    const cookieNames = allCookies.map(c => c.name);
+    const cookieHeader = request.headers.get('cookie');
+    console.log('[Session] ❌ No session cookie found!');
+    console.log('[Session] Available cookies:', cookieNames);
+    console.log('[Session] Looking for cookie:', SESSION_COOKIE_NAME);
+    console.log('[Session] Request URL:', request.url);
+    console.log('[Session] Cookie header:', cookieHeader ? cookieHeader.substring(0, 300) : 'no cookie header');
+    console.log('[Session] Request hostname:', request.nextUrl.hostname);
+    console.log('[Session] Request protocol:', request.nextUrl.protocol);
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[Session] No session cookie found. Available cookies:', cookieNames);
+    }
+    return null;
+  }
+  
+  console.log('[Session] ✅ Session token found, length:', token.length);
 
   // Only touch DB if a session cookie exists (prevents hanging on DB when user is not logged in)
-  await ensureAuthTables();
+  try {
+    await ensureAuthTables();
+  } catch (error: any) {
+    // If database is not available, return null (user not authenticated)
+    if (error?.code === 'ECONNRESET' || 
+        error?.code === 'PROTOCOL_CONNECTION_LOST' ||
+        error?.code === 'ETIMEDOUT' ||
+        error?.code === 'ECONNREFUSED' ||
+        error?.message?.includes('closed state')) {
+      logger.warn("Database connection error in getSessionUserFromRequest, returning null:", error?.code);
+      return null;
+    }
+    // For other errors, rethrow
+    throw error;
+  }
 
   const tokenHash = sha256Hex(token);
-  const row = await getRow<{
-    sessionId: string;
-    userId: string;
-    expiresAt: string;
-    enabled: any;
-    role: string;
-    name: string;
-    phone: string;
-    createdAt: string;
-  }>(
-    `SELECT s.id as sessionId, s.userId, s.expiresAt, u.enabled, u.role, u.name, u.phone, u.createdAt
-     FROM sessions s
-     JOIN users u ON u.id = s.userId
-     WHERE s.tokenHash = ?
-     LIMIT 1`,
-    [tokenHash]
-  );
+  let row;
+  try {
+    row = await getRow<{
+      sessionId: string;
+      userId: string;
+      expiresAt: string;
+      enabled: any;
+      role: string;
+      name: string;
+      phone: string;
+      createdAt: string;
+    }>(
+      `SELECT s.id as sessionId, s.userId, s.expiresAt, u.enabled, u.role, u.name, u.phone, u.createdAt
+       FROM sessions s
+       JOIN users u ON u.id = s.userId
+       WHERE s.tokenHash = ?
+       LIMIT 1`,
+      [tokenHash]
+    );
+  } catch (error: any) {
+    // If database is not available, return null (user not authenticated)
+    if (error?.code === 'ECONNRESET' || 
+        error?.code === 'PROTOCOL_CONNECTION_LOST' ||
+        error?.code === 'ETIMEDOUT' ||
+        error?.code === 'ECONNREFUSED' ||
+        error?.message?.includes('closed state')) {
+      logger.warn("Database connection error in getSessionUserFromRequest query, returning null:", error?.code);
+      return null;
+    }
+    // For other errors, rethrow
+    throw error;
+  }
 
   if (!row) return null;
 
-  const expires = new Date(row.expiresAt);
-  if (Number.isNaN(expires.getTime()) || expires.getTime() < Date.now()) {
-    // Expired: delete it
-    await runQuery(`DELETE FROM sessions WHERE tokenHash = ?`, [tokenHash]);
-    return null;
+  // Session نامحدود - بررسی expiration را حذف می‌کنیم
+  // فقط اگر expiresAt وجود داشته باشد و منقضی شده باشد، آن را حذف می‌کنیم
+  // (برای backward compatibility با sessions قدیمی)
+  if (row.expiresAt) {
+    const expires = new Date(row.expiresAt);
+    if (!Number.isNaN(expires.getTime()) && expires.getTime() < Date.now()) {
+      // Expired: delete it
+      await runQuery(`DELETE FROM sessions WHERE tokenHash = ?`, [tokenHash]);
+      return null;
+    }
   }
 
-  // Touch session
-  await runQuery(`UPDATE sessions SET lastSeenAt = ? WHERE id = ?`, [nowIso(), row.sessionId]);
+  // Touch session (ignore errors - not critical)
+  try {
+    await runQuery(`UPDATE sessions SET lastSeenAt = ? WHERE id = ?`, [nowIso(), row.sessionId]);
+  } catch (error: any) {
+    // Ignore connection errors when touching session - not critical
+    if (error?.code === 'ECONNRESET' || 
+        error?.code === 'PROTOCOL_CONNECTION_LOST' ||
+        error?.code === 'ETIMEDOUT' ||
+        error?.code === 'ECONNREFUSED' ||
+        error?.message?.includes('closed state')) {
+      // Silent ignore - session touch is not critical
+    } else {
+      // Log other errors but don't fail
+      logger.debug("Error touching session (non-critical):", error?.code);
+    }
+  }
 
   return {
     id: row.userId,
@@ -226,7 +346,41 @@ export async function clearSession(request: NextRequest): Promise<void> {
 }
 
 export function setSessionCookie(response: NextResponse, token: string, request: NextRequest) {
-  response.cookies.set(SESSION_COOKIE_NAME, token, getSessionCookieOptions(request));
+  const options = getSessionCookieOptions(request);
+  
+  // CRITICAL: In Next.js, we should ONLY use response.cookies.set()
+  // Setting headers directly can cause conflicts
+  // Make sure all options are explicitly set
+  response.cookies.set(SESSION_COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: options.secure,
+    sameSite: options.sameSite,
+    path: "/",
+    maxAge: options.maxAge,
+    // DO NOT set domain - it breaks localhost
+    // DO NOT set expires - use maxAge instead
+  });
+  
+  // Debug in development
+  if (process.env.NODE_ENV === 'development') {
+    const cookieValue = response.cookies.get(SESSION_COOKIE_NAME)?.value;
+    const allCookies = response.cookies.getAll();
+    console.log('[Session] Cookie set:', {
+      name: SESSION_COOKIE_NAME,
+      hasToken: !!token,
+      tokenLength: token?.length,
+      cookieValueInResponse: !!cookieValue,
+      cookieValueMatches: cookieValue === token,
+      maxAge: options.maxAge,
+      expiresIn: "unlimited (until logout)",
+      secure: options.secure,
+      sameSite: options.sameSite,
+      requestHost: request.nextUrl.hostname,
+      requestProtocol: request.nextUrl.protocol,
+      allCookiesCount: allCookies.length,
+      cookieNames: allCookies.map(c => c.name),
+    });
+  }
 }
 
 export function clearSessionCookie(response: NextResponse, request: NextRequest) {

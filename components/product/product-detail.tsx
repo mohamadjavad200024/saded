@@ -4,12 +4,15 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingCart, Heart, Share2, Star, Check, Truck, Shield, Plane, Ship, AlertCircle } from "lucide-react";
-import Image from "next/image";
+import { ShoppingCart, Share2, Star, Check, Plane, Ship, AlertCircle } from "lucide-react";
+import { SafeImage } from "@/components/ui/safe-image";
+import { VehicleLogo } from "@/components/ui/vehicle-logo";
 import Link from "next/link";
 import { useCartStore } from "@/store/cart-store";
 import { useProductStore } from "@/store/product-store";
+import { useVehicleStore } from "@/store/vehicle-store";
 import { getPlaceholderImage } from "@/lib/image-utils";
+import { useToast } from "@/hooks/use-toast";
 import type { Product } from "@/types/product";
 
 interface ProductDetailProps {
@@ -23,9 +26,12 @@ export function ProductDetail({ productId }: ProductDetailProps) {
   const [product, setProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [isAdded, setIsAdded] = useState(false);
+  const { toast } = useToast();
   const addToCart = useCartStore((state) => state.addItem);
   const getProduct = useProductStore((state) => state.getProduct);
   const addProduct = useProductStore((state) => state.addProduct);
+  const { getVehicle, loadVehiclesFromDB } = useVehicleStore();
 
   // Only access store after hydration to avoid SSR mismatch
   useEffect(() => {
@@ -71,6 +77,21 @@ export function ProductDetail({ productId }: ProductDetailProps) {
 
   const setShippingMethodInStore = useCartStore((state) => state.setShippingMethod);
 
+  // Load vehicles on mount
+  useEffect(() => {
+    loadVehiclesFromDB().catch(console.error);
+  }, [loadVehiclesFromDB]);
+
+  // Reset isAdded state after 2.5 seconds
+  useEffect(() => {
+    if (isAdded) {
+      const timer = setTimeout(() => {
+        setIsAdded(false);
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [isAdded]);
+
   // Show loading state during hydration or while fetching
   if (!isHydrated || isLoading) {
     return (
@@ -100,11 +121,16 @@ export function ProductDetail({ productId }: ProductDetailProps) {
   }
 
   const handleAddToCart = () => {
+    // Reset state if already added (for multiple clicks)
+    if (isAdded) {
+      setIsAdded(false);
+    }
+
     addToCart({
       id: product.id,
       name: product.name,
       price: product.price,
-      image: product.images[0] || getPlaceholderImage(300, 300),
+      image: (Array.isArray(product.images) && product.images[0]) || getPlaceholderImage(300, 300),
       quantity,
     });
     // Save shipping method to store when adding to cart
@@ -129,11 +155,78 @@ export function ProductDetail({ productId }: ProductDetailProps) {
         setShippingMethodInStore("sea");
       }
     }
+
+    // Show toast notification
+    toast({
+      title: "افزوده شد",
+      description: `${product.name} به سبد خرید اضافه شد`,
+    });
+
+    // Set success state
+    setIsAdded(true);
+  };
+
+  const handleShare = async () => {
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_URL || 'https://saded.ir';
+    const productUrl = `${baseUrl}/products/${product.id}`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: product.name,
+          text: product.description || product.name,
+          url: productUrl,
+        });
+      } catch (err) {
+        // User cancelled or error occurred, fallback to copy
+        copyToClipboard(productUrl);
+      }
+    } else {
+      // Fallback: copy to clipboard
+      copyToClipboard(productUrl);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(() => {
+        toast({
+          title: "کپی شد",
+          description: "لینک محصول در کلیپ‌بورد کپی شد",
+        });
+      }).catch(() => {
+        // Fallback for older browsers
+        fallbackCopyToClipboard(text);
+      });
+    } else {
+      fallbackCopyToClipboard(text);
+    }
+  };
+
+  const fallbackCopyToClipboard = (text: string) => {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.left = "-999999px";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      toast({
+        title: "کپی شد",
+        description: "لینک محصول در کلیپ‌بورد کپی شد",
+      });
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+    document.body.removeChild(textArea);
   };
 
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_URL || 'https://saded.ir';
   const productUrl = `${baseUrl}/products/${product.id}`;
-  const productImage = product.images?.[0] || getPlaceholderImage(600, 600);
+  const productImages = Array.isArray(product.images) ? product.images : [];
+  const productImage = productImages[0] || getPlaceholderImage(600, 600);
   const price = product.price / 1000; // Convert from Rials to Tomans
   const availability = product.inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock';
 
@@ -143,7 +236,7 @@ export function ProductDetail({ productId }: ProductDetailProps) {
     "@type": "Product",
     "name": product.name,
     "description": product.description || `${product.name} - قطعه خودرو ${product.brand || ''}`,
-    "image": product.images.length > 0 ? product.images : [productImage],
+    "image": productImages.length > 0 ? productImages : [productImage],
     "brand": {
       "@type": "Brand",
       "name": product.brand || "نامشخص"
@@ -174,13 +267,60 @@ export function ProductDetail({ productId }: ProductDetailProps) {
     };
   }
 
+  // Get vehicle info for logo
+  const vehicle = product.vehicle ? getVehicle(product.vehicle) : null;
+  const hasValidLogo = vehicle && vehicle.logo && 
+    typeof vehicle.logo === 'string' && 
+    vehicle.logo.trim() !== '' &&
+    (vehicle.logo.startsWith('data:image') || vehicle.logo.startsWith('http') || vehicle.logo.startsWith('/'));
+
   return (
-    <div className="space-y-4 sm:space-y-6 md:space-y-8 px-2 sm:px-0">
+    <div className="relative space-y-4 sm:space-y-6 md:space-y-8 px-2 sm:px-0">
       {/* Schema.org Structured Data */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
       />
+      
+      {/* Vehicle Logo Container - Top Left (Absolute Positioned) */}
+      <div className="absolute top-0 left-0 z-10 flex items-center gap-2 sm:gap-3" dir="ltr">
+        {/* Logo - Circle */}
+        <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-muted rounded-full overflow-hidden border-2 border-green-500 flex items-center justify-center p-2 sm:p-3 flex-shrink-0">
+          {vehicle && hasValidLogo ? (
+            <img
+              src={vehicle.logo}
+              alt={vehicle.name}
+              className="w-full h-full object-contain rounded-full"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                const parent = e.currentTarget.parentElement;
+                if (parent) {
+                  const placeholder = document.createElement('span');
+                  placeholder.className = 'text-green-500 text-[10px] sm:text-xs font-medium';
+                  placeholder.textContent = 'لوگو';
+                  parent.appendChild(placeholder);
+                }
+              }}
+            />
+          ) : vehicle ? (
+            <VehicleLogo
+              logo={vehicle.logo}
+              alt={vehicle.name}
+              size="md"
+              className="w-full h-full rounded-full"
+            />
+          ) : (
+            <span className="text-green-500 text-[10px] sm:text-xs font-medium">لوگو</span>
+          )}
+        </div>
+        
+        {/* Vehicle Name - Right Side */}
+        {vehicle && (
+          <span className="text-sm sm:text-base md:text-lg font-bold text-foreground whitespace-nowrap">
+            {vehicle.name}
+          </span>
+        )}
+      </div>
       
       {/* Breadcrumb - Minimal */}
       <nav className="text-[10px] sm:text-xs text-muted-foreground overflow-x-auto mb-2">
@@ -244,16 +384,18 @@ export function ProductDetail({ productId }: ProductDetailProps) {
         {/* Image Gallery */}
         <div className="space-y-2 sm:space-y-3 lg:-mt-32">
           <div className="relative aspect-square w-full bg-muted rounded-lg overflow-hidden">
-            <Image
-              src={product.images[selectedImage] || getPlaceholderImage(600, 600)}
+            <SafeImage
+              src={Array.isArray(product.images) && product.images.length > 0 ? product.images[selectedImage] : null}
               alt={product.name}
               fill
-              className="object-cover"
+              className="w-full h-full"
               priority
+              loading="eager"
+              productId={product.id}
             />
           </div>
           <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
-            {(product.images.length > 0 ? product.images : [getPlaceholderImage(600, 600)]).map((image, index) => (
+            {(Array.isArray(product.images) && product.images.length > 0 ? product.images : [getPlaceholderImage(600, 600)]).map((image, index) => (
               <button
                 key={index}
                 onClick={() => setSelectedImage(index)}
@@ -263,13 +405,15 @@ export function ProductDetail({ productId }: ProductDetailProps) {
                     : "border-transparent hover:border-muted-foreground/30"
                 }`}
               >
-                <Image
+                <SafeImage
                   src={image}
-                  alt={`${product.name} - تصویر ${index + 1} از ${product.images.length}`}
+                  alt={`${product.name} - تصویر ${index + 1} از ${Array.isArray(product.images) ? product.images.length : 1}`}
                   fill
-                  className="object-cover"
-                  loading={index < 2 ? "eager" : "lazy"}
+                  className="w-full h-full"
+                  priority
+                  loading="eager"
                   sizes="(max-width: 640px) 25vw, 20vw"
+                  productId={product.id}
                 />
               </button>
             ))}
@@ -324,15 +468,17 @@ export function ProductDetail({ productId }: ProductDetailProps) {
         </div>
 
         {/* Product Info */}
-        <div className="space-y-4 sm:space-y-5 md:space-y-6">
+        <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 md:gap-8">
+          {/* Product Name & Info Container - Left Side */}
+          <div className="flex-shrink-0 space-y-3 sm:space-y-4">
           <div>
             <div className="flex items-center gap-1.5 mb-2 flex-wrap">
               <span className="text-[10px] sm:text-xs text-muted-foreground">{product.brand}</span>
               <span className="text-muted-foreground hidden sm:inline text-xs">•</span>
               <span className="text-[10px] sm:text-xs text-muted-foreground">{product.category}</span>
             </div>
-            <h1 className="text-lg sm:text-xl md:text-2xl font-bold mb-3 sm:mb-4 leading-tight">{product.name}</h1>
-            <div className="flex items-center gap-2 sm:gap-3 mb-0">
+              <h1 className="text-lg sm:text-xl md:text-2xl font-bold mb-2 sm:mb-3 leading-tight">{product.name}</h1>
+              <div className="flex items-center gap-2 sm:gap-3">
               {product.rating && (
                 <>
                   <div className="flex items-center">
@@ -346,9 +492,12 @@ export function ProductDetail({ productId }: ProductDetailProps) {
                   )}
                 </>
               )}
+              </div>
             </div>
           </div>
 
+          {/* Details Container - Right Side */}
+          <div className="flex-1 space-y-4 sm:space-y-5 md:space-y-6">
           {/* Price */}
           <div className="space-y-2">
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
@@ -413,31 +562,33 @@ export function ProductDetail({ productId }: ProductDetailProps) {
             <div className="flex gap-1.5 sm:gap-2">
               <Button
                 size="default"
-                className="flex-1 h-9 sm:h-10 text-xs sm:text-sm"
+                className={`flex-1 h-9 sm:h-10 text-xs sm:text-sm transition-all ${
+                  isAdded ? "bg-green-600 hover:bg-green-700" : ""
+                }`}
                 disabled={!product.inStock}
                 onClick={handleAddToCart}
               >
-                <ShoppingCart className="h-3.5 w-3.5 sm:h-4 sm:w-4 ml-1.5 sm:ml-2" />
-                <span>افزودن به سبد</span>
+                {isAdded ? (
+                  <>
+                    <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4 ml-1.5 sm:ml-2" />
+                    <span>افزوده شد</span>
+                  </>
+                ) : (
+                  <>
+                    <ShoppingCart className="h-3.5 w-3.5 sm:h-4 sm:w-4 ml-1.5 sm:ml-2" />
+                    <span>افزودن به سبد</span>
+                  </>
+                )}
               </Button>
-              <Button variant="outline" size="icon" className="h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0">
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  className="h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0"
+                  onClick={handleShare}
+                >
                 <Share2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </Button>
-              <Button variant="outline" size="icon" className="h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0">
-                <Heart className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              </Button>
             </div>
-          </div>
-
-          {/* Features */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 pt-4 sm:pt-5 border-t-[0.25px] border-border/30">
-            <div className="flex items-start gap-2">
-              <Truck className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-              <span className="text-[10px] sm:text-xs leading-relaxed">ارسال رایگان بالای 500 هزار تومان</span>
-            </div>
-            <div className="flex items-start gap-2">
-              <Shield className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-              <span className="text-[10px] sm:text-xs leading-relaxed">گارانتی اصالت کالا</span>
             </div>
           </div>
         </div>
@@ -445,12 +596,9 @@ export function ProductDetail({ productId }: ProductDetailProps) {
 
       {/* Tabs */}
       <Tabs defaultValue="description" className="w-full">
-        <TabsList className="w-full grid grid-cols-3 h-auto">
+        <TabsList className="w-full grid grid-cols-2 h-auto">
           <TabsTrigger value="description" className="text-[10px] sm:text-xs py-1.5 sm:py-2">توضیحات</TabsTrigger>
           <TabsTrigger value="specifications" className="text-[10px] sm:text-xs py-1.5 sm:py-2">مشخصات</TabsTrigger>
-          <TabsTrigger value="reviews" className="text-[10px] sm:text-xs py-1.5 sm:py-2">
-            نظرات {product.reviews ? `(${product.reviews})` : ""}
-          </TabsTrigger>
         </TabsList>
         <TabsContent value="description" className="mt-4 sm:mt-6">
           <Card>
@@ -480,15 +628,6 @@ export function ProductDetail({ productId }: ProductDetailProps) {
               ) : (
                 <p className="text-xs sm:text-sm text-muted-foreground">مشخصات محصول در دسترس نیست</p>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="reviews" className="mt-4 sm:mt-6">
-          <Card>
-            <CardContent className="p-4 sm:p-5">
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                نظرات کاربران {product.reviews ? `(${product.reviews})` : ""} به زودی...
-              </p>
             </CardContent>
           </Card>
         </TabsContent>

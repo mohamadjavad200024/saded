@@ -6,6 +6,9 @@ import type { Product, ProductFilters } from "@/types/product";
 import { cache, cacheKeys, withCache } from "@/lib/cache";
 import { rateLimit } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
+import { productSchema, productFiltersSchema } from "@/lib/validations/product";
+import { normalizeImages, normalizeTags, normalizeSpecifications } from "@/lib/product-utils";
+import { validateImageUrl, normalizeImageUrl } from "@/lib/image-utils";
 
 /**
  * GET /api/products - Get all products with pagination
@@ -125,26 +128,52 @@ export async function GET(request: NextRequest) {
     }
 
     // Parse JSON fields (PostgreSQL JSONB returns objects, not strings)
-    const parsedProducts = products.map((p: any) => ({
-      ...p,
-      images: Array.isArray(p.images) ? p.images : (typeof p.images === 'string' ? JSON.parse(p.images) : []),
-      tags: Array.isArray(p.tags) ? p.tags : (typeof p.tags === 'string' ? JSON.parse(p.tags) : []),
-      specifications: typeof p.specifications === 'object' && p.specifications !== null 
-        ? p.specifications 
-        : (typeof p.specifications === 'string' ? JSON.parse(p.specifications) : {}),
-      price: Number(p.price),
-      originalPrice: p.originalPrice ? Number(p.originalPrice) : undefined,
-      stockCount: Number(p.stockCount),
-      inStock: Boolean(p.inStock),
-      enabled: Boolean(p.enabled),
-      vinEnabled: Boolean(p.vinEnabled),
-      airShippingEnabled: Boolean(p.airShippingEnabled),
-      seaShippingEnabled: Boolean(p.seaShippingEnabled),
-      airShippingCost: p.airShippingCost !== null && p.airShippingCost !== undefined ? Number(p.airShippingCost) : null,
-      seaShippingCost: p.seaShippingCost !== null && p.seaShippingCost !== undefined ? Number(p.seaShippingCost) : null,
-      createdAt: p.createdAt instanceof Date ? p.createdAt : new Date(p.createdAt),
-      updatedAt: p.updatedAt instanceof Date ? p.updatedAt : new Date(p.updatedAt),
-    }));
+    const parsedProducts = products.map((p: any) => {
+      // Normalize and validate images - be more lenient with base64
+      const normalizedImages = normalizeImages(p.images);
+      const validatedImages = normalizedImages
+        .map((img: string) => {
+          if (!img || typeof img !== 'string') return null;
+          const trimmed = img.trim();
+          if (trimmed === '') return null;
+          
+          // For base64 images, validate directly without normalization
+          if (trimmed.startsWith('data:image') || trimmed.startsWith('data:')) {
+            if (trimmed.includes(';base64,') && trimmed.length > 50) {
+              return trimmed; // Accept base64 images with basic validation
+            } else if (trimmed.startsWith('data:image') && trimmed.length > 50) {
+              // Even without ;base64,, if it's data:image and long enough, accept it
+              return trimmed;
+            }
+            return null;
+          }
+          
+          // For other URLs (http, https, blob, relative), normalize and validate
+          const normalized = normalizeImageUrl(trimmed);
+          if (!normalized) return null;
+          return validateImageUrl(normalized) ? normalized : null;
+        })
+        .filter((img: string | null): img is string => img !== null);
+
+      return {
+        ...p,
+        images: validatedImages,
+        tags: normalizeTags(p.tags),
+        specifications: normalizeSpecifications(p.specifications),
+        price: Number(p.price),
+        originalPrice: p.originalPrice ? Number(p.originalPrice) : undefined,
+        stockCount: Number(p.stockCount),
+        inStock: Boolean(p.inStock),
+        enabled: Boolean(p.enabled),
+        vinEnabled: Boolean(p.vinEnabled),
+        airShippingEnabled: Boolean(p.airShippingEnabled),
+        seaShippingEnabled: Boolean(p.seaShippingEnabled),
+        airShippingCost: p.airShippingCost !== null && p.airShippingCost !== undefined ? Number(p.airShippingCost) : null,
+        seaShippingCost: p.seaShippingCost !== null && p.seaShippingCost !== undefined ? Number(p.seaShippingCost) : null,
+        createdAt: p.createdAt instanceof Date ? p.createdAt : new Date(p.createdAt),
+        updatedAt: p.updatedAt instanceof Date ? p.updatedAt : new Date(p.updatedAt),
+      };
+    });
 
     const totalPages = Math.ceil(total / limit);
 
@@ -173,6 +202,21 @@ export async function POST(request: NextRequest) {
     // Check if this is a create request (has name and price) or filter request (has filters property)
     if (body.name && body.price !== undefined && !body.filters) {
       // This is a create request
+      // Validate with Zod schema
+      let validatedData;
+      try {
+        validatedData = productSchema.parse(body);
+      } catch (validationError: any) {
+        const errors = validationError.errors || [];
+        const firstError = errors[0];
+        throw new AppError(
+          firstError?.message || "اطلاعات محصول نامعتبر است",
+          400,
+          "VALIDATION_ERROR",
+          errors
+        );
+      }
+
       const {
         name,
         description,
@@ -180,6 +224,8 @@ export async function POST(request: NextRequest) {
         originalPrice,
         brand,
         category,
+        vehicle,
+        model,
         vin,
         vinEnabled,
         airShippingEnabled,
@@ -192,27 +238,7 @@ export async function POST(request: NextRequest) {
         images,
         tags,
         specifications,
-      } = body;
-
-      // Validation
-      if (!name || typeof name !== "string" || name.trim() === "") {
-        throw new AppError("نام محصول الزامی است", 400, "MISSING_NAME");
-      }
-      if (!description || typeof description !== "string" || description.trim() === "") {
-        throw new AppError("توضیحات محصول الزامی است", 400, "MISSING_DESCRIPTION");
-      }
-      if (price === undefined || typeof price !== "number" || price < 0) {
-        throw new AppError("قیمت محصول الزامی است و باید مثبت باشد", 400, "INVALID_PRICE");
-      }
-      if (!brand || typeof brand !== "string" || brand.trim() === "") {
-        throw new AppError("برند محصول الزامی است", 400, "MISSING_BRAND");
-      }
-      if (!category || typeof category !== "string" || category.trim() === "") {
-        throw new AppError("دسته‌بندی محصول الزامی است", 400, "MISSING_CATEGORY");
-      }
-      if (!images || !Array.isArray(images) || images.length === 0) {
-        throw new AppError("حداقل یک تصویر الزامی است", 400, "MISSING_IMAGES");
-      }
+      } = validatedData;
 
       const id = `product-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const now = new Date().toISOString();
@@ -226,6 +252,8 @@ export async function POST(request: NextRequest) {
         originalPrice: originalPrice ? Math.round(originalPrice) : null,
         brand: brand.trim(),
         category: category.trim(),
+        vehicle: vehicle ? vehicle.trim() : null,
+        model: model ? model.trim() : null,
         vin: vin && vinEnabled ? vin.trim() : null,
         vinEnabled: vinEnabled ? true : false,
         airShippingEnabled: typeof airShippingEnabled === "boolean" ? airShippingEnabled : (airShippingEnabled === true || airShippingEnabled === "true" || airShippingEnabled === 1),
@@ -235,7 +263,32 @@ export async function POST(request: NextRequest) {
         stockCount: Math.max(0, Math.round(stockCount || 0)),
         inStock: inStock !== false,
         enabled: enabled !== false,
-        images: images, // PostgreSQL JSONB accepts arrays directly
+        // Validate and normalize images before saving
+        images: Array.isArray(images)
+          ? images
+              .map((img: any) => {
+                if (!img || typeof img !== 'string') return null;
+                const trimmed = img.trim();
+                if (trimmed === '') return null;
+                
+                // For base64 images, validate directly without normalization
+                if (trimmed.startsWith('data:image') || trimmed.startsWith('data:')) {
+                  if (trimmed.includes(';base64,') && trimmed.length > 50) {
+                    return trimmed; // Accept base64 images with basic validation
+                  } else if (trimmed.startsWith('data:image') && trimmed.length > 50) {
+                    // Even without ;base64,, if it's data:image and long enough, accept it
+                    return trimmed;
+                  }
+                  return null;
+                }
+                
+                // For other URLs (http, https, blob, relative), normalize and validate
+                const normalized = normalizeImageUrl(trimmed);
+                if (!normalized) return null;
+                return validateImageUrl(normalized) ? normalized : null;
+              })
+              .filter((img: string | null): img is string => img !== null)
+          : [],
         tags: tags && Array.isArray(tags) ? tags : [],
         specifications: specifications && typeof specifications === "object" ? specifications : {},
         createdAt: now,
@@ -245,8 +298,8 @@ export async function POST(request: NextRequest) {
       // Insert into database (wrapper will convert ? to $1, $2, etc. for PostgreSQL)
       try {
         const insertResult = await runQuery(
-        `INSERT INTO products (id, name, description, price, \`originalPrice\`, brand, category, vin, \`vinEnabled\`, \`airShippingEnabled\`, \`seaShippingEnabled\`, \`airShippingCost\`, \`seaShippingCost\`, \`stockCount\`, \`inStock\`, enabled, images, tags, specifications, \`createdAt\`, \`updatedAt\`)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO products (id, name, description, price, \`originalPrice\`, brand, category, vehicle, model, vin, \`vinEnabled\`, \`airShippingEnabled\`, \`seaShippingEnabled\`, \`airShippingCost\`, \`seaShippingCost\`, \`stockCount\`, \`inStock\`, enabled, images, tags, specifications, \`createdAt\`, \`updatedAt\`)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           productData.id,
           productData.name,
@@ -255,6 +308,8 @@ export async function POST(request: NextRequest) {
           productData.originalPrice,
           productData.brand,
           productData.category,
+          productData.vehicle,
+          productData.model,
           productData.vin,
           productData.vinEnabled,
           productData.airShippingEnabled,
@@ -290,14 +345,32 @@ export async function POST(request: NextRequest) {
         throw new AppError("محصول ایجاد شد اما پیدا نشد", 500, "PRODUCT_NOT_FOUND");
       }
 
-      // Parse JSON fields (PostgreSQL JSONB returns objects, not strings)
+      // Parse JSON fields with normalization
+      const normalizedImages = normalizeImages(newProduct.images);
+      const validatedImages = normalizedImages
+        .map((img: string) => {
+          if (!img || typeof img !== 'string') return null;
+          const trimmed = img.trim();
+          if (trimmed === '') return null;
+          
+          // For base64 images, be more lenient
+          if (trimmed.startsWith('data:image')) {
+            if (trimmed.includes(';base64,') && trimmed.length > 50) {
+              return trimmed; // Accept base64 images with basic validation
+            }
+          }
+          
+          // For other URLs, normalize and validate
+          const normalized = normalizeImageUrl(trimmed);
+          return normalized && validateImageUrl(normalized) ? normalized : null;
+        })
+        .filter((img: string | null): img is string => img !== null);
+
       const parsedProduct: Product = {
         ...newProduct,
-        images: Array.isArray(newProduct.images) ? newProduct.images : (typeof newProduct.images === 'string' ? JSON.parse(newProduct.images) : []),
-        tags: Array.isArray(newProduct.tags) ? newProduct.tags : (typeof newProduct.tags === 'string' ? JSON.parse(newProduct.tags) : []),
-        specifications: typeof newProduct.specifications === 'object' && newProduct.specifications !== null 
-          ? newProduct.specifications 
-          : (typeof newProduct.specifications === 'string' ? JSON.parse(newProduct.specifications) : {}),
+        images: validatedImages,
+        tags: normalizeTags(newProduct.tags),
+        specifications: normalizeSpecifications(newProduct.specifications),
         price: Number(newProduct.price),
         originalPrice: newProduct.originalPrice ? Number(newProduct.originalPrice) : undefined,
         stockCount: Number(newProduct.stockCount),
@@ -332,9 +405,11 @@ export async function POST(request: NextRequest) {
       params.push(filters.vin.trim());
     } else if (filters.search) {
       // Search in multiple fields - case-insensitive
+      // Search in: name, description, brand, category, vin, tags (JSON), specifications (JSON)
       const searchTerm = `%${filters.search.trim()}%`;
-      whereClause += " AND (UPPER(name) LIKE UPPER(?) OR UPPER(description) LIKE UPPER(?) OR UPPER(brand) LIKE UPPER(?) OR UPPER(category) LIKE UPPER(?) OR UPPER(vin) LIKE UPPER(?))";
-      params.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
+      // For MySQL: CAST JSON fields to CHAR for LIKE search
+      whereClause += " AND (UPPER(name) LIKE UPPER(?) OR UPPER(description) LIKE UPPER(?) OR UPPER(brand) LIKE UPPER(?) OR UPPER(category) LIKE UPPER(?) OR UPPER(vin) LIKE UPPER(?) OR UPPER(CAST(tags AS CHAR)) LIKE UPPER(?) OR UPPER(CAST(specifications AS CHAR)) LIKE UPPER(?))";
+      params.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
     }
 
     if (filters.minPrice !== undefined) {
@@ -357,6 +432,11 @@ export async function POST(request: NextRequest) {
       params.push(...filters.categories);
     }
 
+    if (filters.vehicle) {
+      whereClause += " AND vehicle = ?";
+      params.push(filters.vehicle);
+    }
+
     if (filters.inStock !== undefined) {
       whereClause += " AND inStock = ?";
       params.push(filters.inStock ? true : false);
@@ -372,26 +452,52 @@ export async function POST(request: NextRequest) {
     const products = await getRows<any>(dataQuery, [...params, limit, offset]);
 
     // Parse JSON fields (PostgreSQL JSONB returns objects, not strings)
-    const parsedProducts = products.map((p: any) => ({
-      ...p,
-      images: Array.isArray(p.images) ? p.images : (typeof p.images === 'string' ? JSON.parse(p.images) : []),
-      tags: Array.isArray(p.tags) ? p.tags : (typeof p.tags === 'string' ? JSON.parse(p.tags) : []),
-      specifications: typeof p.specifications === 'object' && p.specifications !== null 
-        ? p.specifications 
-        : (typeof p.specifications === 'string' ? JSON.parse(p.specifications) : {}),
-      price: Number(p.price),
-      originalPrice: p.originalPrice ? Number(p.originalPrice) : undefined,
-      stockCount: Number(p.stockCount),
-      inStock: Boolean(p.inStock),
-      enabled: Boolean(p.enabled),
-      vinEnabled: Boolean(p.vinEnabled),
-      airShippingEnabled: Boolean(p.airShippingEnabled),
-      seaShippingEnabled: Boolean(p.seaShippingEnabled),
-      airShippingCost: p.airShippingCost !== null && p.airShippingCost !== undefined ? Number(p.airShippingCost) : null,
-      seaShippingCost: p.seaShippingCost !== null && p.seaShippingCost !== undefined ? Number(p.seaShippingCost) : null,
-      createdAt: p.createdAt instanceof Date ? p.createdAt : new Date(p.createdAt),
-      updatedAt: p.updatedAt instanceof Date ? p.updatedAt : new Date(p.updatedAt),
-    }));
+    const parsedProducts = products.map((p: any) => {
+      // Normalize and validate images - be more lenient with base64
+      const normalizedImages = normalizeImages(p.images);
+      const validatedImages = normalizedImages
+        .map((img: string) => {
+          if (!img || typeof img !== 'string') return null;
+          const trimmed = img.trim();
+          if (trimmed === '') return null;
+          
+          // For base64 images, validate directly without normalization
+          if (trimmed.startsWith('data:image') || trimmed.startsWith('data:')) {
+            if (trimmed.includes(';base64,') && trimmed.length > 50) {
+              return trimmed; // Accept base64 images with basic validation
+            } else if (trimmed.startsWith('data:image') && trimmed.length > 50) {
+              // Even without ;base64,, if it's data:image and long enough, accept it
+              return trimmed;
+            }
+            return null;
+          }
+          
+          // For other URLs (http, https, blob, relative), normalize and validate
+          const normalized = normalizeImageUrl(trimmed);
+          if (!normalized) return null;
+          return validateImageUrl(normalized) ? normalized : null;
+        })
+        .filter((img: string | null): img is string => img !== null);
+
+      return {
+        ...p,
+        images: validatedImages,
+        tags: normalizeTags(p.tags),
+        specifications: normalizeSpecifications(p.specifications),
+        price: Number(p.price),
+        originalPrice: p.originalPrice ? Number(p.originalPrice) : undefined,
+        stockCount: Number(p.stockCount),
+        inStock: Boolean(p.inStock),
+        enabled: Boolean(p.enabled),
+        vinEnabled: Boolean(p.vinEnabled),
+        airShippingEnabled: Boolean(p.airShippingEnabled),
+        seaShippingEnabled: Boolean(p.seaShippingEnabled),
+        airShippingCost: p.airShippingCost !== null && p.airShippingCost !== undefined ? Number(p.airShippingCost) : null,
+        seaShippingCost: p.seaShippingCost !== null && p.seaShippingCost !== undefined ? Number(p.seaShippingCost) : null,
+        createdAt: p.createdAt instanceof Date ? p.createdAt : new Date(p.createdAt),
+        updatedAt: p.updatedAt instanceof Date ? p.updatedAt : new Date(p.updatedAt),
+      };
+    });
 
     const totalPages = Math.ceil(total / limit);
 

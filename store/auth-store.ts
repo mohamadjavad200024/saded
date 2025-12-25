@@ -62,7 +62,8 @@ export const useAuthStore = create<AuthStore>()(
           throw new Error(errorMessage);
         }
 
-        // Set current user
+        // Set user immediately from server response
+        // Cookie is set by server, so we can trust the response
         const user = {
           id: result.data.user.id,
           name: result.data.user.name,
@@ -74,7 +75,7 @@ export const useAuthStore = create<AuthStore>()(
         set({
           user,
           isAuthenticated: true,
-          hasCheckedAuth: true,
+          hasCheckedAuth: true, // Mark as checked since we got user from server
         });
       },
 
@@ -84,7 +85,7 @@ export const useAuthStore = create<AuthStore>()(
           headers: {
             "Content-Type": "application/json",
           },
-          credentials: "include",
+          credentials: "include", // CRITICAL: Must include credentials
           body: JSON.stringify({ phone, password }),
         });
 
@@ -98,7 +99,8 @@ export const useAuthStore = create<AuthStore>()(
           return false;
         }
 
-        // Set current user
+        // Set user immediately from server response
+        // Cookie is set by server, so we can trust the response
         const user = {
           id: result.data.user.id,
           name: result.data.user.name,
@@ -110,7 +112,7 @@ export const useAuthStore = create<AuthStore>()(
         set({
           user,
           isAuthenticated: true,
-          hasCheckedAuth: true,
+          hasCheckedAuth: true, // Mark as checked since we got user from server
         });
 
         return true;
@@ -131,38 +133,55 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       checkAuth: async () => {
-        const { isCheckingAuth, hasCheckedAuth } = get();
+        const { isCheckingAuth } = get();
         if (isCheckingAuth) return;
-        // Always allow re-check, but avoid spamming if already checked recently
+        
         set({ isCheckingAuth: true });
+        
         try {
           const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 7000);
+          const timeout = setTimeout(() => controller.abort(), 10000);
+          
           const res = await fetch("/api/auth/me", {
+            method: "GET",
             credentials: "include",
+            cache: "no-store",
+            headers: {
+              "Cache-Control": "no-cache",
+            },
             signal: controller.signal,
           });
+          
           clearTimeout(timeout);
           const json = await res.json().catch(() => null);
-          if (res.ok && json?.success && json?.data?.user) {
-            const u = json.data.user;
-            set({
-              user: {
-                id: u.id,
-                name: u.name,
-                phone: u.phone,
-                role: u.role || "user",
-                createdAt: u.createdAt,
-              },
-              isAuthenticated: true,
-              hasCheckedAuth: true,
-            });
+          
+          if (res.ok && json?.success) {
+            // Check both authenticated flag and user object
+            if (json.data?.authenticated && json.data?.user) {
+              const u = json.data.user;
+              set({
+                user: {
+                  id: u.id,
+                  name: u.name,
+                  phone: u.phone,
+                  role: u.role || "user",
+                  createdAt: u.createdAt,
+                },
+                isAuthenticated: true,
+                hasCheckedAuth: true,
+              });
+            } else {
+              // Not authenticated - clear state
+              set({ user: null, isAuthenticated: false, hasCheckedAuth: true });
+            }
           } else {
+            // API error - clear state (server says not authenticated)
             set({ user: null, isAuthenticated: false, hasCheckedAuth: true });
           }
-        } catch {
-          // Network fail: don't force logout, but mark checked to prevent infinite spinner
-          set({ user: null, isAuthenticated: false, hasCheckedAuth: true });
+        } catch (error: any) {
+          // Network fail or timeout - clear state to be safe
+          // User can retry by refreshing
+          set({ user: null, isAuthenticated: false, hasCheckedAuth: true, isCheckingAuth: false });
         } finally {
           set({ isCheckingAuth: false });
         }
@@ -182,6 +201,8 @@ export const useAuthStore = create<AuthStore>()(
       partialize: (state) => ({
         user: state.user,
         isAuthenticated: state.isAuthenticated,
+        // hasCheckedAuth را persist نمی‌کنیم تا همیشه در لود اولیه بررسی شود
+        // این اطمینان می‌دهد که سشن از سرور بررسی می‌شود
       }),
     }
   )

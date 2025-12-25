@@ -1,6 +1,16 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
+/* Leaflet Map Styles */
+.leaflet-container {
+  font-family: inherit;
+  direction: ltr;
+}
+
+.leaflet-container .leaflet-control {
+  direction: ltr;
+}
+
 :root {
   /* Light Mode - Pure White Background with Black Text & Borders */
   --background: #ffffff;
@@ -151,24 +161,24 @@ html {
   padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar - Thin */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 4px;
+  height: 4px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--background);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--foreground);
-  border-radius: 5px;
+  background: var(--muted-foreground);
+  border-radius: 2px;
+  opacity: 0.4;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--foreground);
-  opacity: 0.8;
+  opacity: 0.7;
 }
 
 /* Custom Scrollbar for Reviews Container */

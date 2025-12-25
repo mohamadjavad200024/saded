@@ -12,11 +12,9 @@ export async function PATCH(request: NextRequest) {
   try {
     await ensureChatTables();
     const schema = await getChatSchemaInfo();
+    // Authentication removed - status is now open to everyone
     const sessionUser = await getSessionUserFromRequest(request);
-    if (!sessionUser || !sessionUser.enabled) {
-      throw new AppError("برای استفاده از چت باید وارد حساب کاربری شوید", 401, "UNAUTHORIZED");
-    }
-    const isAdmin = sessionUser.role === "admin";
+    const isAdmin = sessionUser?.role === "admin";
 
     const body = await request.json().catch(() => {
       throw new AppError("Invalid JSON in request body", 400, "INVALID_JSON");
@@ -51,6 +49,9 @@ export async function PATCH(request: NextRequest) {
       throw new AppError("پیام یافت نشد", 404, "MESSAGE_NOT_FOUND");
     }
     if (!isAdmin) {
+      if (!sessionUser) {
+        throw new AppError("برای دسترسی به این پیام باید وارد حساب کاربری خود شوید", 401, "UNAUTHORIZED");
+      }
       const chatPhone = msg.chatPhone ? String(msg.chatPhone) : "";
       const chatUserId = schema.chatHasUserId && msg.chatUserId ? String(msg.chatUserId) : "";
       const isOwnerByUserId = schema.chatHasUserId && chatUserId === sessionUser.id;
@@ -78,11 +79,9 @@ export async function POST(request: NextRequest) {
   try {
     await ensureChatTables();
     const schema = await getChatSchemaInfo();
+    // Authentication removed - status is now open to everyone
     const sessionUser = await getSessionUserFromRequest(request);
-    if (!sessionUser || !sessionUser.enabled) {
-      throw new AppError("برای استفاده از چت باید وارد حساب کاربری شوید", 401, "UNAUTHORIZED");
-    }
-    const isAdmin = sessionUser.role === "admin";
+    const isAdmin = sessionUser?.role === "admin";
 
     const body = await request.json().catch(() => {
       throw new AppError("Invalid JSON in request body", 400, "INVALID_JSON");
@@ -99,11 +98,20 @@ export async function POST(request: NextRequest) {
       throw new AppError("چت یافت نشد", 404, "CHAT_NOT_FOUND");
     }
     if (!isAdmin) {
-      const chatPhone = chat.customerPhone ? String(chat.customerPhone) : "";
-      const chatUserId = schema.chatHasUserId && chat.userId ? String(chat.userId) : "";
-      const isOwnerByUserId = schema.chatHasUserId && chatUserId === sessionUser.id;
-      const isOwnerByPhone = !schema.chatHasUserId && chatPhone === sessionUser.phone;
-      if (!isOwnerByUserId && !isOwnerByPhone) throw new AppError("شما به این چت دسترسی ندارید", 403, "FORBIDDEN");
+      // For non-admin users, check ownership
+      // If sessionUser exists, verify ownership
+      // If sessionUser doesn't exist but chatId is provided, allow access (guest user scenario)
+      if (sessionUser) {
+        const chatPhone = chat.customerPhone ? String(chat.customerPhone) : "";
+        const chatUserId = schema.chatHasUserId && chat.userId ? String(chat.userId) : "";
+        const isOwnerByUserId = schema.chatHasUserId && chatUserId === sessionUser.id;
+        const isOwnerByPhone = !schema.chatHasUserId && chatPhone === sessionUser.phone;
+        if (!isOwnerByUserId && !isOwnerByPhone) {
+          throw new AppError("شما به این چت دسترسی ندارید", 403, "FORBIDDEN");
+        }
+      }
+      // If no sessionUser, allow access if chatId is provided (guest user with known chat)
+      // This allows guest users to mark messages as read/delivered
     }
 
     // Mark all messages from the opposite sender

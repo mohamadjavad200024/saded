@@ -40,7 +40,9 @@ export function useAdminPresence({
     if (!enabled || !isMountedRef.current) return;
 
     try {
-      const response = await fetch(`/api/admin/presence?adminId=${adminId}`);
+      const response = await fetch(`/api/admin/presence?adminId=${adminId}`, {
+        credentials: "include", // Include cookies for authentication
+      });
       if (!response.ok) {
         // Try to parse error response for better error messages
         let errorMessage = `Failed to check admin status (${response.status})`;
@@ -52,7 +54,10 @@ export function useAdminPresence({
         } catch {
           // If we can't parse the error response, use the default message
         }
+        // Only log error in development
+        if (process.env.NODE_ENV === "development") {
         logger.error(errorMessage, { status: response.status, adminId });
+        }
         return;
       }
 
@@ -62,10 +67,21 @@ export function useAdminPresence({
         setLastSeen(data.data.lastSeen || null);
       } else if (!data.success) {
         // API returned success: false but with 200 status
+        if (process.env.NODE_ENV === "development") {
         logger.error("Failed to check admin status:", data.error || "Unknown error", { adminId });
       }
-    } catch (error) {
-      logger.error("Error checking admin status:", error, { adminId });
+      }
+    } catch (error: any) {
+      // Network errors are common and shouldn't break the app
+      // Only log in development
+      if (process.env.NODE_ENV === "development") {
+        logger.error("Error checking admin status:", {
+          error: error?.message || error,
+          adminId,
+          errorType: error?.name || "Unknown",
+        });
+      }
+      // Silently fail - don't break the app if presence API is unavailable
     }
   }, [adminId, enabled]);
 
@@ -79,6 +95,7 @@ export function useAdminPresence({
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include", // Include cookies for authentication
         body: JSON.stringify({
           adminId,
           isOnline: online,
@@ -96,7 +113,10 @@ export function useAdminPresence({
         } catch {
           // If we can't parse the error response, use the default message
         }
+        // Only log error in development, don't throw
+        if (process.env.NODE_ENV === "development") {
         logger.error(errorMessage, { status: response.status, adminId });
+        }
         return;
       }
 
@@ -106,10 +126,22 @@ export function useAdminPresence({
         setLastSeen(data.data.lastSeen || null);
       } else if (!data.success) {
         // API returned success: false but with 200 status
+        if (process.env.NODE_ENV === "development") {
         logger.error("Failed to update admin status:", data.error || "Unknown error", { adminId });
       }
-    } catch (error) {
-      logger.error("Error updating admin status:", error, { adminId });
+      }
+    } catch (error: any) {
+      // Network errors (like "Failed to fetch") are common and shouldn't break the app
+      // Only log in development
+      if (process.env.NODE_ENV === "development") {
+        logger.error("Error updating admin status:", {
+          error: error?.message || error,
+          adminId,
+          online,
+          errorType: error?.name || "Unknown",
+        });
+      }
+      // Silently fail - don't break the app if presence API is unavailable
     }
   }, [adminId, enabled]);
 

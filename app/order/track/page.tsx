@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useOrderStore } from "@/store/order-store";
 import { useProductStore } from "@/store/product-store";
-import { Search, Package, MapPin, Phone, Mail, Calendar, Truck, CheckCircle2, Clock, XCircle, ShoppingCart, Box, CheckCircle, MessageCircle } from "lucide-react";
-import Image from "next/image";
+import { Search, Package, MapPin, Phone, Mail, Calendar, Truck, CheckCircle2, Clock, XCircle, ShoppingCart, Box, CheckCircle, MessageCircle, ExternalLink } from "lucide-react";
+import { SafeImage } from "@/components/ui/safe-image";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { QuickBuyChat } from "@/components/chat/quick-buy-chat";
@@ -102,18 +102,34 @@ function TrackOrderContent() {
       }
 
       // اگر در store پیدا نشد، از API جستجو کن
-      const response = await fetch(`/api/orders?orderNumber=${encodeURIComponent(orderNum)}`);
+      console.log('[Track Order] Fetching order from API:', orderNum);
+      const response = await fetch(`/api/orders?orderNumber=${encodeURIComponent(orderNum)}`, {
+        credentials: 'include', // Ensure cookies are sent
+      });
+      
+      console.log('[Track Order] API response status:', response.status);
+      
       if (response.ok) {
         const result = await response.json();
+        console.log('[Track Order] API result:', {
+          success: result.success,
+          dataLength: result.data?.length || 0,
+          hasData: !!result.data,
+        });
+        
         if (result.success && result.data && result.data.length > 0) {
           const apiOrder = result.data[0];
+          console.log('[Track Order] Order found:', apiOrder.orderNumber);
           setOrder(apiOrder);
           setNotFound(false);
           updateOrder(apiOrder.id, apiOrder);
         } else {
+          console.log('[Track Order] Order not found in API response');
           setNotFound(true);
         }
       } else {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        console.error('[Track Order] API error:', response.status, errorText);
         setNotFound(true);
       }
     } catch (error) {
@@ -181,17 +197,17 @@ function TrackOrderContent() {
         </div>
 
         {/* جستجوی سفارش */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>جستجوی سفارش</CardTitle>
+        <Card className="mb-4 sm:mb-6">
+          <CardHeader className="pb-3 sm:pb-6">
+            <CardTitle className="text-base sm:text-lg">جستجوی سفارش</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex gap-3">
+          <CardContent className="pt-0 sm:pt-6">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
               <div className="flex-1">
-                <Label htmlFor="orderNumber">شماره سفارش</Label>
+                <Label htmlFor="orderNumber" className="text-sm sm:text-base">شماره سفارش</Label>
                 <Input
                   id="orderNumber"
-                  placeholder="مثال: ORD-1234567890-001"
+                  placeholder="ORD-1234567890-001"
                   value={orderNumber}
                   onChange={(e) => setOrderNumber(e.target.value)}
                   onKeyDown={(e) => {
@@ -199,10 +215,11 @@ function TrackOrderContent() {
                       handleSearch();
                     }
                   }}
+                  className="mt-1 text-sm sm:text-base"
                 />
               </div>
               <div className="flex items-end">
-                <Button onClick={handleSearch} size="lg">
+                <Button onClick={handleSearch} size="lg" className="w-full sm:w-auto">
                   <Search className="ml-2 h-4 w-4" />
                   جستجو
                 </Button>
@@ -228,156 +245,278 @@ function TrackOrderContent() {
 
         {/* نمایش اطلاعات سفارش */}
         {order && (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
+            {/* نمایش وضعیت لغو شده */}
+            {order.status === "cancelled" && (
+              <Card className="border-2 border-red-500 bg-red-50 dark:bg-red-950/30">
+                <CardContent className="pt-4 sm:pt-6">
+                  {/* موبایل: چینش مینیمال */}
+                  <div className="flex sm:hidden items-center gap-2">
+                    <XCircle className="h-5 w-5 text-red-700 dark:text-red-400 flex-shrink-0" />
+                    <Badge variant="destructive" className="bg-red-600 text-white text-xs">
+                      {statusConfig.cancelled.label}
+                    </Badge>
+                    <span className="text-sm font-semibold text-red-900 dark:text-red-50 flex-1">
+                      سفارش لغو شده
+                    </span>
+                  </div>
+                  
+                  {/* دسکتاپ: چینش کامل */}
+                  <div className="hidden sm:flex items-center gap-3">
+                    <XCircle className="h-6 w-6 text-red-700 dark:text-red-400 flex-shrink-0" />
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-lg text-red-900 dark:text-red-50 mb-1">
+                        سفارش لغو شده است
+                      </h3>
+                      <p className="text-sm text-red-800 dark:text-red-100">
+                        این سفارش توسط مدیریت لغو شده است.
+                        {order.updatedAt && (
+                          <span className="block mt-1 text-red-900 dark:text-red-50">
+                            تاریخ لغو: {new Date(order.updatedAt).toLocaleDateString("fa-IR", {
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <Badge variant="destructive" className="bg-red-600 text-white">
+                      {statusConfig.cancelled.label}
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
             {/* نوار پیشرفت سفارش */}
             <Card className="border-2">
               <CardHeader className="bg-gradient-to-r from-primary/5 to-transparent border-b">
-                <CardTitle className="flex items-center gap-2">
-                  <Package className="h-5 w-5 text-primary" />
-                  پیگیری سفارش
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                  <Package className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                  <span className="hidden sm:inline">پیگیری سفارش</span>
+                  <span className="sm:hidden">وضعیت سفارش</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="pt-6">
-                {/* مراحل سفارش */}
-                <div className="relative">
-                  {/* خط پیشرفت */}
-                  <div className="absolute right-8 top-0 bottom-0 w-0.5 bg-border">
-                    <div
-                      className="absolute top-0 right-0 w-full bg-primary transition-all duration-500 ease-in-out"
-                      style={{
-                        height: `${(() => {
+              <CardContent className="pt-4 sm:pt-6">
+                {/* موبایل: نمایش ساده */}
+                <div className="sm:hidden space-y-3">
+                  {[
+                    { status: "pending", label: "در انتظار", icon: ShoppingCart },
+                    { status: "processing", label: "در حال پردازش", icon: Box },
+                    { status: "shipped", label: "ارسال شده", icon: Truck },
+                    { status: "delivered", label: "تحویل شده", icon: CheckCircle2 },
+                  ].map((stage) => {
+                    const statusOrder = ["pending", "processing", "shipped", "delivered"];
+                    const currentIndex = statusOrder.indexOf(order.status);
+                    const stageIndex = statusOrder.indexOf(stage.status);
+                    const isCompleted = currentIndex >= stageIndex && order.status !== "cancelled";
+                    const isCurrent = currentIndex === stageIndex && order.status !== "cancelled";
+                    const Icon = stage.icon;
+
+                    return (
+                      <div key={stage.status} className="flex items-center gap-2">
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            isCompleted
+                              ? "bg-primary text-primary-foreground"
+                              : isCurrent
+                              ? "bg-primary/20 text-primary border border-primary"
+                              : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {isCompleted ? (
+                            <CheckCircle className="h-4 w-4" />
+                          ) : (
+                            <Icon className="h-4 w-4" />
+                          )}
+                        </div>
+                        <span
+                          className={`text-sm flex-1 ${
+                            isCompleted || isCurrent ? "font-semibold" : "text-muted-foreground"
+                          }`}
+                        >
+                          {stage.label}
+                        </span>
+                        {isCurrent && (
+                          <Badge variant="default" className="text-xs animate-pulse">
+                            فعلی
+                          </Badge>
+                        )}
+                      </div>
+                    );
+                  })}
+                  
+                  {/* نوار پیشرفت موبایل */}
+                  <div className="mt-4 pt-4 border-t">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs text-muted-foreground">پیشرفت</span>
+                      <span className="text-xs font-medium">
+                        {(() => {
                           const statusOrder = ["pending", "processing", "shipped", "delivered"];
                           const currentIndex = statusOrder.indexOf(order.status);
-                          if (currentIndex === -1) return 0;
-                          return ((currentIndex + 1) / statusOrder.length) * 100;
-                        })()}%`,
-                      }}
+                          if (currentIndex === -1) return "0%";
+                          return `${Math.round(((currentIndex + 1) / statusOrder.length) * 100)}%`;
+                        })()}
+                      </span>
+                    </div>
+                    <Progress
+                      value={(() => {
+                        const statusOrder = ["pending", "processing", "shipped", "delivered"];
+                        const currentIndex = statusOrder.indexOf(order.status);
+                        if (currentIndex === -1) return 0;
+                        return ((currentIndex + 1) / statusOrder.length) * 100;
+                      })()}
+                      className="h-2"
+                    />
+                  </div>
+                </div>
+
+                {/* دسکتاپ: نمایش کامل */}
+                <div className="hidden sm:block">
+                  {/* مراحل سفارش */}
+                  <div className="relative">
+                    {/* خط پیشرفت */}
+                    <div className="absolute right-8 top-0 bottom-0 w-0.5 bg-border">
+                      <div
+                        className="absolute top-0 right-0 w-full bg-primary transition-all duration-500 ease-in-out"
+                        style={{
+                          height: `${(() => {
+                            const statusOrder = ["pending", "processing", "shipped", "delivered"];
+                            const currentIndex = statusOrder.indexOf(order.status);
+                            if (currentIndex === -1) return 0;
+                            return ((currentIndex + 1) / statusOrder.length) * 100;
+                          })()}%`,
+                        }}
+                      />
+                    </div>
+
+                    {/* مراحل */}
+                    <div className="space-y-8 relative z-10">
+                      {[
+                        { status: "pending", label: "در انتظار", icon: ShoppingCart, description: "سفارش شما ثبت شد" },
+                        { status: "processing", label: "در حال پردازش", icon: Box, description: "در حال آماده‌سازی" },
+                        { status: "shipped", label: "ارسال شده", icon: Truck, description: "در مسیر تحویل" },
+                        { status: "delivered", label: "تحویل شده", icon: CheckCircle2, description: "تحویل با موفقیت انجام شد" },
+                      ].map((stage, index) => {
+                        const statusOrder = ["pending", "processing", "shipped", "delivered"];
+                        const currentIndex = statusOrder.indexOf(order.status);
+                        const stageIndex = statusOrder.indexOf(stage.status);
+                        const isCompleted = currentIndex >= stageIndex && order.status !== "cancelled";
+                        const isCurrent = currentIndex === stageIndex && order.status !== "cancelled";
+                        const Icon = stage.icon;
+
+                        return (
+                          <div key={stage.status} className="flex items-start gap-4">
+                            <div className="relative z-10">
+                              <div
+                                className={`w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 ${
+                                  isCompleted
+                                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/50"
+                                    : isCurrent
+                                    ? "bg-primary/20 text-primary border-2 border-primary"
+                                    : "bg-muted text-muted-foreground"
+                                }`}
+                              >
+                                {isCompleted ? (
+                                  <CheckCircle className="h-8 w-8" />
+                                ) : (
+                                  <Icon className="h-8 w-8" />
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex-1 pt-2">
+                              <div className="flex items-center justify-between mb-1">
+                                <h3
+                                  className={`font-semibold text-lg ${
+                                    isCompleted || isCurrent ? "text-foreground" : "text-muted-foreground"
+                                  }`}
+                                >
+                                  {stage.label}
+                                </h3>
+                                {isCurrent && (
+                                  <Badge variant="default" className="animate-pulse">
+                                    در حال انجام
+                                  </Badge>
+                                )}
+                                {isCompleted && !isCurrent && (
+                                  <Badge variant="success" className="gap-1">
+                                    <CheckCircle className="h-3 w-3" />
+                                    تکمیل شد
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-muted-foreground">{stage.description}</p>
+                              {isCurrent && order.updatedAt && (
+                                <p className="text-xs text-muted-foreground mt-2">
+                                  آخرین به‌روزرسانی:{" "}
+                                  {new Date(order.updatedAt).toLocaleDateString("fa-IR", {
+                                    year: "numeric",
+                                    month: "long",
+                                    day: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* نوار پیشرفت */}
+                  <div className="mt-8 pt-6 border-t">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">پیشرفت کلی</span>
+                      <span className="text-sm text-muted-foreground">
+                        {(() => {
+                          const statusOrder = ["pending", "processing", "shipped", "delivered"];
+                          const currentIndex = statusOrder.indexOf(order.status);
+                          if (currentIndex === -1) return "0%";
+                          return `${Math.round(((currentIndex + 1) / statusOrder.length) * 100)}%`;
+                        })()}
+                      </span>
+                    </div>
+                    <Progress
+                      value={(() => {
+                        const statusOrder = ["pending", "processing", "shipped", "delivered"];
+                        const currentIndex = statusOrder.indexOf(order.status);
+                        if (currentIndex === -1) return 0;
+                        return ((currentIndex + 1) / statusOrder.length) * 100;
+                      })()}
+                      className="h-3"
                     />
                   </div>
 
-                  {/* مراحل */}
-                  <div className="space-y-8 relative z-10">
-                    {[
-                      { status: "pending", label: "در انتظار", icon: ShoppingCart, description: "سفارش شما ثبت شد" },
-                      { status: "processing", label: "در حال پردازش", icon: Box, description: "در حال آماده‌سازی" },
-                      { status: "shipped", label: "ارسال شده", icon: Truck, description: "در مسیر تحویل" },
-                      { status: "delivered", label: "تحویل شده", icon: CheckCircle2, description: "تحویل با موفقیت انجام شد" },
-                    ].map((stage, index) => {
-                      const statusOrder = ["pending", "processing", "shipped", "delivered"];
-                      const currentIndex = statusOrder.indexOf(order.status);
-                      const stageIndex = statusOrder.indexOf(stage.status);
-                      const isCompleted = currentIndex >= stageIndex && order.status !== "cancelled";
-                      const isCurrent = currentIndex === stageIndex && order.status !== "cancelled";
-                      const Icon = stage.icon;
-
-                      return (
-                        <div key={stage.status} className="flex items-start gap-4">
-                          <div className="relative z-10">
-                            <div
-                              className={`w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 ${
-                                isCompleted
-                                  ? "bg-primary text-primary-foreground shadow-lg shadow-primary/50"
-                                  : isCurrent
-                                  ? "bg-primary/20 text-primary border-2 border-primary"
-                                  : "bg-muted text-muted-foreground"
-                              }`}
-                            >
-                              {isCompleted ? (
-                                <CheckCircle className="h-8 w-8" />
-                              ) : (
-                                <Icon className="h-8 w-8" />
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex-1 pt-2">
-                            <div className="flex items-center justify-between mb-1">
-                              <h3
-                                className={`font-semibold text-lg ${
-                                  isCompleted || isCurrent ? "text-foreground" : "text-muted-foreground"
-                                }`}
-                              >
-                                {stage.label}
-                              </h3>
-                              {isCurrent && (
-                                <Badge variant="default" className="animate-pulse">
-                                  در حال انجام
-                                </Badge>
-                              )}
-                              {isCompleted && !isCurrent && (
-                                <Badge variant="success" className="gap-1">
-                                  <CheckCircle className="h-3 w-3" />
-                                  تکمیل شد
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-sm text-muted-foreground">{stage.description}</p>
-                            {isCurrent && order.updatedAt && (
-                              <p className="text-xs text-muted-foreground mt-2">
-                                آخرین به‌روزرسانی:{" "}
-                                {new Date(order.updatedAt).toLocaleDateString("fa-IR", {
-                                  year: "numeric",
-                                  month: "long",
-                                  day: "numeric",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* نوار پیشرفت */}
-                <div className="mt-8 pt-6 border-t">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">پیشرفت کلی</span>
-                    <span className="text-sm text-muted-foreground">
-                      {(() => {
-                        const statusOrder = ["pending", "processing", "shipped", "delivered"];
-                        const currentIndex = statusOrder.indexOf(order.status);
-                        if (currentIndex === -1) return "0%";
-                        return `${Math.round(((currentIndex + 1) / statusOrder.length) * 100)}%`;
-                      })()}
-                    </span>
-                  </div>
-                  <Progress
-                    value={(() => {
-                      const statusOrder = ["pending", "processing", "shipped", "delivered"];
-                      const currentIndex = statusOrder.indexOf(order.status);
-                      if (currentIndex === -1) return 0;
-                      return ((currentIndex + 1) / statusOrder.length) * 100;
-                    })()}
-                    className="h-3"
-                  />
-                </div>
-
-                {/* اطلاعات اضافی */}
-                <div className="mt-6 pt-6 border-t grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-muted rounded-lg">
-                      <Package className="h-5 w-5" />
+                  {/* اطلاعات اضافی */}
+                  <div className="mt-6 pt-6 border-t grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-muted rounded-lg">
+                        <Package className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">شماره سفارش</p>
+                        <p className="font-semibold font-mono">{order.orderNumber}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">شماره سفارش</p>
-                      <p className="font-semibold font-mono">{order.orderNumber}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-muted rounded-lg">
-                      <Calendar className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">تاریخ ثبت</p>
-                      <p className="font-semibold">
-                        {new Date(order.createdAt).toLocaleDateString("fa-IR", {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                        })}
-                      </p>
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-muted rounded-lg">
+                        <Calendar className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">تاریخ ثبت</p>
+                        <p className="font-semibold">
+                          {new Date(order.createdAt).toLocaleDateString("fa-IR", {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -386,11 +525,11 @@ function TrackOrderContent() {
 
             {/* محصولات سفارش */}
             <Card>
-              <CardHeader>
-                <CardTitle>محصولات سفارش</CardTitle>
+              <CardHeader className="pb-3 sm:pb-6">
+                <CardTitle className="text-base sm:text-lg">محصولات سفارش</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
+              <CardContent className="pt-0 sm:pt-6">
+                <div className="space-y-3 sm:space-y-4">
                   {Array.isArray(order.items) ? order.items.map((item: any) => {
                     // Get image from item first, then from product store
                     const product = getProduct(item.productId || item.id);
@@ -398,33 +537,45 @@ function TrackOrderContent() {
                     if (!imageUrl && product && product.images && product.images.length > 0) {
                       imageUrl = product.images[0];
                     }
-                    const hasImage = imageUrl && imageUrl.trim() !== "";
+                    
+                    // Validate URL - must be a valid URL string
+                    const isValidUrl = (url: string): boolean => {
+                      if (!url || typeof url !== 'string' || url.trim() === '') {
+                        return false;
+                      }
+                      // Allow blob: and data: URLs
+                      if (url.startsWith('blob:') || url.startsWith('data:')) {
+                        return true;
+                      }
+                      // Try to construct URL to validate
+                      try {
+                        new URL(url);
+                        return true;
+                      } catch {
+                        return false;
+                      }
+                    };
+                    
+                    const hasImage = imageUrl && isValidUrl(imageUrl);
                     
                     return (
                       <div
                         key={item.id}
-                        className="flex gap-4 pb-4 border-b last:border-0"
+                        className="flex gap-2 sm:gap-4 pb-3 sm:pb-4 border-b last:border-0"
                       >
-                        {hasImage ? (
-                          <div className="relative w-20 h-20 bg-muted rounded-lg overflow-hidden flex-shrink-0 border">
-                            <Image
-                              src={imageUrl}
-                              alt={item.name}
-                              fill
-                              className="object-cover"
-                              unoptimized={imageUrl.startsWith('blob:') || imageUrl.startsWith('data:')}
-                            />
-                          </div>
-                        ) : (
-                          <div className="w-20 h-20 bg-muted rounded-lg flex items-center justify-center flex-shrink-0 border">
-                            <Package className="h-8 w-8 text-muted-foreground" />
-                          </div>
-                        )}
-                        <div className="flex-1">
-                          <h3 className="font-semibold mb-1">{item.name}</h3>
-                          <div className="flex justify-between text-sm text-muted-foreground">
-                            <span>تعداد: {item.quantity}</span>
-                            <span className="font-semibold text-foreground">
+                        <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-muted rounded-lg overflow-hidden flex-shrink-0 border">
+                          <SafeImage
+                            src={hasImage ? imageUrl : null}
+                            alt={item.name || 'Product image'}
+                            fill
+                            className="w-full h-full"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold mb-1 text-sm sm:text-base truncate">{item.name}</h3>
+                          <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0">
+                            <span className="text-xs sm:text-sm text-muted-foreground">تعداد: {item.quantity}</span>
+                            <span className="font-semibold text-sm sm:text-base text-foreground">
                               {(item.price * item.quantity).toLocaleString("fa-IR")} تومان
                             </span>
                           </div>
@@ -432,9 +583,9 @@ function TrackOrderContent() {
                       </div>
                     );
                   }) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p>محصولات سفارش در دسترس نیست</p>
+                    <div className="text-center py-6 sm:py-8 text-muted-foreground">
+                      <Package className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-3 sm:mb-4 opacity-50" />
+                      <p className="text-sm sm:text-base">محصولات سفارش در دسترس نیست</p>
                     </div>
                   )}
                 </div>
@@ -442,38 +593,38 @@ function TrackOrderContent() {
             </Card>
 
             {/* اطلاعات مشتری و ارسال */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               <Card>
-                <CardHeader>
-                  <CardTitle>اطلاعات مشتری</CardTitle>
+                <CardHeader className="pb-3 sm:pb-6">
+                  <CardTitle className="text-base sm:text-lg">اطلاعات شما</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 bg-muted rounded-lg">
-                      <Package className="h-4 w-4" />
+                <CardContent className="space-y-2 sm:space-y-3 pt-0 sm:pt-6">
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    <div className="p-1.5 sm:p-2 bg-muted rounded-lg flex-shrink-0">
+                      <Package className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">نام</p>
-                      <p className="font-semibold">{order.customerName}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs sm:text-sm text-muted-foreground">نام</p>
+                      <p className="font-semibold text-sm sm:text-base truncate">{order.customerName}</p>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 bg-muted rounded-lg">
-                      <Phone className="h-4 w-4" />
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    <div className="p-1.5 sm:p-2 bg-muted rounded-lg flex-shrink-0">
+                      <Phone className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">شماره تماس</p>
-                      <p className="font-semibold">{order.customerPhone}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs sm:text-sm text-muted-foreground">شماره تماس</p>
+                      <p className="font-semibold text-sm sm:text-base">{order.customerPhone}</p>
                     </div>
                   </div>
                   {order.customerEmail && (
-                    <div className="flex items-start gap-3">
-                      <div className="p-2 bg-muted rounded-lg">
-                        <Mail className="h-4 w-4" />
+                    <div className="flex items-start gap-2 sm:gap-3">
+                      <div className="p-1.5 sm:p-2 bg-muted rounded-lg flex-shrink-0">
+                        <Mail className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                       </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">ایمیل</p>
-                        <p className="font-semibold">{order.customerEmail}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs sm:text-sm text-muted-foreground">ایمیل</p>
+                        <p className="font-semibold text-sm sm:text-base truncate">{order.customerEmail}</p>
                       </div>
                     </div>
                   )}
@@ -481,33 +632,85 @@ function TrackOrderContent() {
               </Card>
 
               <Card>
-                <CardHeader>
-                  <CardTitle>آدرس ارسال</CardTitle>
+                <CardHeader className="pb-3 sm:pb-6">
+                  <CardTitle className="text-base sm:text-lg">آدرس ارسال</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 bg-muted rounded-lg">
-                      <MapPin className="h-4 w-4" />
+                <CardContent className="space-y-2 sm:space-y-3 pt-0 sm:pt-6">
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    <div className="p-1.5 sm:p-2 bg-muted rounded-lg flex-shrink-0">
+                      <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">آدرس</p>
-                      <p className="font-semibold">
-                        {order.shippingAddress.city}، {order.shippingAddress.address}
-                      </p>
-                      {order.shippingAddress.postalCode && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          کد پستی: {order.shippingAddress.postalCode}
-                        </p>
-                      )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs sm:text-sm text-muted-foreground">آدرس</p>
+                      {(() => {
+                        const locationStr = order.shippingAddress.location;
+                        // بررسی اینکه آیا location به صورت مختصات است (lat,lng)
+                        const isCoordinates = locationStr && 
+                          locationStr.includes(',') && 
+                          /^-?\d+\.?\d*,-?\d+\.?\d*$/.test(locationStr.trim());
+                        
+                        // اگر addressType location است یا location به صورت مختصات است
+                        if ((order.shippingAddress.addressType === "location" || isCoordinates) && locationStr) {
+                          const [lat, lng] = locationStr.split(',').map((s: string) => s.trim());
+                          // استفاده از مختصات دقیق بدون تغییر
+                          const mapUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+                          return (
+                            <div className="space-y-2">
+                              <p className="font-semibold text-sm sm:text-base break-words font-mono">
+                                {lat}, {lng}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                مختصات دقیق انتخاب شده توسط شما
+                              </p>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="text-xs h-7"
+                                onClick={() => window.open(mapUrl, '_blank')}
+                              >
+                                <MapPin className="h-3 w-3 ml-1" />
+                                مشاهده در نقشه
+                                <ExternalLink className="h-3 w-3 mr-1" />
+                              </Button>
+                            </div>
+                          );
+                        }
+                        
+                        // اگر postalCode است
+                        if (order.shippingAddress.addressType === "postalCode" && order.shippingAddress.postalCode) {
+                          return (
+                            <p className="font-semibold text-sm sm:text-base break-words">
+                              کد پستی: {order.shippingAddress.postalCode}
+                            </p>
+                          );
+                        }
+                        
+                        // در غیر این صورت آدرس معمولی
+                        return (
+                          <>
+                            {order.shippingAddress.city && (
+                              <p className="font-semibold text-sm sm:text-base break-words">
+                                {order.shippingAddress.city}{order.shippingAddress.address ? `، ${order.shippingAddress.address}` : ''}
+                              </p>
+                            )}
+                            {order.shippingAddress.postalCode && (
+                              <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                                کد پستی: {order.shippingAddress.postalCode}
+                              </p>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 bg-muted rounded-lg">
-                      <Truck className="h-4 w-4" />
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    <div className="p-1.5 sm:p-2 bg-muted rounded-lg flex-shrink-0">
+                      <Truck className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">روش ارسال</p>
-                      <p className="font-semibold">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs sm:text-sm text-muted-foreground">روش ارسال</p>
+                      <p className="font-semibold text-sm sm:text-base">
                         {order.shippingMethod === "air" ? "هوایی" : "دریایی"}
                       </p>
                     </div>
@@ -518,19 +721,19 @@ function TrackOrderContent() {
 
             {/* خلاصه سفارش */}
             <Card>
-              <CardHeader>
-                <CardTitle>خلاصه سفارش</CardTitle>
+              <CardHeader className="pb-3 sm:pb-6">
+                <CardTitle className="text-base sm:text-lg">خلاصه سفارش</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span>جمع کل:</span>
+              <CardContent className="pt-0 sm:pt-6">
+                <div className="space-y-2.5 sm:space-y-3">
+                  <div className="flex justify-between text-sm sm:text-base">
+                    <span className="text-muted-foreground">جمع کل:</span>
                     <span className="font-semibold">
                       {order.total.toLocaleString("fa-IR")} تومان
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>هزینه ارسال:</span>
+                  <div className="flex justify-between text-sm sm:text-base">
+                    <span className="text-muted-foreground">هزینه ارسال:</span>
                     <span className="font-semibold">
                       {order.shippingCost === 0 ? (
                         <span className="text-green-600">رایگان</span>
@@ -539,15 +742,15 @@ function TrackOrderContent() {
                       )}
                     </span>
                   </div>
-                  <div className="flex justify-between pt-3 border-t">
+                  <div className="flex justify-between pt-2.5 sm:pt-3 border-t text-base sm:text-lg">
                     <span className="font-bold">مبلغ نهایی:</span>
-                    <span className="font-bold text-lg text-primary">
+                    <span className="font-bold text-primary">
                       {(order.total + order.shippingCost).toLocaleString("fa-IR")} تومان
                     </span>
                   </div>
-                  <div className="flex justify-between pt-3 border-t">
-                    <span>وضعیت پرداخت:</span>
-                    <Badge className={paymentStatusConfig[order.paymentStatus as keyof typeof paymentStatusConfig]?.color}>
+                  <div className="flex justify-between items-center pt-2.5 sm:pt-3 border-t text-sm sm:text-base">
+                    <span className="text-muted-foreground">وضعیت پرداخت:</span>
+                    <Badge className={`text-xs sm:text-sm ${paymentStatusConfig[order.paymentStatus as keyof typeof paymentStatusConfig]?.color}`}>
                       {paymentStatusConfig[order.paymentStatus as keyof typeof paymentStatusConfig]?.label}
                     </Badge>
                   </div>

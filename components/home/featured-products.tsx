@@ -5,9 +5,12 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, Check, ArrowLeft, Package } from "lucide-react";
-import Image from "next/image";
+import { TrendingUp, Check, ArrowLeft, Package, Car } from "lucide-react";
+import { SafeImage } from "@/components/ui/safe-image";
 import { useProductStore } from "@/store/product-store";
+import { useVehicleStore } from "@/store/vehicle-store";
+import { useAdminStore } from "@/store/admin-store";
+import { VehicleLogo } from "@/components/ui/vehicle-logo";
 import { useProducts } from "@/services/products";
 import { getPlaceholderImage } from "@/lib/image-utils";
 import type { Product } from "@/types/product";
@@ -16,8 +19,56 @@ export function FeaturedProducts() {
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [isHydrated, setIsHydrated] = useState(false);
   const getEnabledProducts = useProductStore((state) => state.getEnabledProducts);
-  const { data: apiProducts, isLoading } = useProducts(undefined, 1, 7);
+  const { settings, updateSettings } = useAdminStore();
+  // Use itemsPerPage from settings directly (respect user's setting)
+  const featuredCount = settings.itemsPerPage || 10;
+  
+  // #region agent log
+  if (typeof window !== "undefined") {
+    fetch('http://127.0.0.1:7242/ingest/6e2493c0-cc8b-4c0b-9456-c04638b7e615',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'featured-products.tsx:25',message:'FeaturedProducts: featuredCount calculated',data:{itemsPerPage:settings.itemsPerPage,featuredCount,settingsKeys:Object.keys(settings)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'P'})}).catch(()=>{});
+  }
+  // #endregion
+  
+  const { data: apiProducts, isLoading } = useProducts(undefined, 1, featuredCount);
   const addProduct = useProductStore((state) => state.addProduct);
+  const { vehicles, getVehicle, loadVehiclesFromDB } = useVehicleStore();
+
+  // Load settings from API on mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const response = await fetch("/api/site-settings");
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.data) {
+            // Pass saveToAPI=false to prevent PUT request when loading settings
+            updateSettings(result.data, false);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading settings:", error);
+      }
+    };
+    loadSettings();
+    
+    // Listen for settings updates
+    const handleSettingsUpdate = () => {
+      loadSettings();
+    };
+    
+    window.addEventListener("settingsUpdated", handleSettingsUpdate);
+    
+    return () => {
+      window.removeEventListener("settingsUpdated", handleSettingsUpdate);
+    };
+  }, [updateSettings]);
+
+  // Load vehicles on mount
+  useEffect(() => {
+    if (vehicles.length === 0) {
+      loadVehiclesFromDB().catch(console.error);
+    }
+  }, [vehicles.length, loadVehiclesFromDB]);
 
   // Sync API products to store
   useEffect(() => {
@@ -34,14 +85,19 @@ export function FeaturedProducts() {
   // Use API products if available, otherwise fallback to store
   useEffect(() => {
     setIsHydrated(true);
+    // #region agent log
+    if (typeof window !== "undefined") {
+      fetch('http://127.0.0.1:7242/ingest/6e2493c0-cc8b-4c0b-9456-c04638b7e615',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'featured-products.tsx:68',message:'FeaturedProducts: Updating featured products',data:{apiProductsLength:apiProducts?.length||0,featuredCount,isLoading,willSliceTo:Math.min(apiProducts?.length||0,featuredCount)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'Q'})}).catch(()=>{});
+    }
+    // #endregion
     if (apiProducts && apiProducts.length > 0) {
-      setFeaturedProducts(apiProducts.slice(0, 7));
+      setFeaturedProducts(apiProducts.slice(0, featuredCount));
     } else if (!isLoading) {
       // Only use store if API is not loading
-      const products = getEnabledProducts().slice(0, 7);
+      const products = getEnabledProducts().slice(0, featuredCount);
       setFeaturedProducts(products);
     }
-  }, [apiProducts, isLoading, getEnabledProducts]);
+  }, [apiProducts, isLoading, getEnabledProducts, featuredCount]);
 
   return (
     <section className="py-8 sm:py-12 md:py-16 lg:py-20 relative overflow-hidden">
@@ -72,7 +128,7 @@ export function FeaturedProducts() {
         {(!isHydrated || isLoading) ? (
           // Show loading skeleton during hydration to match server render
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2 sm:gap-3 md:gap-4" suppressHydrationWarning>
-            {Array.from({ length: 7 }).map((_, index) => (
+            {Array.from({ length: featuredCount }).map((_, index) => (
               <div key={index} className="animate-pulse">
                 <Card className="h-full flex flex-col border-[0.1px] border-border/2">
                   <CardHeader className="p-0">
@@ -123,14 +179,15 @@ export function FeaturedProducts() {
                     
                     <CardHeader className="p-0 relative">
                       <div className="relative h-20 sm:h-24 md:h-28 w-full bg-gradient-to-br from-primary/10 sm:from-primary/20 to-primary/5 sm:to-primary/10 rounded-t-lg sm:rounded-t-xl overflow-hidden">
-                        <Image
-                          src={product.images[0] || getPlaceholderImage(300, 300)}
+                        <SafeImage
+                          src={Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : null}
                           alt={`${product.name}${product.brand ? ` - برند ${product.brand}` : ''} - محصول پرفروش`}
                           fill
-                          className="object-cover group-hover:scale-105 sm:group-hover:scale-110 transition-transform duration-500"
-                          loading={index < 3 ? "eager" : "lazy"}
-                          priority={index < 3}
+                          className="w-full h-full group-hover:scale-105 sm:group-hover:scale-110 transition-transform duration-500"
+                          loading="eager"
+                          priority={index < 6}
                           sizes="(max-width: 640px) 33vw, (max-width: 768px) 25vw, (max-width: 1024px) 20vw, (max-width: 1280px) 16vw, 14vw"
+                          productId={product.id}
                         />
                         
                         {/* Discount Badge - Smaller on mobile */}
@@ -147,9 +204,33 @@ export function FeaturedProducts() {
                     </CardHeader>
                     
                     <CardContent className="flex-1 p-1.5 sm:p-2 relative z-10">
-                      <h3 className="font-medium mb-1 sm:mb-1.5 hover:text-primary transition-colors line-clamp-2 text-[10px] sm:text-xs leading-tight text-foreground group-hover:text-primary">
+                      <h3 className="font-medium mb-0.5 sm:mb-1 hover:text-primary transition-colors line-clamp-2 text-[10px] sm:text-xs leading-tight text-foreground group-hover:text-primary">
                         {product.name}
                       </h3>
+                      
+                      {/* Vehicle Info */}
+                      {product.vehicle && (() => {
+                        const vehicle = getVehicle(product.vehicle);
+                        if (!vehicle) return null;
+                        return (
+                          <div className="flex items-center gap-1 mb-0.5 sm:mb-1 text-[8px] sm:text-[9px] text-muted-foreground line-clamp-1">
+                            <VehicleLogo
+                              logo={vehicle.logo}
+                              alt={vehicle.name}
+                              size="sm"
+                              fallbackIcon={false}
+                              className="flex-shrink-0"
+                            />
+                            <span className="font-medium truncate">{vehicle.name}</span>
+                            {product.model && (
+                              <>
+                                <span className="text-[7px]">•</span>
+                                <span className="truncate">{product.model}</span>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })()}
                       
                       {/* Price - Minimal on mobile */}
                       <div className="flex flex-col gap-0.5">

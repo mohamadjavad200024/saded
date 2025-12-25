@@ -1,12 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -18,6 +12,8 @@ import {
   X,
   Loader2,
   ChevronDown,
+  Send,
+  Ban,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
@@ -30,9 +26,24 @@ import { useChatMessaging, type Message } from "@/hooks/use-chat-messaging";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { ChatInput } from "@/components/chat/chat-input";
 import { logger } from "@/lib/logger-client";
+import { useAuthStore } from "@/store/auth-store";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import * as VisuallyHiddenPrimitive from "@radix-ui/react-visually-hidden";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { format } from "date-fns";
+import { faIR } from "date-fns/locale";
 
 interface Chat {
   id: string;
+  userId?: string;
   customerName: string;
   customerPhone: string;
   customerEmail?: string;
@@ -42,15 +53,19 @@ interface Chat {
   lastMessage?: string;
   lastMessageTime?: string;
   unreadCount?: number;
+  isRegisteredUser?: boolean; // Flag for registered users without chat
+  isUserWithoutChat?: boolean; // Alternative flag name from API
 }
 
 interface AdminChatProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  initialCustomerPhone?: string;
 }
 
-export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
+export function AdminChat({ isOpen, onOpenChange, initialCustomerPhone }: AdminChatProps) {
   const { toast } = useToast();
+  const { user } = useAuthStore();
   const { setOnline, isOnline } = useAdminPresence({
     enabled: true,
     heartbeatInterval: 15000,
@@ -59,17 +74,21 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingChats, setIsLoadingChats] = useState(false);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isUserTyping, setIsUserTyping] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false);
+  const [isBlocking, setIsBlocking] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const lastMessageIdRef = useRef<string | null>(null);
   const typingPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const isSavingRecordingRef = useRef(false);
 
   // Use shared hooks
   const chatUtils = useChatUtils();
@@ -82,29 +101,65 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
       email: selectedChat.customerEmail,
     } : undefined,
     onMessageSent: () => {
-      loadChats();
-      if (selectedChat) {
-        loadMessages(selectedChat.id, false);
-      }
+      // Silent refresh - no loading state
+      // Delay to avoid conflict with immediate message addition in handleSend
+      // Only refresh chats list, don't reload messages (handleSend already adds message to UI)
+      setTimeout(() => {
+        loadChats(false);
+        // Don't reload messages here - handleSend already adds the message to UI
+        // This prevents duplicate messages and state conflicts
+      }, 2000); // Longer delay to let handleSend finish completely
     },
   });
 
-  // Load chats list
+  // Load chats list - includes all registered users
   const loadChats = useCallback(async (showLoading = true) => {
     try {
-      if (showLoading) setIsLoading(true);
-      const response = await fetch("/api/chat", { credentials: "include" });
+      if (showLoading) setIsLoadingChats(true);
+      console.log("[AdminChat] Loading chats...");
+      // Add userId header for fallback mechanism (works in both dev and prod)
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+      };
+      if (user?.id) {
+        headers['x-user-id'] = user.id;
+        console.log("[AdminChat] Adding x-user-id header:", user.id);
+      }
+      
+      const response = await fetch("/api/chat", { 
+        credentials: "include",
+        headers,
+      });
       if (!response.ok) {
         const errorText = await response.text();
+        console.error("[AdminChat] Failed to load chats:", response.status, errorText);
         logger.error("Failed to load chats:", response.status, errorText);
         throw new Error("خطا در بارگذاری چت‌ها");
       }
       
       const data = await response.json();
+      console.log("[AdminChat] API Response:", {
+        success: data.success,
+        hasData: !!data.data,
+        chatsCount: data.data?.chats?.length || 0,
+        chats: data.data?.chats?.slice(0, 3), // Log first 3 for debugging
+      });
       logger.info("Loaded chats:", data.success ? data.data.chats?.length : 0, "chats");
-      if (data.success && data.data.chats) {
+      if (data.success && data.data?.chats && Array.isArray(data.data.chats)) {
+        console.log("[AdminChat] Processing", data.data.chats.length, "chats...");
         const chatsWithLastMessage = await Promise.all(
           data.data.chats.map(async (chat: Chat) => {
+            // If it's a registered user without chat, skip loading messages
+            if (chat.isRegisteredUser || chat.isUserWithoutChat) {
+              return {
+                ...chat,
+                lastMessage: "هنوز پیامی ارسال نشده است",
+                lastMessageTime: chat.updatedAt || chat.createdAt,
+                unreadCount: undefined,
+                isRegisteredUser: true, // Normalize flag
+              };
+            }
+            
             try {
               const msgResponse = await fetch(`/api/chat?chatId=${chat.id}`, { credentials: "include" });
               if (msgResponse.ok) {
@@ -112,23 +167,30 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
                 if (msgData.success && msgData.data.messages) {
                   const msgs = msgData.data.messages;
                   const lastMsg = msgs[msgs.length - 1];
+                  const unreadCount = chat.unreadCount && chat.unreadCount > 0 ? chat.unreadCount : undefined;
                   return {
                     ...chat,
                     lastMessage: lastMsg?.text || "",
                     lastMessageTime: lastMsg?.createdAt || chat.updatedAt,
-                    unreadCount: chat.unreadCount || 0,
+                    unreadCount: unreadCount,
                   };
                 }
               }
             } catch (error) {
               logger.error("Error loading last message:", error);
             }
-            return { ...chat, unreadCount: chat.unreadCount || 0 };
+            const unreadCount = chat.unreadCount && chat.unreadCount > 0 ? chat.unreadCount : undefined;
+            return { ...chat, unreadCount: unreadCount };
           })
         );
+        console.log("[AdminChat] Setting chats:", chatsWithLastMessage.length, "chats");
         setChats(chatsWithLastMessage);
+      } else {
+        console.warn("[AdminChat] No chats in response or success=false:", data);
+        setChats([]);
       }
     } catch (error) {
+      console.error("[AdminChat] Error loading chats:", error);
       logger.error("Error loading chats:", error);
       if (showLoading) {
         toast({
@@ -137,80 +199,16 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
           variant: "destructive",
         });
       }
+      setChats([]);
     } finally {
-      if (showLoading) setIsLoading(false);
+      if (showLoading) setIsLoadingChats(false);
     }
   }, [toast]);
-
-  // Silent refresh
-  const silentRefreshChats = useCallback(async () => {
-    try {
-      const response = await fetch("/api/chat", { credentials: "include" });
-      if (!response.ok) return;
-      
-      const data = await response.json();
-      if (data.success && data.data.chats) {
-        const chatPromises = data.data.chats.map(async (chat: Chat) => {
-          try {
-            const msgResponse = await fetch(`/api/chat?chatId=${chat.id}`, { credentials: "include" });
-            if (msgResponse.ok) {
-              const msgData = await msgResponse.json();
-              if (msgData.success && msgData.data.messages) {
-                const msgs = msgData.data.messages;
-                const lastMsg = msgs[msgs.length - 1];
-                return {
-                  ...chat,
-                  lastMessage: lastMsg?.text || "",
-                  lastMessageTime: lastMsg?.createdAt || chat.updatedAt,
-                  unreadCount: chat.unreadCount || 0,
-                };
-              }
-            }
-          } catch (error) {
-            // Silent fail
-          }
-          return { ...chat, unreadCount: chat.unreadCount || 0 };
-        });
-        
-        const results = await Promise.allSettled(chatPromises);
-        const updatedChats = results
-          .filter((r): r is PromiseFulfilledResult<Chat> => r.status === "fulfilled")
-          .map((r) => r.value);
-        
-        setChats((prevChats) => {
-          const chatMap = new Map(updatedChats.map((c) => [c.id, c]));
-          const existingIds = new Set(prevChats.map((c) => c.id));
-          
-          const mergedChats = prevChats.map((c) => {
-            const updated = chatMap.get(c.id);
-            if (updated && (
-              updated.unreadCount !== c.unreadCount ||
-              updated.lastMessage !== c.lastMessage ||
-              updated.lastMessageTime !== c.lastMessageTime
-            )) {
-              return { ...c, ...updated };
-            }
-            return c;
-          });
-          
-          updatedChats.forEach((c) => {
-            if (!existingIds.has(c.id)) {
-              mergedChats.push(c);
-            }
-          });
-          
-          return mergedChats;
-        });
-      }
-    } catch (error) {
-      // Silent fail
-    }
-  }, []);
 
   // Load messages
   const loadMessages = useCallback(async (chatId: string, isInitial = false) => {
     try {
-      if (isInitial) setIsLoading(true);
+      if (isInitial) setIsLoadingMessages(true);
       
       let url = `/api/chat?chatId=${chatId}`;
       if (!isInitial && lastMessageIdRef.current) {
@@ -253,7 +251,9 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
             if (unreadResponse.ok) {
               const unreadData = await unreadResponse.json();
               if (unreadData.success && unreadData.data) {
-                const unreadCount = unreadData.data.unreadCount || 0;
+                const unreadCount = unreadData.data.unreadCount && unreadData.data.unreadCount > 0 
+                  ? unreadData.data.unreadCount 
+                  : undefined;
                 setChats((prevChats) =>
                   prevChats.map((c) =>
                     c.id === selectedChat.id ? { ...c, unreadCount } : c
@@ -273,15 +273,48 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
           }
         } else {
           setMessages((prev) => {
+            // Only update if we have messages from DB (avoid clearing on empty response during polling)
+            if (formattedMessages.length === 0 && prev.length > 0) {
+              return prev; // Keep existing messages if DB returns empty (might be polling issue)
+            }
+            
+            const dbMessageIds = new Set(formattedMessages.map((m) => m.id));
             const existingIds = new Set(prev.map((m) => m.id));
             const newMessages = formattedMessages.filter((msg) => !existingIds.has(msg.id));
+            
+            // Remove messages that were deleted from database (but keep temp messages)
+            const filteredPrev = prev.filter((msg) => 
+              msg.id.startsWith("temp-") || dbMessageIds.has(msg.id)
+            );
+            
+            // Update status of existing messages
+            const updatedPrev = filteredPrev.map((msg) => {
+              const dbMsg = formattedMessages.find((m) => m.id === msg.id);
+              if (dbMsg && msg.sender === "user" && dbMsg.status && msg.status !== dbMsg.status) {
+                return { ...msg, status: dbMsg.status };
+              }
+              return msg;
+            });
+            
             if (newMessages.length > 0) {
               lastMessageIdRef.current = newMessages[newMessages.length - 1].id;
-              return [...prev, ...newMessages];
+              return [...updatedPrev, ...newMessages];
             }
-            return prev;
+            // Only update if we actually removed deleted messages or updated status
+            const hasChanges = filteredPrev.length !== prev.length || 
+              updatedPrev.some((msg, idx) => {
+                const origMsg = prev.find((m) => m.id === msg.id);
+                return !origMsg || origMsg.status !== msg.status;
+              });
+            if (hasChanges) {
+              return updatedPrev;
+            }
+            return prev; // No changes, return previous state to avoid unnecessary re-render
           });
         }
+      } else if (data.success && selectedChat?.isRegisteredUser) {
+        // For registered users without chat, start with empty messages
+        setMessages([]);
       }
     } catch (error) {
       logger.error("Error loading messages:", error);
@@ -293,7 +326,7 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
         });
       }
     } finally {
-      if (isInitial) setIsLoading(false);
+      if (isInitial) setIsLoadingMessages(false);
     }
   }, [selectedChat, toast]);
 
@@ -326,28 +359,36 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
 
   // Handle chat selection
   const handleSelectChat = useCallback(async (chat: Chat) => {
-    setSelectedChat(chat);
+    // Reset state before selecting new chat to prevent flickering
+    setMessages([]);
     lastMessageIdRef.current = null;
+    setSelectedChat(chat);
     
     if (typeof window !== "undefined") {
       localStorage.setItem('admin_selected_chat_id', chat.id);
       window.dispatchEvent(new CustomEvent('chatOpened', { detail: { chatId: chat.id } }));
     }
     
-    markUserMessagesAsRead(chat.id).catch(() => {});
-    markUserMessagesAsDelivered(chat.id);
-    loadMessages(chat.id, true);
+    // If it's a registered user without chat, create chat on first message
+    if ((chat.isRegisteredUser || chat.isUserWithoutChat) && chat.userId) {
+      // Load empty messages for now
+      setMessages([]);
+    } else {
+      markUserMessagesAsRead(chat.id).catch(() => {});
+      markUserMessagesAsDelivered(chat.id);
+      loadMessages(chat.id, true);
+    }
     
     setChats((prevChats) =>
       prevChats.map((c) =>
-        c.id === chat.id ? { ...c, unreadCount: 0 } : c
+        c.id === chat.id ? { ...c, unreadCount: undefined } : c
       )
     );
   }, [loadMessages, markUserMessagesAsRead, markUserMessagesAsDelivered]);
 
   // Check typing status
   const checkUserTyping = useCallback(async () => {
-    if (!selectedChat) return;
+    if (!selectedChat || selectedChat.isRegisteredUser || selectedChat.isUserWithoutChat) return;
     try {
       const response = await fetch(`/api/chat/typing?chatId=${selectedChat.id}&sender=user`, { credentials: "include" });
       if (response.ok) {
@@ -376,32 +417,110 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
 
   // Handle delete
   const handleDelete = useCallback(async (messageId: string) => {
-    if (!selectedChat) return;
+    if (!selectedChat) {
+      console.error("[AdminChat] handleDelete: No selected chat");
+      return;
+    }
+    
+    console.log("[AdminChat] Deleting message:", messageId);
     
     try {
       const response = await fetch(`/api/chat/message/${messageId}`, {
         method: "DELETE",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
       });
+      
+      console.log("[AdminChat] Delete response status:", response.status);
+      
+      let data;
+      try {
+        data = await response.json();
+      } catch (e) {
+        const text = await response.text();
+        console.error("[AdminChat] Failed to parse response:", text);
+        data = {};
+      }
+      
+      console.log("[AdminChat] Delete response data:", data);
       
       if (response.ok) {
         setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+        // Refresh chats to update last message (silent - no loading)
+        loadChats(false);
+        // Force immediate message reload to sync with other clients (silent - no loading)
+        if (selectedChat) {
+          setTimeout(() => {
+            loadMessages(selectedChat.id, false).catch(() => {
+              // Silent fail
+            });
+          }, 500);
+        }
         toast({
           title: "موفق",
-          description: "پیام با موفقیت حذف شد",
+          description: data.message || "پیام با موفقیت حذف شد",
         });
       } else {
-        throw new Error("خطا در حذف پیام");
+        const errorMessage = data.error || data.message || `خطا در حذف پیام (${response.status})`;
+        console.error("[AdminChat] Delete error:", errorMessage, data);
+        logger.error("Error deleting message:", errorMessage, data);
+        throw new Error(errorMessage);
       }
     } catch (error) {
+      console.error("[AdminChat] Delete exception:", error);
       logger.error("Error deleting message:", error);
       toast({
         title: "خطا",
-        description: "خطا در حذف پیام",
+        description: error instanceof Error ? error.message : "خطا در حذف پیام",
         variant: "destructive",
       });
     }
-  }, [selectedChat, toast]);
+  }, [selectedChat, toast, loadChats, loadMessages]);
 
+  // Handle block user
+  const handleBlockUser = useCallback(async () => {
+    if (!selectedChat) return;
+    
+    setIsBlocking(true);
+    try {
+      const response = await fetch(`/api/chat/block`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          chatId: selectedChat.id,
+          customerPhone: selectedChat.customerPhone,
+        }),
+      });
+      
+      if (response.ok) {
+        toast({
+          title: "موفق",
+          description: "کاربر با موفقیت مسدود شد",
+        });
+        setBlockDialogOpen(false);
+        // Remove chat from list
+        setChats((prev) => prev.filter((chat) => chat.id !== selectedChat.id));
+        setSelectedChat(null);
+        setMessages([]);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "خطا در مسدود کردن کاربر");
+      }
+    } catch (error) {
+      logger.error("Error blocking user:", error);
+      toast({
+        title: "خطا",
+        description: error instanceof Error ? error.message : "خطا در مسدود کردن کاربر",
+        variant: "destructive",
+      });
+    } finally {
+      setIsBlocking(false);
+    }
+  }, [selectedChat, toast]);
 
   // Handle send message
   const handleSend = useCallback(async () => {
@@ -446,31 +565,114 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
       return;
     }
     
+    // If it's a registered user without chat, create chat first
+    if ((selectedChat.isRegisteredUser || selectedChat.isUserWithoutChat) && selectedChat.userId) {
+      try {
+        // Create chat for this user
+        const createResponse = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            customerInfo: {
+              name: selectedChat.customerName,
+              phone: selectedChat.customerPhone,
+              email: selectedChat.customerEmail,
+            },
+            messages: [{
+              text: chatMessaging.message,
+              sender: "support",
+              attachments: chatUtils.attachments,
+            }],
+          }),
+        });
+        
+        if (createResponse.ok) {
+          const createData = await createResponse.json();
+          if (createData.success && createData.data.chat) {
+            const newChat = createData.data.chat;
+            // Update selected chat
+            const updatedChat: Chat = {
+              ...selectedChat,
+              id: newChat.id,
+              isRegisteredUser: false,
+              isUserWithoutChat: false,
+            };
+            setSelectedChat(updatedChat);
+            
+            // Update UI smoothly without visible reload
+            // Add the sent message to UI immediately
+            if (createData.success && createData.data.messages && createData.data.messages.length > 0) {
+              const sentMessage = createData.data.messages[0];
+              setMessages((prev) => [...prev, sentMessage]);
+            }
+            
+            // Reload chats and messages in background (silent)
+            loadChats(false).catch(() => {});
+            loadMessages(newChat.id, false).catch(() => {});
+            
+            // Scroll to bottom smoothly
+            setTimeout(() => {
+              scrollToBottom(false);
+            }, 100);
+            
+            // Clear attachments and UI state smoothly
+            chatUtils.setAttachments([]);
+            chatUtils.setShowAttachmentOptions(false);
+            setReplyingTo(null);
+            
+            toast({
+              title: "موفق",
+              description: "پیام ارسال شد",
+            });
+          }
+        }
+      } catch (error) {
+        logger.error("Error creating chat:", error);
+        toast({
+          title: "خطا",
+          description: "خطا در ارسال پیام",
+          variant: "destructive",
+        });
+      }
+      return;
+    }
+    
     const sentMessage = await chatMessaging.handleSend(chatUtils.attachments, replyingTo);
     if (sentMessage) {
-      setMessages((prev) => [...prev, sentMessage]);
+      // Add message to UI smoothly (no flash/reload)
+      setMessages((prev) => {
+        // Check if message already exists (avoid duplicates)
+        const exists = prev.some((msg) => msg.id === sentMessage.id);
+        if (exists) return prev;
+        return [...prev, sentMessage];
+      });
+      
+      // Clear attachments and UI state smoothly
       chatUtils.setAttachments([]);
       chatUtils.setShowAttachmentOptions(false);
       setReplyingTo(null);
       
-      // Scroll to bottom after sending message
+      // Update last message ID for polling
+      if (sentMessage.id && !sentMessage.id.startsWith("temp-")) {
+        lastMessageIdRef.current = sentMessage.id;
+      }
+      
+      // Refresh chats list silently (without loading) to update last message
+      // Delay to avoid conflict with message addition
+      setTimeout(() => {
+        loadChats(false);
+      }, 500);
+      
+      // Scroll to bottom smoothly after sending message
       setTimeout(() => {
         scrollToBottom(false);
-        // Check position after scroll to hide button
         setTimeout(() => {
           checkScrollPosition();
         }, 500);
-      }, 150);
-      
-      // Save audio recording if exists
-      if (chatUtils.audioBlob && chatUtils.audioUrl) {
-        const audioAttachment = await chatUtils.saveRecording();
-        if (audioAttachment) {
-          // Audio will be added to next message
-        }
-      }
+      }, 100);
     }
-  }, [selectedChat, chatMessaging, chatUtils, editingMessage, replyingTo, toast]);
+  }, [selectedChat, chatMessaging, chatUtils, editingMessage, replyingTo, toast, loadChats, loadMessages]);
 
   // Check if user is scrolled up
   const checkScrollPosition = useCallback(() => {
@@ -479,7 +681,7 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
       return;
     }
     const container = messagesContainerRef.current;
-    const threshold = 150; // 150px threshold
+    const threshold = 150;
     const scrollBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
     const isScrolledUp = scrollBottom > threshold;
     setShowScrollToBottom(isScrolledUp);
@@ -492,7 +694,6 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
         behavior: instant ? "auto" : "smooth",
         block: "end"
       });
-      // Hide button after scrolling
       setTimeout(() => {
         setShowScrollToBottom(false);
       }, 300);
@@ -511,32 +712,21 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
       checkScrollPosition();
     };
 
-    // Check position when messages change
-    const checkOnMessagesChange = () => {
-      setTimeout(() => {
-        checkScrollPosition();
-      }, 100);
-    };
-
     container.addEventListener("scroll", handleScroll, { passive: true });
-    // Check initial position
     checkScrollPosition();
-    checkOnMessagesChange();
     
     return () => {
       container.removeEventListener("scroll", handleScroll);
     };
   }, [selectedChat, checkScrollPosition, messages.length]);
 
-  // Scroll to bottom when chat is selected (first time)
+  // Scroll to bottom when chat is selected
   const hasScrolledOnSelectRef = useRef<boolean>(false);
   useEffect(() => {
     if (selectedChat && messages.length > 0 && !hasScrolledOnSelectRef.current) {
       hasScrolledOnSelectRef.current = true;
-      // Instant scroll when opening a chat
       const timeout = setTimeout(() => {
         scrollToBottom(true);
-        // Check position after scroll to hide button
         setTimeout(() => {
           checkScrollPosition();
         }, 500);
@@ -547,19 +737,9 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
     }
   }, [selectedChat, messages.length, scrollToBottom, checkScrollPosition]);
 
-  // Check position when messages change
-  useEffect(() => {
-    if (messages.length > 0 && selectedChat) {
-      const timeout = setTimeout(() => {
-        checkScrollPosition();
-      }, 200);
-      return () => clearTimeout(timeout);
-    }
-  }, [messages.length, checkScrollPosition, selectedChat]);
-
   // Poll for new messages
   useEffect(() => {
-    if (!selectedChat || !isOpen) {
+    if (!selectedChat || !isOpen || selectedChat.isRegisteredUser || selectedChat.isUserWithoutChat) {
       setIsUserTyping(false);
       if (typingPollIntervalRef.current) {
         clearInterval(typingPollIntervalRef.current);
@@ -572,14 +752,15 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
     markUserMessagesAsRead(selectedChat.id).catch(() => {});
 
     checkUserTyping();
-    // Optimized: Check typing status every 3 seconds (reduced from 2s)
     typingPollIntervalRef.current = setInterval(() => {
       checkUserTyping();
     }, 3000);
 
-    // Optimized: Poll messages every 5 seconds (reduced from 3s to reduce server load)
     const interval = setInterval(() => {
-      loadMessages(selectedChat.id, false);
+      // Silent polling - no loading state
+      loadMessages(selectedChat.id, false).catch(() => {
+        // Silent fail for polling
+      });
       markUserMessagesAsDelivered(selectedChat.id);
       markUserMessagesAsRead(selectedChat.id).catch(() => {});
     }, 5000);
@@ -596,18 +777,22 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
   // Load chats on open
   useEffect(() => {
     if (isOpen) {
+      console.log("[AdminChat] Dialog opened, loading chats...");
       loadChats(true);
-      setSelectedChat(null);
-      setMessages([]);
+      // اگر شماره تلفن اولیه وجود نداشت، چت را null کن
+      if (!initialCustomerPhone) {
+        setSelectedChat(null);
+        setMessages([]);
+      }
       if (typeof window !== "undefined") {
         localStorage.removeItem('admin_selected_chat_id');
         window.dispatchEvent(new CustomEvent('chatClosed'));
       }
       setOnline(true);
       
-      // Optimized: Refresh chat list every 15 seconds (reduced from 10s)
       const chatListInterval = setInterval(() => {
-        silentRefreshChats();
+        console.log("[AdminChat] Refreshing chats...");
+        loadChats(false);
       }, 15000);
       
       return () => {
@@ -620,305 +805,318 @@ export function AdminChat({ isOpen, onOpenChange }: AdminChatProps) {
         window.dispatchEvent(new CustomEvent('chatClosed'));
       }
     }
-  }, [isOpen, setOnline, silentRefreshChats, loadChats]);
+  }, [isOpen, setOnline, loadChats]);
 
-  // Listen for openChat event
+  // انتخاب خودکار چت بر اساس شماره تلفن اولیه
   useEffect(() => {
-    const handleOpenChat = async (event: Event) => {
-      const customEvent = event as CustomEvent<{ chatId: string }>;
-      const { chatId } = customEvent.detail;
-      if (!chatId) return;
-
-      if (!isOpen) {
-        onOpenChange(true);
-      }
-
-      setTimeout(async () => {
-        if (chats.length === 0) {
-          await loadChats();
-        }
-        const chat = chats.find((c) => c.id === chatId);
-        if (chat) {
-          handleSelectChat(chat);
-        } else {
-          try {
-            const response = await fetch(`/api/chat?chatId=${chatId}`, { credentials: "include" });
-            if (response.ok) {
-              const data = await response.json();
-              if (data.success && data.data) {
-                const chatInfo: Chat = {
-                  id: data.data.id,
-                  customerName: data.data.customerName || "کاربر",
-                  customerPhone: data.data.customerPhone || "",
-                  status: data.data.status || "active",
-                  createdAt: data.data.createdAt || new Date().toISOString(),
-                  updatedAt: data.data.updatedAt || new Date().toISOString(),
-                  lastMessage: data.data.lastMessage || "",
-                  lastMessageTime: data.data.lastMessageTime,
-                };
-                handleSelectChat(chatInfo);
-              }
-            }
-          } catch (error) {
-            logger.error("Error loading chat:", error);
-          }
-        }
-      }, 300);
-    };
-
-    window.addEventListener("openChat", handleOpenChat as EventListener);
-    return () => {
-      window.removeEventListener("openChat", handleOpenChat as EventListener);
-    };
-  }, [isOpen, chats, onOpenChange, loadChats, handleSelectChat]);
-
-  // Request notification permission
-  useEffect(() => {
-    if (typeof window !== "undefined" && "Notification" in window) {
-      if (Notification.permission === "default") {
-        Notification.requestPermission();
+    if (initialCustomerPhone && chats.length > 0 && !selectedChat) {
+      const matchingChat = chats.find(
+        (chat) => chat.customerPhone === initialCustomerPhone
+      );
+      if (matchingChat) {
+        console.log("[AdminChat] Auto-selecting chat for phone:", initialCustomerPhone);
+        setSelectedChat(matchingChat);
+        loadMessages(matchingChat.id, true);
       }
     }
-  }, []);
+  }, [initialCustomerPhone, chats, selectedChat, loadMessages]);
 
   const filteredChats = chats.filter((chat) =>
     chat.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    chat.customerPhone.includes(searchQuery)
+    chat.customerPhone.includes(searchQuery) ||
+    chat.customerEmail?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
-    <Sheet 
-      open={isOpen} 
-      onOpenChange={onOpenChange}
-      data-admin-chat-open={isOpen ? "true" : "false"}
-      data-selected-chat-id={selectedChat?.id || ""}
-    >
-      <SheetContent
-        side="left"
-        className="w-full sm:w-[500px] md:w-[600px] p-0 flex flex-col shadow-2xl !h-screen !max-h-screen overflow-hidden"
-      >
-        {!selectedChat ? (
-          <>
-            <SheetHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border/40 px-4 sm:px-6 py-2">
-              <SheetTitle className="flex items-center gap-2 text-base font-semibold">
-                <MessageCircle className="h-5 w-5" />
-                چت‌های کاربران
-              </SheetTitle>
-              <div className="mt-2">
-                <div className="relative">
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-[95vw] w-full h-[90vh] p-0 flex flex-col gap-0 overflow-hidden">
+        <VisuallyHiddenPrimitive.Root>
+          <DialogHeader>
+            <DialogTitle>چت با کاربران</DialogTitle>
+          </DialogHeader>
+        </VisuallyHiddenPrimitive.Root>
+        <div className="flex h-full overflow-hidden">
+          {/* Left Sidebar - Contact List */}
+          <div className="w-full md:w-1/3 lg:w-1/4 border-l border-border flex flex-col bg-background">
+            {/* Header */}
+            <div className="p-4 border-b border-border bg-muted/30">
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
                   <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     type="search"
                     placeholder="جستجوی کاربر..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pr-10 h-9 text-sm border rounded-lg"
+                    className="pr-10"
                   />
                 </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onOpenChange(false)}
+                  className="h-10 w-10 flex-shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
-            </SheetHeader>
+            </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto bg-gradient-to-b from-background to-muted/5">
-              {isLoading ? (
-                <div className="flex items-center justify-center h-full">
+            {/* Contact List */}
+            <ScrollArea className="flex-1">
+              {isLoadingChats ? (
+                <div className="flex items-center justify-center h-full p-8">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
               ) : filteredChats.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-center px-6">
-                  <MessageCircle className="h-14 w-14 text-muted-foreground/50 mb-5" />
-                  <p className="text-muted-foreground text-base font-medium leading-relaxed">چتی یافت نشد</p>
+                <div className="flex flex-col items-center justify-center h-full text-center px-6 py-12">
+                  <MessageCircle className="h-14 w-14 text-muted-foreground/50 mb-4" />
+                  <p className="text-muted-foreground">چتی یافت نشد</p>
+                  {chats.length > 0 && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      (تعداد کل: {chats.length} - فیلتر شده: {filteredChats.length})
+                    </p>
+                  )}
                 </div>
               ) : (
-                <div className="divide-y divide-border/50">
+                <div className="divide-y divide-border">
                   {filteredChats.map((chat) => (
-                    <motion.button
+                    <button
                       key={chat.id}
                       onClick={() => handleSelectChat(chat)}
-                      className={`w-full p-5 text-right hover:bg-muted/50 transition-all duration-200 rounded-lg ${
-                        chat.unreadCount && chat.unreadCount > 0 
-                          ? "bg-primary/5 border-r-4 border-primary shadow-md" 
-                          : "hover:shadow-sm"
-                      }`}
-                      whileHover={{ backgroundColor: chat.unreadCount && chat.unreadCount > 0 ? "rgba(var(--primary), 0.1)" : "rgba(0,0,0,0.05)" }}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.2 }}
+                      className={`w-full p-4 text-right hover:bg-muted/50 transition-all ${
+                        selectedChat?.id === chat.id ? "bg-primary/10 border-r-4 border-primary" : ""
+                      } ${chat.unreadCount && chat.unreadCount > 0 ? "font-semibold" : ""}`}
                     >
-                      <div className="flex items-start gap-4">
-                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 shadow-md border-2 border-primary/30">
-                          <User className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                      <div className="flex items-start gap-3">
+                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <User className="h-6 w-6 text-primary" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                              <p className={`font-semibold text-sm sm:text-base truncate leading-tight ${
-                                chat.unreadCount && chat.unreadCount > 0 ? "font-bold" : ""
-                              }`}>
-                                {chat.customerName}
-                              </p>
-                              {chat.unreadCount && chat.unreadCount > 0 && (
-                                <motion.div
-                                  initial={{ scale: 0 }}
-                                  animate={{ scale: 1 }}
-                                  transition={{ type: "spring", stiffness: 500, damping: 15 }}
-                                >
-                                  <Badge
-                                    variant="destructive"
-                                    className="h-6 w-6 px-0 text-xs font-bold flex-shrink-0 shadow-lg animate-pulse flex items-center justify-center"
-                                  >
-                                    !
-                                  </Badge>
-                                </motion.div>
-                              )}
-                            </div>
-                            {chat.lastMessageTime && (
-                              <span className="text-xs text-muted-foreground flex-shrink-0 mr-2 font-medium">
-                                {new Date(chat.lastMessageTime).toLocaleDateString("fa-IR", {
-                                  month: "short",
-                                  day: "numeric",
-                                })}
-                              </span>
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="font-semibold text-sm truncate">{chat.customerName}</p>
+                            {chat.unreadCount && chat.unreadCount > 0 && (
+                              <Badge variant="destructive" className="h-5 w-5 px-0 text-xs flex items-center justify-center">
+                                !
+                              </Badge>
                             )}
                           </div>
-                          <div className="flex items-center gap-2.5 text-sm text-muted-foreground mb-1.5">
-                            <Phone className="h-4 w-4" />
-                            <span className="font-medium">{chat.customerPhone}</span>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                            <Phone className="h-3 w-3" />
+                            <span>{chat.customerPhone}</span>
                           </div>
                           {chat.lastMessage && (
-                            <p className="text-sm text-muted-foreground mt-2 truncate leading-relaxed">
+                            <p className="text-xs text-muted-foreground truncate mt-1">
                               {chat.lastMessage}
+                            </p>
+                          )}
+                          {chat.lastMessageTime && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {format(new Date(chat.lastMessageTime), "HH:mm", { locale: faIR })}
                             </p>
                           )}
                         </div>
                       </div>
-                    </motion.button>
+                    </button>
                   ))}
                 </div>
               )}
-            </div>
-          </>
-        ) : (
-          <>
-            <SheetHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border/40 px-4 sm:px-6 py-2">
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={async () => {
-                    setSelectedChat(null);
-                    setMessages([]);
-                    lastMessageIdRef.current = null;
-                    if (typeof window !== "undefined") {
-                      localStorage.removeItem('admin_selected_chat_id');
-                      window.dispatchEvent(new CustomEvent('chatClosed'));
-                    }
-                    await loadChats();
-                  }}
-                  className="h-8 w-8 rounded-lg hover:bg-muted/60 transition-all"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <SheetTitle className="text-base font-semibold truncate">{selectedChat.customerName}</SheetTitle>
-                    <OnlineStatusBadge isOnline={isOnline} showText={false} />
+            </ScrollArea>
+          </div>
+
+          {/* Right Side - Chat Area */}
+          <div className="flex-1 flex flex-col bg-background">
+            {selectedChat ? (
+              <>
+                {/* Chat Header */}
+                <div className="p-4 border-b border-border bg-muted/30 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <User className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">{selectedChat.customerName}</h3>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Phone className="h-3 w-3" />
+                        <span>{selectedChat.customerPhone}</span>
+                        {selectedChat.customerEmail && (
+                          <>
+                            <Mail className="h-3 w-3 mr-2" />
+                            <span>{selectedChat.customerEmail}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setBlockDialogOpen(true)}
+                      className="flex items-center gap-2 text-destructive hover:text-destructive"
+                    >
+                      <Ban className="h-4 w-4" />
+                      <span className="hidden sm:inline">مسدود کردن</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setSelectedChat(null);
+                        setMessages([]);
+                        lastMessageIdRef.current = null;
+                      }}
+                      className="mr-4"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
-              </div>
-            </SheetHeader>
 
-            <div ref={messagesContainerRef} className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 md:p-6 space-y-4 sm:space-y-5 bg-gradient-to-b from-background via-background to-muted/5">
-              {isLoading ? (
-                <div className="flex items-center justify-center h-full">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                {/* Messages Area */}
+                <ScrollArea ref={messagesContainerRef} className="flex-1 p-4">
+                  {isLoadingMessages ? (
+                    <div className="flex items-center justify-center h-full">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : messages.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-center">
+                      <MessageCircle className="h-14 w-14 text-muted-foreground/50 mb-4" />
+                      <p className="text-muted-foreground">
+                        {(selectedChat.isRegisteredUser || selectedChat.isUserWithoutChat)
+                          ? "هنوز پیامی ارسال نشده است. می‌توانید اولین پیام را ارسال کنید."
+                          : "هنوز پیامی ارسال نشده است"}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {messages.map((msg, index) => (
+                        <MessageBubble
+                          key={msg.id}
+                          message={msg}
+                          index={index}
+                          totalMessages={messages.length}
+                          onReply={handleReply}
+                          onEdit={handleEdit}
+                          onDelete={handleDelete}
+                        />
+                      ))}
+                      {isUserTyping && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 10 }}
+                          className="flex justify-start items-end gap-2.5"
+                        >
+                          <TypingIndicator />
+                        </motion.div>
+                      )}
+                    </div>
+                  )}
+                  <div ref={messagesEndRef} />
+                </ScrollArea>
+
+                {/* Chat Input */}
+                <div className="p-4 border-t border-border bg-muted/30">
+                  <ChatInput
+                    message={chatMessaging.message}
+                    onMessageChange={chatMessaging.handleMessageChange}
+                    onSend={handleSend}
+                    isSending={chatMessaging.isSending}
+                    attachments={chatUtils.attachments}
+                    onRemoveAttachment={chatUtils.handleRemoveAttachment}
+                    showAttachmentOptions={chatUtils.showAttachmentOptions}
+                    onToggleAttachmentOptions={() => chatUtils.setShowAttachmentOptions(!chatUtils.showAttachmentOptions)}
+                    isRecording={chatUtils.isRecording}
+                    recordingTime={chatUtils.recordingTime}
+                    audioUrl={chatUtils.audioUrl}
+                    onStartRecording={chatUtils.startRecording}
+                    onStopRecording={chatUtils.stopRecording}
+                    onCancelRecording={chatUtils.cancelRecording}
+                    onSaveRecording={async () => {
+                      // Prevent concurrent saves
+                      if (isSavingRecordingRef.current) {
+                        return;
+                      }
+                      isSavingRecordingRef.current = true;
+                      
+                      try {
+                        const attachment = await chatUtils.saveRecording();
+                        if (attachment) {
+                          // Check if attachment already exists to avoid duplicates
+                          chatUtils.setAttachments((prev) => {
+                            const exists = prev.some(att => att.id === attachment.id);
+                            if (exists) {
+                              return prev; // Already exists, don't add again
+                            }
+                            return [...prev, attachment];
+                          });
+                        }
+                      } finally {
+                        isSavingRecordingRef.current = false;
+                      }
+                    }}
+                    formatTime={chatUtils.formatTime}
+                    imageInputRef={chatUtils.imageInputRef}
+                    fileInputRef={chatUtils.fileInputRef}
+                    onFileSelect={chatUtils.handleFileSelect}
+                    onLocationShare={chatUtils.handleLocationShare}
+                    onCheckMicrophonePermission={chatUtils.checkMicrophonePermission}
+                    toast={toast}
+                  />
                 </div>
-              ) : messages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-center px-6">
-                  <MessageCircle className="h-14 w-14 text-muted-foreground/50 mb-5" />
-                  <p className="text-muted-foreground text-base font-medium leading-relaxed">هنوز پیامی ارسال نشده است</p>
+              </>
+            ) : (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center">
+                  <MessageCircle className="h-16 w-16 text-muted-foreground/50 mx-auto mb-4" />
+                  <p className="text-muted-foreground">یک مخاطب را انتخاب کنید</p>
                 </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+
+      {/* Block User Confirmation Dialog */}
+      <Dialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>مسدود کردن کاربر</DialogTitle>
+            <DialogDescription>
+              آیا مطمئن هستید که می‌خواهید کاربر {selectedChat?.customerName} ({selectedChat?.customerPhone}) را مسدود کنید؟
+              <br />
+              <span className="text-destructive font-medium">این عمل قابل بازگشت نیست.</span>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setBlockDialogOpen(false)}
+              disabled={isBlocking}
+            >
+              انصراف
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleBlockUser}
+              disabled={isBlocking}
+            >
+              {isBlocking ? (
+                <>
+                  <Loader2 className="h-4 w-4 ml-2 animate-spin" />
+                  در حال مسدود کردن...
+                </>
               ) : (
                 <>
-                  {messages.map((msg, index) => (
-                    <MessageBubble
-                      key={msg.id}
-                      message={msg}
-                      index={index}
-                      totalMessages={messages.length}
-                      onReply={handleReply}
-                      onEdit={handleEdit}
-                      onDelete={handleDelete}
-                    />
-                  ))}
-                  {isUserTyping && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 10 }}
-                      className="flex justify-start items-end gap-2.5"
-                    >
-                      <TypingIndicator />
-                    </motion.div>
-                  )}
+                  <Ban className="h-4 w-4 ml-2" />
+                  مسدود کردن
                 </>
               )}
-              <div ref={messagesEndRef} />
-            </div>
-
-            <div className="sticky bottom-0 z-10 bg-background/95 backdrop-blur-sm border-t border-border/40 flex-shrink-0 relative pb-safe" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
-              {/* Scroll to bottom button */}
-              <AnimatePresence>
-                {showScrollToBottom && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.9 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                    className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-10"
-                  >
-                    <Button
-                      onClick={() => scrollToBottom(false)}
-                      size="icon"
-                      className="h-9 w-9 rounded-full shadow-lg hover:shadow-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all"
-                      title="برو به آخرین پیام"
-                    >
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-              <ChatInput
-                message={chatMessaging.message}
-              onMessageChange={chatMessaging.handleMessageChange}
-              onSend={handleSend}
-              isSending={chatMessaging.isSending}
-              attachments={chatUtils.attachments}
-              onRemoveAttachment={chatUtils.handleRemoveAttachment}
-              showAttachmentOptions={chatUtils.showAttachmentOptions}
-              onToggleAttachmentOptions={() => chatUtils.setShowAttachmentOptions(!chatUtils.showAttachmentOptions)}
-              isRecording={chatUtils.isRecording}
-              recordingTime={chatUtils.recordingTime}
-              audioUrl={chatUtils.audioUrl}
-              onStartRecording={chatUtils.startRecording}
-              onStopRecording={chatUtils.stopRecording}
-              onCancelRecording={chatUtils.cancelRecording}
-              onSaveRecording={async () => {
-                const attachment = await chatUtils.saveRecording();
-                if (attachment) {
-                  chatUtils.setAttachments((prev) => [...prev, attachment]);
-                }
-              }}
-              formatTime={chatUtils.formatTime}
-              imageInputRef={chatUtils.imageInputRef}
-              fileInputRef={chatUtils.fileInputRef}
-              onFileSelect={chatUtils.handleFileSelect}
-              onLocationShare={chatUtils.handleLocationShare}
-              onCheckMicrophonePermission={chatUtils.checkMicrophonePermission}
-              toast={toast}
-              />
-            </div>
-          </>
-        )}
-      </SheetContent>
-    </Sheet>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Dialog>
   );
 }

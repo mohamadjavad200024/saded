@@ -3,6 +3,7 @@ import { getRow, runQuery } from "@/lib/db/index";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-route-helpers";
 import { AppError } from "@/lib/api-error-handler";
 import type { Product } from "@/types/product";
+import { normalizeImages, normalizeTags, normalizeSpecifications } from "@/lib/product-utils";
 
 /**
  * GET /api/products/[id] - Get product by ID
@@ -25,14 +26,12 @@ export async function GET(
       throw new AppError("محصول یافت نشد", 404, "PRODUCT_NOT_FOUND");
     }
 
-    // Parse JSON fields (PostgreSQL JSONB returns objects, not strings)
+    // Parse JSON fields with normalization
     const parsedProduct: Product = {
       ...product,
-      images: Array.isArray(product.images) ? product.images : (typeof product.images === 'string' ? JSON.parse(product.images) : []),
-      tags: Array.isArray(product.tags) ? product.tags : (typeof product.tags === 'string' ? JSON.parse(product.tags) : []),
-      specifications: typeof product.specifications === 'object' && product.specifications !== null 
-        ? product.specifications 
-        : (typeof product.specifications === 'string' ? JSON.parse(product.specifications) : {}),
+      images: normalizeImages(product.images),
+      tags: normalizeTags(product.tags),
+      specifications: normalizeSpecifications(product.specifications),
       price: Number(product.price),
       originalPrice: product.originalPrice ? Number(product.originalPrice) : undefined,
       stockCount: Number(product.stockCount),
@@ -47,6 +46,10 @@ export async function GET(
       updatedAt: product.updatedAt instanceof Date ? product.updatedAt : new Date(product.updatedAt),
     };
 
+    // #region agent log
+    fetch(logEndpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'route.ts:47',message:'GET product parsed',data:{productId:parsedProduct.id,airShippingEnabledRaw:product.airShippingEnabled,airShippingEnabledType:typeof product.airShippingEnabled,airShippingEnabledParsed:parsedProduct.airShippingEnabled,airShippingEnabledParsedType:typeof parsedProduct.airShippingEnabled,seaShippingEnabledRaw:product.seaShippingEnabled,seaShippingEnabledType:typeof product.seaShippingEnabled,seaShippingEnabledParsed:parsedProduct.seaShippingEnabled,seaShippingEnabledParsedType:typeof parsedProduct.seaShippingEnabled},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
+
     return createSuccessResponse(parsedProduct);
   } catch (error) {
     return createErrorResponse(error);
@@ -57,71 +60,108 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // #region agent log
+  const logEndpoint = 'http://127.0.0.1:7242/ingest/6e2493c0-cc8b-4c0b-9456-c04638b7e615';
+  fetch(logEndpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'route.ts:55',message:'PUT handler entry',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+  // #endregion
   try {
     const { id } = await params;
+    // #region agent log
+    fetch(logEndpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'route.ts:60',message:'Params extracted',data:{id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
 
     const body = await request.json().catch(() => {
       throw new AppError("Invalid JSON in request body", 400, "INVALID_JSON");
     });
+    // #region agent log
+    fetch(logEndpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'route.ts:65',message:'Request body parsed',data:{bodyKeys:Object.keys(body),airShippingCost:body.airShippingCost,seaShippingCost:body.seaShippingCost,airShippingCostType:typeof body.airShippingCost,seaShippingCostType:typeof body.seaShippingCost,specsType:typeof body.specifications,tagsType:typeof body.tags},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
 
     const product = await getRow<any>("SELECT * FROM products WHERE id = ?", [id]);
     if (!product) {
       throw new AppError("محصول یافت نشد", 404, "PRODUCT_NOT_FOUND");
     }
 
-    const updates: any = {
-      ...body,
+    // Define allowed fields that can be updated (exclude id, createdAt, etc.)
+    const allowedFields = [
+      'name', 'description', 'price', 'originalPrice', 'brand', 
+      'category', 'vehicle', 'model', 'vin', 'vinEnabled',
+      'airShippingEnabled', 'seaShippingEnabled', 'airShippingCost', 
+      'seaShippingCost', 'stockCount', 'inStock', 'enabled',
+      'images', 'tags', 'specifications'
+    ];
+
+    // Filter out undefined values and non-updatable fields
+    const filteredUpdates: any = {
       updatedAt: new Date().toISOString(),
     };
 
+    // Only include allowed fields that are not undefined
+    for (const key of allowedFields) {
+      if (body[key] !== undefined) {
+        filteredUpdates[key] = body[key];
+      }
+    }
+
     // Convert arrays/objects to JSON strings
-    if (updates.images) updates.images = JSON.stringify(updates.images);
-    if (updates.tags) updates.tags = JSON.stringify(updates.tags);
-    if (updates.specifications) updates.specifications = JSON.stringify(updates.specifications);
+    if (filteredUpdates.images !== undefined) {
+      filteredUpdates.images = JSON.stringify(filteredUpdates.images);
+    }
+    if (filteredUpdates.tags !== undefined) {
+      filteredUpdates.tags = JSON.stringify(filteredUpdates.tags);
+    }
+    if (filteredUpdates.specifications !== undefined) {
+      filteredUpdates.specifications = JSON.stringify(filteredUpdates.specifications);
+    }
     
     // Ensure boolean values are properly converted
-    if (updates.airShippingEnabled !== undefined) {
-      updates.airShippingEnabled = typeof updates.airShippingEnabled === "boolean" 
-        ? updates.airShippingEnabled 
-        : (updates.airShippingEnabled === true || updates.airShippingEnabled === "true" || updates.airShippingEnabled === 1);
+    if (filteredUpdates.airShippingEnabled !== undefined) {
+      filteredUpdates.airShippingEnabled = typeof filteredUpdates.airShippingEnabled === "boolean" 
+        ? filteredUpdates.airShippingEnabled 
+        : (filteredUpdates.airShippingEnabled === true || filteredUpdates.airShippingEnabled === "true" || filteredUpdates.airShippingEnabled === 1);
     }
-    if (updates.seaShippingEnabled !== undefined) {
-      updates.seaShippingEnabled = typeof updates.seaShippingEnabled === "boolean" 
-        ? updates.seaShippingEnabled 
-        : (updates.seaShippingEnabled === true || updates.seaShippingEnabled === "true" || updates.seaShippingEnabled === 1);
+    if (filteredUpdates.seaShippingEnabled !== undefined) {
+      filteredUpdates.seaShippingEnabled = typeof filteredUpdates.seaShippingEnabled === "boolean" 
+        ? filteredUpdates.seaShippingEnabled 
+        : (filteredUpdates.seaShippingEnabled === true || filteredUpdates.seaShippingEnabled === "true" || filteredUpdates.seaShippingEnabled === 1);
     }
     // Ensure shipping cost values are properly converted
-    if (updates.airShippingCost !== undefined) {
-      updates.airShippingCost = updates.airShippingCost !== null && updates.airShippingCost !== undefined 
-        ? Math.max(0, Math.round(Number(updates.airShippingCost))) 
+    if (filteredUpdates.airShippingCost !== undefined) {
+      filteredUpdates.airShippingCost = filteredUpdates.airShippingCost !== null && filteredUpdates.airShippingCost !== undefined 
+        ? Math.max(0, Math.round(Number(filteredUpdates.airShippingCost))) 
         : null;
     }
-    if (updates.seaShippingCost !== undefined) {
-      updates.seaShippingCost = updates.seaShippingCost !== null && updates.seaShippingCost !== undefined 
-        ? Math.max(0, Math.round(Number(updates.seaShippingCost))) 
+    if (filteredUpdates.seaShippingCost !== undefined) {
+      filteredUpdates.seaShippingCost = filteredUpdates.seaShippingCost !== null && filteredUpdates.seaShippingCost !== undefined 
+        ? Math.max(0, Math.round(Number(filteredUpdates.seaShippingCost))) 
         : null;
     }
-    // PostgreSQL accepts boolean values directly, no need to convert to 1/0
-    // Keep boolean values as-is for PostgreSQL
 
-    const setClause = Object.keys(updates)
+    // Build SQL query only with fields that have values
+    const setClause = Object.keys(filteredUpdates)
       .map((key) => `${key} = ?`)
       .join(", ");
-    const values = Object.values(updates);
+    const values = Object.values(filteredUpdates);
     values.push(id);
 
+    // #region agent log
+    fetch(logEndpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'route.ts:130',message:'Before database update',data:{setClause,valuesCount:values.length,filteredUpdatesKeys:Object.keys(filteredUpdates),airShippingCost:filteredUpdates.airShippingCost,seaShippingCost:filteredUpdates.seaShippingCost},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
+
     await runQuery(`UPDATE products SET ${setClause} WHERE id = ?`, values);
+    
+    // #region agent log
+    fetch(logEndpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'route.ts:133',message:'Database update completed',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
 
     const updatedProduct = await getRow<any>("SELECT * FROM products WHERE id = ?", [id]);
     
-    // Parse JSON fields (PostgreSQL JSONB returns objects, not strings)
+    // Parse JSON fields with normalization
     const parsedProduct: Product = {
       ...updatedProduct,
-      images: Array.isArray(updatedProduct.images) ? updatedProduct.images : (typeof updatedProduct.images === 'string' ? JSON.parse(updatedProduct.images) : []),
-      tags: Array.isArray(updatedProduct.tags) ? updatedProduct.tags : (typeof updatedProduct.tags === 'string' ? JSON.parse(updatedProduct.tags) : []),
-      specifications: typeof updatedProduct.specifications === 'object' && updatedProduct.specifications !== null 
-        ? updatedProduct.specifications 
-        : (typeof updatedProduct.specifications === 'string' ? JSON.parse(updatedProduct.specifications) : {}),
+      images: normalizeImages(updatedProduct.images),
+      tags: normalizeTags(updatedProduct.tags),
+      specifications: normalizeSpecifications(updatedProduct.specifications),
       price: Number(updatedProduct.price),
       originalPrice: updatedProduct.originalPrice ? Number(updatedProduct.originalPrice) : undefined,
       stockCount: Number(updatedProduct.stockCount),
@@ -136,8 +176,14 @@ export async function PUT(
       updatedAt: updatedProduct.updatedAt instanceof Date ? updatedProduct.updatedAt : new Date(updatedProduct.updatedAt),
     };
 
+    // #region agent log
+    fetch(logEndpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'route.ts:175',message:'PUT handler success',data:{productId:parsedProduct.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     return createSuccessResponse(parsedProduct);
   } catch (error) {
+    // #region agent log
+    fetch(logEndpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'route.ts:177',message:'PUT handler error',data:{errorMessage:error instanceof Error ? error.message : String(error),errorType:error?.constructor?.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     return createErrorResponse(error);
   }
 }

@@ -1,6 +1,6 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getRow } from "@/lib/db/index";
-import { createErrorResponse, createSuccessResponse } from "@/lib/api-route-helpers";
+import { createErrorResponse } from "@/lib/api-route-helpers";
 import { AppError } from "@/lib/api-error-handler";
 import { logger } from "@/lib/logger";
 import bcrypt from "bcryptjs";
@@ -78,6 +78,12 @@ export async function POST(request: NextRequest) {
       throw new AppError("شماره تماس یا رمز عبور اشتباه است", 401, "INVALID_CREDENTIALS");
     }
 
+    // IMPORTANT: Prevent admin from using regular user login endpoint
+    // Admin should use /api/admin/login instead
+    if (user.role === "admin") {
+      throw new AppError("ادمین باید از صفحه ورود ادمین استفاده کند", 403, "ADMIN_MUST_USE_ADMIN_LOGIN");
+    }
+
     // Check if user is enabled
     if (!user.enabled) {
       throw new AppError("حساب کاربری شما غیرفعال است", 403, "USER_DISABLED");
@@ -93,19 +99,41 @@ export async function POST(request: NextRequest) {
     logger.info("User logged in successfully:", { id: user.id, phone: user.phone });
 
     const sessionToken = await createSession(user.id, request);
+    logger.info("Session created:", { userId: user.id, hasToken: !!sessionToken, tokenLength: sessionToken?.length });
 
-    // Return user without password
-    const res = createSuccessResponse({
-      user: {
-        id: user.id,
-        name: user.name,
-        phone: user.phone,
-        role: user.role,
-        createdAt: user.createdAt,
+    // Create response FIRST, then set cookie on it
+    // CRITICAL: Cookie must be set on the same response object that's returned
+    const res = NextResponse.json({
+      success: true,
+      data: {
+        user: {
+          id: user.id,
+          name: user.name,
+          phone: user.phone,
+          role: user.role,
+          createdAt: user.createdAt,
+        },
+        message: "ورود موفق",
       },
-      message: "ورود موفق",
     });
+    
+    // Set cookie on the response
     setSessionCookie(res, sessionToken, request);
+    
+    // Verify cookie was set
+    const cookieValue = res.cookies.get("saded_session")?.value;
+    const setCookieHeader = res.headers.get("set-cookie");
+    
+    logger.info("Session cookie verification:", { 
+      hasCookie: !!cookieValue, 
+      cookieLength: cookieValue?.length,
+      matchesToken: cookieValue === sessionToken,
+      hasSetCookieHeader: !!setCookieHeader,
+      setCookieHeaderPreview: setCookieHeader ? setCookieHeader.substring(0, 150) : null,
+      requestUrl: request.url,
+      requestHost: request.nextUrl.hostname,
+    });
+    
     return res;
   } catch (error: any) {
     logger.error("POST /api/auth/login error:", error);
@@ -121,11 +149,13 @@ export async function POST(request: NextRequest) {
       error?.code === "ECONNREFUSED" ||
       error?.code === "ETIMEDOUT" ||
       error?.code === "ECONNRESET" ||
+      error?.code === "PROTOCOL_CONNECTION_LOST" ||
       error?.message?.includes("connect") ||
       error?.message?.includes("timeout")
     ) {
+      logger.error("Database connection error during login:", error);
       return createErrorResponse(
-        new AppError("دیتابیس در دسترس نیست", 503, "DATABASE_NOT_AVAILABLE")
+        new AppError("دیتابیس در دسترس نیست. لطفاً اطمینان حاصل کنید که MySQL (XAMPP) نصب و در حال اجرا است.", 503, "DATABASE_NOT_AVAILABLE")
       );
     }
 

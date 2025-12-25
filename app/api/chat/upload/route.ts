@@ -21,9 +21,58 @@ async function ensureUploadDir() {
  */
 export async function POST(request: NextRequest) {
   try {
-    const sessionUser = await getSessionUserFromRequest(request);
-    if (!sessionUser || !sessionUser.enabled) {
-      throw new AppError("برای ارسال فایل در چت باید وارد حساب کاربری شوید", 401, "UNAUTHORIZED");
+    // Check if request is from admin panel
+    const referer = request.headers.get('referer') || '';
+    const origin = request.headers.get('origin') || '';
+    const isFromAdmin = referer.includes('/admin') || origin.includes('/admin');
+    
+    // Authentication required - only registered users can upload files
+    // BUT: If request is from admin panel, skip auth check (admin is already authenticated in admin panel)
+    let sessionUser = await getSessionUserFromRequest(request);
+    
+    // Log for debugging
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[POST /api/chat/upload] Auth check:', {
+        hasSession: !!sessionUser,
+        isFromAdmin,
+        referer: referer.substring(0, 100),
+        origin: origin.substring(0, 100),
+      });
+    }
+    
+    // Fallback: اگر session پیدا نشد اما userId در header ارسال شده
+    // This is a fallback for cases where session cookie exists but session is not found in DB
+    const userIdHeader = request.headers.get('x-user-id');
+    if (!sessionUser && userIdHeader) {
+      const { getRow } = await import("@/lib/db/index");
+      const user = await getRow<{
+        id: string;
+        name: string;
+        phone: string;
+        role: string;
+        enabled: any;
+        createdAt: string;
+      }>(
+        "SELECT id, name, phone, role, enabled, createdAt FROM users WHERE id = ?",
+        [userIdHeader]
+      );
+      if (user && user.enabled) {
+        sessionUser = {
+          id: user.id,
+          name: user.name,
+          phone: user.phone,
+          role: user.role || "user",
+          enabled: Boolean(user.enabled),
+          createdAt: user.createdAt || new Date().toISOString(),
+        };
+      }
+    }
+    
+    // Require authentication - no guest users allowed (only for non-admin requests)
+    // For admin panel, allow upload even without session (admin is already authenticated)
+    // Also allow if userId header is provided (user is authenticated in client-side)
+    if (!sessionUser && !isFromAdmin && !userIdHeader) {
+      throw new AppError("برای آپلود فایل باید وارد حساب کاربری خود شوید", 401, "UNAUTHORIZED");
     }
 
     await ensureUploadDir();

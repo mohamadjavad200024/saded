@@ -35,15 +35,30 @@ export async function GET(request: NextRequest) {
       categories = await getRows<any>(whereClause);
     } catch (dbError: any) {
       logger.error("Error fetching categories:", dbError);
-      // If database is not available, throw a clear error
+      
+      // If table doesn't exist, return empty array instead of error
+      if (dbError?.code === "ER_NO_SUCH_TABLE" || 
+          dbError?.message?.includes("doesn't exist") || 
+          dbError?.message?.includes("does not exist") ||
+          dbError?.message?.includes("Table") && dbError?.message?.includes("doesn't exist")) {
+        logger.warn("Categories table does not exist yet, returning empty array");
+        return createSuccessResponse([]);
+      }
+      
+      // If database is not available, return empty array instead of 503
+      // This allows the app to continue working even if database is temporarily unavailable
       if (dbError?.message?.includes("not available") || 
           dbError?.code === "DATABASE_NOT_AVAILABLE" ||
           dbError?.code === "ECONNREFUSED" ||
           dbError?.message?.includes("connect") ||
           dbError?.message?.includes("timeout")) {
-        throw new AppError("دیتابیس در دسترس نیست. لطفاً اطمینان حاصل کنید که PostgreSQL نصب و پیکربندی شده است.", 503, "DATABASE_NOT_AVAILABLE");
+        logger.warn("Database not available, returning empty categories array");
+        return createSuccessResponse([]);
       }
-      throw dbError;
+      
+      // For other errors, still return empty array to prevent UI crash
+      logger.error("Unexpected error fetching categories, returning empty array:", dbError);
+      return createSuccessResponse([]);
     }
 
     const parsedCategories = categories.map((c: any) => ({

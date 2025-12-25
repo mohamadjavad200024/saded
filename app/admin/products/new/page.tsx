@@ -3,15 +3,27 @@
 import { ProductForm } from "@/components/admin/product-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCategoryStore } from "@/store/category-store";
+import { useVehicleStore } from "@/store/vehicle-store";
 import { useEffect } from "react";
 
 export default function NewProductPage() {
   const { loadCategoriesFromDB } = useCategoryStore();
+  const { loadVehiclesFromDB } = useVehicleStore();
 
-  // Load categories from database on mount
+  // Load categories and vehicles from database on mount
   useEffect(() => {
-    loadCategoriesFromDB();
-  }, [loadCategoriesFromDB]);
+    const loadData = async () => {
+      try {
+        await Promise.all([
+          loadCategoriesFromDB(),
+          loadVehiclesFromDB(),
+        ]);
+      } catch (error) {
+        console.error("Error loading form data:", error);
+      }
+    };
+    loadData();
+  }, [loadCategoriesFromDB, loadVehiclesFromDB]);
 
   return (
     <div className="space-y-6">

@@ -13,6 +13,7 @@ import {
   X,
   Truck,
   FolderTree,
+  Car,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -52,6 +53,12 @@ const menuItems = [
     title: "دسته‌بندی‌ها",
     href: "/admin/categories",
     icon: FolderTree,
+    disabled: false,
+  },
+  {
+    title: "خودروها",
+    href: "/admin/vehicles",
+    icon: Car,
     disabled: false,
   },
   {

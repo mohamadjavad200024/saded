@@ -5,6 +5,8 @@ import { ThemeProvider } from "next-themes";
 import { useState } from "react";
 import { GlobalChatPolling } from "@/components/chat/global-chat-polling";
 import { NotificationCenter } from "@/components/notifications";
+import { AuthInitializer } from "@/components/auth/auth-initializer";
+import { PagePreloader } from "@/components/layout/page-preloader";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -39,7 +41,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
       disableTransitionOnChange={false}
     >
       <QueryClientProvider client={queryClient}>
-        {children}
+        <AuthInitializer />
+        <PagePreloader>
+          {children}
+        </PagePreloader>
         <GlobalChatPolling />
         <NotificationCenter position="top-right" maxNotifications={5} />
       </QueryClientProvider>

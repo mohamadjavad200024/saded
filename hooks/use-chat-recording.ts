@@ -192,8 +192,13 @@ export function useChatRecording(
       const uploadedUrl = await uploadFile(audioFile, "audio");
       console.log("[Voice Widget] Upload successful, URL:", uploadedUrl);
 
+      // Generate truly unique ID
+      const uniqueId = typeof crypto !== 'undefined' && crypto.randomUUID 
+        ? crypto.randomUUID() 
+        : `audio-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${performance.now()}`;
+      
       const attachment: Attachment = {
-        id: Date.now().toString(),
+        id: uniqueId,
         type: "audio",
         url: uploadedUrl,
         name: `پیام صوتی ${formatTime(recordingTime)}`,

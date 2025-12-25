@@ -6,13 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   Send,
   MessageCircle,
   Phone,
@@ -28,15 +21,13 @@ import {
   Loader2,
   Check,
   CheckCheck,
-  Reply,
-  Edit2,
   Trash2,
-  MoreVertical,
   ChevronDown,
   ArrowRight,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
+import { AudioPlayer } from "@/components/chat/audio-player";
 import { useNotifications } from "@/hooks/use-notifications";
 import { OnlineStatusBadge } from "@/components/chat/online-status-badge";
 import { useAdminPresence } from "@/hooks/use-admin-presence";
@@ -91,7 +82,8 @@ function ChatPageContent() {
   const loadCustomerInfo = useCallback(() => {
     if (typeof window === "undefined") return { name: "", phone: "", email: "" };
     
-    if (isAuthenticated && user) {
+    // ProtectedRoute ensures user exists, so we can safely use it
+    if (user) {
       return {
         name: user.name || "",
         phone: user.phone || "",
@@ -99,9 +91,15 @@ function ChatPageContent() {
       };
     }
     return { name: "", phone: "", email: "" };
-  }, [isAuthenticated, user]);
+  }, [user]);
 
   const [customerInfo, setCustomerInfo] = useState(loadCustomerInfo);
+  
+  // Update customer info when auth state changes
+  useEffect(() => {
+    const updatedInfo = loadCustomerInfo();
+    setCustomerInfo(updatedInfo);
+  }, [user, loadCustomerInfo]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [showAttachmentOptions, setShowAttachmentOptions] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -127,10 +125,83 @@ function ChatPageContent() {
 
   // Initialize user's chat (server-side, session-based)
   const initMyChat = useCallback(async (opts?: { silent?: boolean }) => {
+    // Authentication removed - chat is now open to everyone
     try {
-      const res = await fetch("/api/chat/my", { credentials: "include" });
+      
+      // Wait a bit to ensure cookie is available (especially after login)
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Retry mechanism for cookie availability
+      let res: Response | null = null;
+      let lastError: Error | null = null;
+      
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          // Get user from store to send as header in development
+          const currentUser = useAuthStore.getState().user;
+          const headers: Record<string, string> = {
+            "Cache-Control": "no-cache",
+            "Content-Type": "application/json",
+          };
+          
+          // Add userId header in development as fallback
+          if (process.env.NODE_ENV === 'development' && currentUser?.id) {
+            headers['x-user-id'] = currentUser.id;
+          }
+          
+          res = await fetch("/api/chat/my", { 
+            method: "GET",
+            credentials: "include", // CRITICAL: Must include credentials to send cookies
+            cache: "no-store",
+            headers,
+          });
+          
+          // If successful, break out of retry loop
+          if (res.ok) {
+            break;
+          }
+          
+          // If 401, session might be invalid - check auth again
+          if (res.status === 401) {
+            // Re-check authentication
+            const recheck = await fetch("/api/auth/me", {
+              credentials: "include",
+              cache: "no-store",
+            });
+            const recheckData = await recheck.json().catch(() => null);
+            
+            if (!recheck.ok || !recheckData?.success || !recheckData?.data?.authenticated) {
+              // Session is definitely invalid
+              if (!opts?.silent) {
+                router.push("/auth?redirect=" + encodeURIComponent(window.location.pathname));
+              }
+              return null;
+            }
+            
+            // Session is valid but chat endpoint failed - retry
+            if (attempt < 2) {
+              await new Promise(resolve => setTimeout(resolve, 500));
+              continue;
+            }
+          }
+          
+          // For other errors, break
+          break;
+        } catch (error) {
+          lastError = error instanceof Error ? error : new Error(String(error));
+          if (attempt < 2) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        }
+      }
+      
+      if (!res) {
+        throw lastError || new Error("Failed to fetch chat");
+      }
+      
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.success || !json?.data?.chatId) {
+        // Authentication removed - no redirect needed
         const msg = json?.error || json?.message || "خطا در دریافت چت";
         throw new Error(msg);
       }
@@ -157,7 +228,14 @@ function ChatPageContent() {
 
     try {
       const response = await fetch(`/api/chat?chatId=${id}`, { credentials: "include" });
-      if (!response.ok) return;
+      if (!response.ok) {
+        // If 401, user is not authenticated - redirect to auth
+        if (response.status === 401) {
+          router.push("/auth?redirect=" + encodeURIComponent(window.location.pathname));
+          return;
+        }
+        return;
+      }
 
       const data = await response.json();
       if (data.success && data.data?.messages) {
@@ -172,19 +250,25 @@ function ChatPageContent() {
           status: msg.status || (msg.sender === "user" ? "sent" : undefined),
         }));
 
-        // Merge with existing messages (don't replace - preserve tempId messages until they're matched)
+        // Merge with existing messages and remove deleted ones
         setMessages((prev) => {
+          const dbMessageIds = new Set(formattedMessages.map((m) => m.id));
           const existingIds = new Set(prev.map((m) => m.id));
           const uniqueNewMessages = formattedMessages.filter((msg) => !existingIds.has(msg.id));
           
           // Update status of existing messages from database
-          const updatedPrev = prev.map((existingMsg) => {
-            const dbMsg = formattedMessages.find((m) => m.id === existingMsg.id);
-            if (dbMsg && existingMsg.sender === "user" && dbMsg.status && existingMsg.status !== dbMsg.status) {
-              return { ...existingMsg, status: dbMsg.status };
-            }
-            return existingMsg;
-          });
+          const updatedPrev = prev
+            .filter((existingMsg) => {
+              // Keep temp messages (those starting with "temp-") and messages that exist in DB
+              return existingMsg.id.startsWith("temp-") || dbMessageIds.has(existingMsg.id);
+            })
+            .map((existingMsg) => {
+              const dbMsg = formattedMessages.find((m) => m.id === existingMsg.id);
+              if (dbMsg && existingMsg.sender === "user" && dbMsg.status && existingMsg.status !== dbMsg.status) {
+                return { ...existingMsg, status: dbMsg.status };
+              }
+              return existingMsg;
+            });
           
           // If we have new messages, add them. Otherwise just return updated prev (preserves tempId messages)
           if (uniqueNewMessages.length > 0) {
@@ -199,19 +283,28 @@ function ChatPageContent() {
   }, [chatId]);
 
   // Auto-init chat once user is available
+  // ProtectedRoute ensures user exists, so we can safely use it
   useEffect(() => {
-    if (!isAuthenticated || !user) return;
+    if (!user) return; // ProtectedRoute should handle this
     if (chatId) return;
-    initMyChat({ silent: true }).catch(() => null);
-  }, [isAuthenticated, user, chatId, initMyChat]);
+    
+    // Add delay to ensure cookie is available (especially after login redirect)
+    // This gives browser time to process the Set-Cookie header
+    const timeoutId = setTimeout(() => {
+      initMyChat({ silent: true }).catch(() => null);
+    }, 500);
+    
+    return () => clearTimeout(timeoutId);
+  }, [user, chatId, initMyChat]);
 
   // Start polling when chatId is available
+  // ProtectedRoute ensures user exists, so we can safely use it
   useEffect(() => {
-    if (!chatId) return;
+    if (!chatId || !user) return;
     pollForNewMessages(chatId);
     const t = setInterval(() => pollForNewMessages(chatId), 3000);
     return () => clearInterval(t);
-  }, [chatId, pollForNewMessages]);
+  }, [chatId, pollForNewMessages, user]);
 
   const createChat = useCallback(
     async (info: { name: string; phone: string; email?: string }, opts?: { silent?: boolean }) => {
@@ -394,8 +487,13 @@ function ChatPageContent() {
       const data = await response.json();
       console.log("[Voice] Upload response:", data);
       if (data.success && data.data?.url) {
+        // Generate truly unique ID
+        const uniqueId = typeof crypto !== 'undefined' && crypto.randomUUID 
+          ? crypto.randomUUID() 
+          : `audio-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${performance.now()}`;
+        
         const attachment: Attachment = {
-          id: `audio-${Date.now()}`,
+          id: uniqueId,
           type: "audio",
           url: data.data.url,
           name: "پیام صوتی",
@@ -403,6 +501,12 @@ function ChatPageContent() {
         };
         console.log("[Voice] Adding attachment:", attachment);
         setAttachments((prev) => {
+          // Check if attachment already exists to avoid duplicates
+          const exists = prev.some(att => att.id === attachment.id);
+          if (exists) {
+            console.log("[Voice] Attachment already exists, skipping");
+            return prev; // Already exists, don't add again
+          }
           const newAttachments = [...prev, attachment];
           console.log("[Voice] New attachments:", newAttachments);
           return newAttachments;
@@ -442,17 +546,29 @@ function ChatPageContent() {
           formData.append("file", file);
           formData.append("type", type);
 
+          // Add userId header if user is available (fallback for session issues)
+          const headers: Record<string, string> = {};
+          if (user?.id) {
+            headers['x-user-id'] = user.id;
+          }
+
           const response = await fetch("/api/chat/upload", {
             method: "POST",
+            credentials: "include", // CRITICAL: Include cookies for session
+            headers,
             body: formData,
           });
 
-          if (!response.ok) throw new Error("خطا در آپلود فایل");
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => null);
+            const errorMessage = errorData?.error || errorData?.message || "خطا در آپلود فایل";
+            throw new Error(errorMessage);
+          }
 
           const data = await response.json();
           if (data.success && data.data?.url) {
             const attachment: Attachment = {
-              id: `${type}-${Date.now()}-${i}`,
+              id: `${type}-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 9)}`,
               type,
               url: data.data.url,
               name: file.name,
@@ -473,7 +589,7 @@ function ChatPageContent() {
       // Reset input
       if (e.target) e.target.value = "";
     },
-    [toast]
+    [toast, router]
   );
 
   // Handle location share
@@ -522,7 +638,7 @@ function ChatPageContent() {
         const { latitude, longitude } = position.coords;
         const url = `https://www.google.com/maps?q=${latitude},${longitude}`;
         const attachment: Attachment = {
-          id: `location-${Date.now()}`,
+          id: `location-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           type: "location",
           url,
           name: "موقعیت من",
@@ -593,7 +709,8 @@ function ChatPageContent() {
 
   // Update customer info when auth state changes
   useEffect(() => {
-    if (!isAuthenticated || !user) return;
+    // ProtectedRoute ensures user exists, so we can safely use it
+    if (!user) return;
 
     const nextInfo = {
       name: user.name || "",
@@ -603,7 +720,7 @@ function ChatPageContent() {
     setCustomerInfo(nextInfo);
 
     // ChatId is initialized server-side via /api/chat/my
-  }, [isAuthenticated, user]);
+  }, [user]);
 
   // Check support typing
   const checkSupportTyping = useCallback(async () => {
@@ -624,6 +741,19 @@ function ChatPageContent() {
 
   // Handle send message
   const handleSendMessage = useCallback(async () => {
+    // ProtectedRoute ensures user exists, so we can safely use it
+    // Server will verify session in API routes
+    if (!user) {
+      // This shouldn't happen if ProtectedRoute is working correctly
+      toast({
+        title: "خطا",
+        description: "برای ارسال پیام باید وارد حساب کاربری خود شوید",
+        variant: "destructive",
+      });
+      router.push("/auth?redirect=" + encodeURIComponent(window.location.pathname));
+      return;
+    }
+    
     let activeChatId = chatId;
     if (!activeChatId) {
       const created = await initMyChat({ silent: true });
@@ -642,14 +772,14 @@ function ChatPageContent() {
     const currentText = (textareaRef.current?.value ?? message) as string;
     if (!currentText.trim() && attachments.length === 0) return;
 
-    // Ensure customerInfo is available
-    if (!customerInfo.name || !customerInfo.phone) {
+    // Use authenticated user info directly (no need for customerInfo step)
+    if (!user || !user.name || !user.phone) {
       toast({
         title: "خطا",
-        description: "لطفاً ابتدا اطلاعات خود را وارد کنید",
+        description: "اطلاعات کاربری کامل نیست. لطفاً دوباره وارد شوید",
         variant: "destructive",
       });
-      setStep("info");
+      router.push("/auth?redirect=" + encodeURIComponent(window.location.pathname));
       return;
     }
 
@@ -697,7 +827,10 @@ function ChatPageContent() {
     // Save message text before clearing
     const messageText = currentText;
     
+    // Optimistic update: Add message to UI immediately for better UX
     setMessages((prev) => [...prev, newMessage]);
+    
+    // Clear input and attachments smoothly (no flash)
     setMessage("");
     setAttachments([]);
     setReplyingTo(null);
@@ -725,23 +858,41 @@ function ChatPageContent() {
         status: "sent",
       };
 
+      // Use authenticated user info directly (guaranteed to exist from checks above)
+      const finalCustomerInfo = {
+        name: user.name || "",
+        phone: user.phone || "",
+        email: customerInfo.email || "",
+      };
+
       const response = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        headers: { 
+          "Content-Type": "application/json",
+          ...(process.env.NODE_ENV === 'development' && user?.id ? { 'x-user-id': user.id } : {}),
+        },
+        credentials: "include", // CRITICAL: Include cookies for session
         body: JSON.stringify({
           chatId: activeChatId,
-          customerInfo: {
-            name: customerInfo.name,
-            phone: customerInfo.phone,
-            email: customerInfo.email || undefined,
-          },
+          customerInfo: finalCustomerInfo,
           messages: [messageToSave],
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({} as any));
+        
+        // If 401 (Unauthorized), session is invalid - redirect to login
+        // Server has verified that session is invalid, so we trust it
+        if (response.status === 401) {
+          toast({
+            title: "خطا",
+            description: "جلسه شما منقضی شده است. لطفاً دوباره وارد شوید",
+            variant: "destructive",
+          });
+          router.push("/auth?redirect=" + encodeURIComponent(window.location.pathname));
+          return;
+        }
         const serverMsg =
           (typeof errorData?.error === "string" && errorData.error) ||
           (typeof errorData?.error?.message === "string" && errorData.error.message) ||
@@ -755,20 +906,23 @@ function ChatPageContent() {
       if (data.success && data.data?.messages && data.data.messages.length > 0) {
         const savedMessage = data.data.messages[0];
         
-        // Update tempId message with real ID from server
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === tempId
-              ? {
-                  ...msg,
-                  id: savedMessage.id,
-                  text: savedMessage.text || msg.text, // Ensure text is preserved
-                  status: savedMessage.status || "sent",
-                  attachments: savedMessage.attachments || msg.attachments,
-                }
-              : msg
-          )
-        );
+        // Update tempId message with real ID from server smoothly (no flash)
+        // Use requestAnimationFrame to ensure smooth UI updates
+        requestAnimationFrame(() => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === tempId
+                ? {
+                    ...msg,
+                    id: savedMessage.id,
+                    text: savedMessage.text || msg.text, // Ensure text is preserved
+                    status: savedMessage.status || "sent",
+                    attachments: savedMessage.attachments || msg.attachments,
+                  }
+                : msg
+            )
+          );
+        });
         
         // Update chatId if server returned a new one (stale local state)
         if (data.data.chatId && data.data.chatId !== activeChatId) {
@@ -776,10 +930,11 @@ function ChatPageContent() {
         }
       }
 
-      // Poll for new messages after a short delay to ensure server has processed the message
+      // Poll for new messages in background (silent, no visible reload)
+      // Use a longer delay to avoid visible refresh
       setTimeout(() => {
         pollForNewMessages(activeChatId);
-      }, 500);
+      }, 1000);
     } catch (error) {
       logger.error("Error sending message:", error);
       setMessages((prev) => prev.filter((msg) => msg.id !== tempId));
@@ -793,7 +948,7 @@ function ChatPageContent() {
     setTimeout(() => {
       scrollToBottom(false);
     }, 100);
-  }, [chatId, customerInfo, attachments, replyingTo, editingMessage, sendTypingStatus, toast, setStep, initMyChat, pollForNewMessages]);
+  }, [chatId, attachments, replyingTo, editingMessage, sendTypingStatus, toast, setStep, initMyChat, pollForNewMessages, isAuthenticated, user, router]);
 
   // Auto-send when attachments are added (for location and voice)
   // Use a ref to track if we should auto-send (set by saveRecording/handleLocationShare)
@@ -828,16 +983,41 @@ function ChatPageContent() {
         const response = await fetch(`/api/chat/message/${messageId}`, {
           method: "DELETE",
           credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
         });
+
+        const data = await response.json().catch(() => ({}));
 
         if (response.ok) {
           setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+          // Force immediate polling to sync with other clients
+          setTimeout(() => {
+            pollForNewMessages();
+          }, 500);
+          toast({
+            title: "موفق",
+            description: "پیام با موفقیت حذف شد",
+          });
+        } else {
+          const errorMessage = data.error || data.message || `خطا در حذف پیام (${response.status})`;
+          toast({
+            title: "خطا",
+            description: errorMessage,
+            variant: "destructive",
+          });
         }
       } catch (error) {
         logger.error("Error deleting message:", error);
+        toast({
+          title: "خطا",
+          description: "خطا در حذف پیام",
+          variant: "destructive",
+        });
       }
     },
-    []
+    [toast]
   );
 
   // Scroll to bottom
@@ -919,7 +1099,8 @@ function ChatPageContent() {
 
   return (
     <div className="flex flex-col overflow-hidden" style={{ height: '100dvh' }}>
-      <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      <div className="flex-1 flex justify-center w-full min-h-0">
+        <main className="flex-1 flex flex-col min-h-0 overflow-hidden w-full md:max-w-2xl lg:max-w-3xl h-full">
         {/* Header - Sticky at top */}
         <div className="flex-shrink-0 border-b border-border/40 px-4 sm:px-6 py-3 bg-background/95 backdrop-blur-sm">
           <div className="flex items-center gap-2">
@@ -933,55 +1114,12 @@ function ChatPageContent() {
             </Button>
             <div className="flex-1 min-w-0">
               <h1 className="text-base font-semibold text-foreground flex items-center gap-2">
-                خرید سریع
+                پشتیبانی و خرید سریع
                 {step === "chat" && (
                   <OnlineStatusBadge isOnline={isOnline} lastSeen={lastSeen} showText={false} />
                 )}
               </h1>
             </div>
-            {step === "chat" && customerInfo.name && customerInfo.phone && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  setStep("info");
-                  setMessages([
-                    {
-                      id: "1",
-                      text: "سلام! خوش آمدید. برای خرید سریع لطفاً اطلاعات زیر را وارد کنید:",
-                      sender: "support",
-                      timestamp: new Date(),
-                    },
-                  ]);
-                }}
-                className="h-8 w-8 rounded-lg hover:bg-primary/10 transition-colors"
-                title="تغییر اطلاعات"
-              >
-                <svg
-                  className="h-4 w-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <circle
-                    cx="12"
-                    cy="7"
-                    r="4"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </Button>
-            )}
           </div>
         </div>
 
@@ -1132,6 +1270,7 @@ function ChatPageContent() {
                     </p>
                   </motion.div>
                 )}
+                <div className="space-y-3">
                 {messages.map((msg) => (
                   <motion.div
                     key={msg.id}
@@ -1187,12 +1326,7 @@ function ChatPageContent() {
                                 </a>
                               )}
                               {attachment.type === "audio" && attachment.url && (
-                                <div className="flex items-center gap-2 p-2 bg-background/50 rounded">
-                                  <Mic className="h-3.5 w-3.5" />
-                                  <audio controls className="flex-1 h-7 text-xs">
-                                    <source src={attachment.url} />
-                                  </audio>
-                                </div>
+                                <AudioPlayer url={attachment.url} duration={attachment.duration} />
                               )}
                             </div>
                           ))}
@@ -1236,49 +1370,23 @@ function ChatPageContent() {
                             )}
                           </>
                         )}
-                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 hover:bg-background/20"
-                              >
-                                <MoreVertical className="h-3.5 w-3.5" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent
-                              align={msg.sender === "user" ? "end" : "start"}
-                              className="min-w-[140px]"
-                            >
-                              <DropdownMenuItem onClick={() => handleReply(msg)}>
-                                <Reply className="h-4 w-4 ml-2" />
-                                <span>پاسخ</span>
-                              </DropdownMenuItem>
-                              {msg.sender === "user" && (
-                                <>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => handleEdit(msg)}>
-                                    <Edit2 className="h-4 w-4 ml-2" />
-                                    <span>ویرایش</span>
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  if (confirm("آیا مطمئن هستید که می‌خواهید این پیام را حذف کنید؟")) {
-                                    handleDelete(msg.id);
-                                  }
-                                }}
-                                className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                              >
-                                <Trash2 className="h-4 w-4 ml-2" />
-                                <span>حذف</span>
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
+                        {/* آیکون حذف مستقیم فقط برای پیام‌های ارسالی کاربر - همیشه قابل مشاهده */}
+                        {msg.sender === "user" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 hover:bg-destructive/10 text-destructive hover:text-destructive opacity-70 hover:opacity-100 transition-opacity"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm("آیا مطمئن هستید که می‌خواهید این پیام را حذف کنید؟")) {
+                                handleDelete(msg.id);
+                              }
+                            }}
+                            title="حذف پیام"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </motion.div>
@@ -1293,6 +1401,7 @@ function ChatPageContent() {
                   </motion.div>
                 )}
                 <div ref={messagesEndRef} />
+                </div>
               </div>
 
               {/* Input Area - Fixed at bottom */}
@@ -1625,14 +1734,16 @@ function ChatPageContent() {
             </>
           )}
         </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
 
 export default function ChatPage() {
+  // Chat requires authentication - only registered users can chat
   return (
-    <ProtectedRoute requireAuth={true}>
+    <ProtectedRoute requireAuth>
       <ChatPageContent />
     </ProtectedRoute>
   );

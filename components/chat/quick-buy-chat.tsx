@@ -57,6 +57,8 @@ import type { Message, Attachment, MessageStatus } from "@/components/chat/chat-
 import { formatTime, formatFileSize } from "@/lib/chat/chat-helpers";
 import { useChatRecording } from "@/hooks/use-chat-recording";
 import { useChatAttachments } from "@/hooks/use-chat-attachments";
+import { useAuthStore } from "@/store/auth-store";
+import { useRouter } from "next/navigation";
 
 interface QuickBuyChatProps {
   isOpen: boolean;
@@ -65,6 +67,7 @@ interface QuickBuyChatProps {
 }
 
 export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProps): React.ReactElement {
+  const router = useRouter();
   const { toast } = useToast();
   const { showNotification, requestPermission } = useNotifications();
   const { showMessageNotification } = usePersistentNotifications();
@@ -72,6 +75,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
     enabled: true,
     heartbeatInterval: 20000, // 20 seconds for user side
   });
+  const { user, isAuthenticated } = useAuthStore();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
@@ -84,8 +88,18 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   
-  // Load customer info from localStorage on mount with expiration check
-  const loadCustomerInfo = () => {
+  // Load customer info - prioritize authenticated user data
+  const loadCustomerInfo = useCallback(() => {
+    // If user is authenticated, use their data
+    if (isAuthenticated && user) {
+      return {
+        name: user.name || "",
+        phone: user.phone || "",
+        email: "",
+      };
+    }
+    
+    // Otherwise, try to load from localStorage
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("quickBuyChat_customerInfo");
       const savedTimestamp = localStorage.getItem("quickBuyChat_customerInfo_timestamp");
@@ -117,7 +131,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
       }
     }
     return { name: "", phone: "", email: "" };
-  };
+  }, [isAuthenticated, user]);
 
   // Load chatId from localStorage
   const loadChatId = () => {
@@ -128,6 +142,13 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
   };
 
   const [customerInfo, setCustomerInfo] = useState(loadCustomerInfo);
+  
+  // Update customer info when auth state changes
+  useEffect(() => {
+    const updatedInfo = loadCustomerInfo();
+    setCustomerInfo(updatedInfo);
+  }, [isAuthenticated, user, loadCustomerInfo]);
+  
   const step: "chat" = "chat"; // Always in chat mode, info form moved to auth page
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [showAttachmentOptions, setShowAttachmentOptions] = useState(false);
@@ -505,8 +526,13 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
         const uploadedUrl = await uploadFile(audioFile, "audio");
         console.log("[Voice Widget] Upload successful, URL:", uploadedUrl);
 
+        // Generate truly unique ID
+        const uniqueId = typeof crypto !== 'undefined' && crypto.randomUUID 
+          ? crypto.randomUUID() 
+          : `audio-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${performance.now()}`;
+        
         const attachment: Attachment = {
-          id: Date.now().toString(),
+          id: uniqueId,
           type: "audio",
           url: uploadedUrl,
           name: `پیام صوتی ${formatTime(recordingTime)}`,
@@ -604,7 +630,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
                       }
                   
                   return {
-                    id: att.id || `att-${Date.now()}-${Math.random()}`,
+                    id: att.id || `att-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                     type: (detectedType || att.type || "file") as "image" | "file" | "location" | "audio",
                     url: url, // Try multiple URL fields
                     name: att.name || att.fileName,
@@ -630,7 +656,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
                       }
                       
                       return {
-                        id: att.id || `att-${Date.now()}-${Math.random()}`,
+                        id: att.id || `att-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                         type: (detectedType || att.type || "file") as "image" | "file" | "location" | "audio",
                         url: url,
                         name: att.name || att.fileName,
@@ -845,7 +871,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
                       }
                   
                   return {
-                    id: att.id || `att-${Date.now()}-${Math.random()}`,
+                    id: att.id || `att-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                     type: (detectedType || att.type || "file") as "image" | "file" | "location" | "audio",
                     url: url,
                     name: att.name || att.fileName,
@@ -1222,6 +1248,18 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
   };
 
   const handleSendMessage = async () => {
+    // Check authentication before sending
+    if (!isAuthenticated || !user) {
+      toast({
+        title: "خطا",
+        description: "برای ارسال پیام باید وارد حساب کاربری شوید",
+        variant: "destructive",
+      });
+      onOpenChange(false);
+      router.push("/auth?redirect=" + encodeURIComponent(window.location.pathname));
+      return;
+    }
+    
     // IMPORTANT: Read from textarea ref first (IME/composition can make React state lag behind)
     const currentText = (textareaRef.current?.value ?? message) as string;
     if (!currentText.trim() && attachments.length === 0) return;
@@ -1360,6 +1398,27 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
         );
       }
       
+      // Ensure customerInfo is available from authenticated user
+      const finalCustomerInfo = isAuthenticated && user 
+        ? {
+            name: user.name || customerInfo.name || "",
+            phone: user.phone || customerInfo.phone || "",
+            email: customerInfo.email || "",
+          }
+        : customerInfo;
+      
+      // Validate customer info before sending
+      if (!finalCustomerInfo.name || !finalCustomerInfo.phone) {
+        toast({
+          title: "خطا",
+          description: "اطلاعات کاربری کامل نیست. لطفاً دوباره وارد شوید",
+          variant: "destructive",
+        });
+        onOpenChange(false);
+        router.push("/auth?redirect=" + encodeURIComponent(window.location.pathname));
+        return;
+      }
+      
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
@@ -1368,17 +1427,107 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
         credentials: "include",
         body: JSON.stringify({
           chatId: chatId || undefined,
-          customerInfo,
+          customerInfo: finalCustomerInfo,
           messages: [messageToSave],
         }),
       });
 
+      // Log response for debugging
+      if (process.env.NODE_ENV === "development") {
+        logger.debug("📤 Message send response:", {
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok,
+          chatId: chatId || undefined,
+          messageId: newMessage.id,
+        });
+      }
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || errorData.message || "خطا در ذخیره پیام");
+        const errorMessage = errorData.error || errorData.message || `خطا در ذخیره پیام (کد: ${response.status})`;
+        
+        // If 401 (Unauthorized), try to refresh auth and retry once
+        if (response.status === 401) {
+          const { checkAuth } = useAuthStore.getState();
+          await checkAuth();
+          
+          const { isAuthenticated: retryAuth, user: retryUser } = useAuthStore.getState();
+          if (retryAuth && retryUser) {
+            // Update customer info with retry user data
+            const retryCustomerInfo = {
+              name: retryUser.name || customerInfo.name || "",
+              phone: retryUser.phone || customerInfo.phone || "",
+              email: customerInfo.email || "",
+            };
+            
+            // Retry once with refreshed auth
+            const retryResponse = await fetch("/api/chat", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              credentials: "include",
+              body: JSON.stringify({
+                chatId: chatId || undefined,
+                customerInfo: retryCustomerInfo,
+                messages: [messageToSave],
+              }),
+            });
+            
+            if (retryResponse.ok) {
+              const retryData = await retryResponse.json();
+              // Success on retry
+              if (retryData.data?.chatId) {
+                setChatId(retryData.data.chatId);
+                if (typeof window !== "undefined") {
+                  localStorage.setItem("quickBuyChat_chatId", retryData.data.chatId);
+                }
+              }
+              
+              // Update message status
+              const savedMessage = retryData.data?.messages?.find((m: any) => m.id === newMessage.id);
+              const actualStatus = savedMessage?.status || "sent";
+              setMessages((prev) => {
+                return prev.map((msg) => 
+                  msg.id === newMessage.id 
+                    ? { ...msg, status: actualStatus as MessageStatus }
+                    : msg
+                );
+              });
+              return; // Success - exit early
+            }
+          }
+          
+          // If retry also failed, show error and redirect
+          toast({
+            title: "خطا",
+            description: "لطفاً دوباره وارد حساب کاربری شوید",
+            variant: "destructive",
+          });
+          onOpenChange(false);
+          router.push("/auth?redirect=" + encodeURIComponent(window.location.pathname));
+          return;
+        }
+        
+        logger.error("❌ Message send failed:", {
+          status: response.status,
+          error: errorMessage,
+          errorData,
+        });
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
+      
+      // Log success for debugging
+      if (process.env.NODE_ENV === "development") {
+        logger.debug("✅ Message sent successfully:", {
+          chatId: data.data?.chatId,
+          messageCount: data.data?.messages?.length,
+          savedMessage: data.data?.messages?.[0],
+        });
+      }
       
       // Update chatId if provided
       if (data.data?.chatId) {
@@ -1433,7 +1582,13 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
       // Note: Status will be updated to "delivered" by admin when they open the chat (admin is online)
       // and to "read" when they view the messages. Status updates come from polling.
     } catch (error: any) {
-      logger.error("Error saving message:", error);
+      logger.error("❌ Error saving message:", {
+        error: error.message,
+        errorStack: error.stack,
+        messageId: newMessage.id,
+        chatId: chatId || undefined,
+        messageText: newMessage.text?.substring(0, 50) + "...",
+      });
       
       // Mark as failed so user sees it did NOT send
       setMessages((prev) => {
@@ -1448,10 +1603,13 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProp
       setMessage(messageText);
       setAttachments(messageAttachments);
       
+      // Show detailed error message
+      const errorMessage = error.message || "خطا در ذخیره پیام. لطفاً دوباره تلاش کنید.";
       toast({
-        title: "خطا",
-        description: error.message || "خطا در ذخیره پیام. لطفاً دوباره تلاش کنید.",
+        title: "خطا در ارسال پیام",
+        description: errorMessage,
         variant: "destructive",
+        duration: 5000, // Show for 5 seconds
       });
     } finally {
       setIsSaving(false);

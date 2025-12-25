@@ -74,13 +74,24 @@ export async function ensureChatTables(): Promise<void> {
     }
     try {
       await runQuery(`CREATE INDEX idx_quick_buy_chats_userId ON quick_buy_chats (userId)`);
-    } catch {
-      // ignore (might already exist)
+    } catch (err: any) {
+      // ignore duplicate key errors (index already exists)
+      if (err?.code !== 'ER_DUP_KEYNAME') {
+        // Only log non-duplicate errors in development
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('Index creation skipped (may already exist):', err?.code);
+        }
+      }
     }
     try {
       await runQuery(`CREATE INDEX idx_quick_buy_chats_customerPhone ON quick_buy_chats (customerPhone)`);
-    } catch {
-      // ignore
+    } catch (err: any) {
+      // ignore duplicate key errors (index already exists)
+      if (err?.code !== 'ER_DUP_KEYNAME') {
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('Index creation skipped (may already exist):', err?.code);
+        }
+      }
     }
   } catch {
     // ignore
@@ -96,13 +107,23 @@ export async function ensureChatTables(): Promise<void> {
     }
     try {
       await runQuery(`CREATE INDEX idx_chat_messages_userId ON chat_messages (userId)`);
-    } catch {
-      // ignore
+    } catch (err: any) {
+      // ignore duplicate key errors (index already exists)
+      if (err?.code !== 'ER_DUP_KEYNAME') {
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('Index creation skipped (may already exist):', err?.code);
+        }
+      }
     }
     try {
       await runQuery(`CREATE INDEX idx_chat_messages_chatId ON chat_messages (chatId)`);
-    } catch {
-      // ignore
+    } catch (err: any) {
+      // ignore duplicate key errors (index already exists)
+      if (err?.code !== 'ER_DUP_KEYNAME') {
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('Index creation skipped (may already exist):', err?.code);
+        }
+      }
     }
     if (!msgColSet.has("updatedAt")) {
       await runQuery(`ALTER TABLE chat_messages ADD COLUMN updatedAt TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP`);
@@ -114,13 +135,23 @@ export async function ensureChatTables(): Promise<void> {
   // Ensure FK/indexes are present where possible (best-effort)
   try {
     await runQuery(`ALTER TABLE chat_messages ADD CONSTRAINT fk_chat_messages_chatId FOREIGN KEY (chatId) REFERENCES quick_buy_chats(id) ON DELETE CASCADE`);
-  } catch {
-    // ignore
+  } catch (err: any) {
+    // ignore duplicate constraint errors (constraint already exists)
+    if (err?.code !== 'ER_DUP_KEY' && err?.code !== 'ER_CANT_CREATE_TABLE' && err?.code !== 'ER_DUP_ENTRY') {
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('Foreign key creation skipped (may already exist):', err?.code);
+      }
+    }
   }
   try {
     await runQuery(`ALTER TABLE chat_attachments ADD CONSTRAINT fk_chat_attachments_messageId FOREIGN KEY (messageId) REFERENCES chat_messages(id) ON DELETE CASCADE`);
-  } catch {
-    // ignore
+  } catch (err: any) {
+    // ignore duplicate constraint errors (constraint already exists)
+    if (err?.code !== 'ER_DUP_KEY' && err?.code !== 'ER_CANT_CREATE_TABLE' && err?.code !== 'ER_DUP_ENTRY') {
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('Foreign key creation skipped (may already exist):', err?.code);
+      }
+    }
   }
 }
 

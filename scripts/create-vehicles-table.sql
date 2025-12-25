@@ -1,0 +1,15 @@
+-- Create vehicles table if not exists
+CREATE TABLE IF NOT EXISTS vehicles (
+  id VARCHAR(255) PRIMARY KEY,
+  name VARCHAR(255) NOT NULL UNIQUE,
+  logo LONGTEXT,
+  models JSON DEFAULT ('[]'),
+  enabled BOOLEAN DEFAULT TRUE,
+  `createdAt` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updatedAt` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Add vehicle and model columns to products table if not exists
+ALTER TABLE products ADD COLUMN IF NOT EXISTS vehicle VARCHAR(255) NULL;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS model VARCHAR(255) NULL;
+

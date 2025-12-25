@@ -26,8 +26,9 @@ export function DashboardStats() {
   const users = useUserStore((state) => state.users);
 
   useEffect(() => {
+    // Refresh stats when data changes or on mount
     refreshStats();
-  }, [products, refreshStats]);
+  }, [products, orders, users, refreshStats]);
 
   if (isLoading || !stats) {
     return (

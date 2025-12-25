@@ -19,26 +19,76 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useProductStore } from "@/store/product-store";
 import { useCategoryStore } from "@/store/category-store";
+import { useVehicleStore } from "@/store/vehicle-store";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { X, Plus, Package, Settings, Image as ImageIcon, Tag, FileText, Loader2, Plane, Ship, Gift, DollarSign } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ImageUpload } from "@/components/admin/image-upload";
+import { normalizeSpecifications } from "@/lib/product-utils";
 
 const productSchema = z.object({
   name: z.string().min(1, "نام محصول الزامی است"),
   description: z.string().min(1, "توضیحات الزامی است"),
   price: z.number().min(0, "قیمت باید مثبت باشد"),
-  originalPrice: z.number().optional(),
+  originalPrice: z.number().optional().nullable(),
   brand: z.string().min(1, "برند الزامی است"),
   category: z.string().min(1, "دسته‌بندی الزامی است"),
+  vehicle: z.string().optional().nullable(),
+  model: z.string().optional().nullable(),
   vin: z.string().optional(),
   vinEnabled: z.boolean(),
   airShippingEnabled: z.boolean(),
   seaShippingEnabled: z.boolean(),
-  airShippingCost: z.number().min(0, "هزینه ارسال باید مثبت باشد").nullable().optional(),
-  seaShippingCost: z.number().min(0, "هزینه ارسال باید مثبت باشد").nullable().optional(),
+  airShippingCost: z.preprocess(
+    (val) => {
+      // Handle all possible invalid values including boolean
+      if (val === "" || val === null || val === undefined || typeof val === "boolean") {
+        return null;
+      }
+      // Handle NaN
+      if (typeof val === "number" && isNaN(val)) {
+        return null;
+      }
+      // Convert string to number
+      if (typeof val === "string") {
+        const num = parseFloat(val);
+        return isNaN(num) ? null : num;
+      }
+      // If it's already a number, return it
+      if (typeof val === "number") {
+        return val;
+      }
+      // For any other type, return null
+      return null;
+    },
+    z.union([z.number().min(0, "هزینه ارسال باید مثبت باشد"), z.null()]).optional()
+  ),
+  seaShippingCost: z.preprocess(
+    (val) => {
+      // Handle all possible invalid values including boolean
+      if (val === "" || val === null || val === undefined || typeof val === "boolean") {
+        return null;
+      }
+      // Handle NaN
+      if (typeof val === "number" && isNaN(val)) {
+        return null;
+      }
+      // Convert string to number
+      if (typeof val === "string") {
+        const num = parseFloat(val);
+        return isNaN(num) ? null : num;
+      }
+      // If it's already a number, return it
+      if (typeof val === "number") {
+        return val;
+      }
+      // For any other type, return null
+      return null;
+    },
+    z.union([z.number().min(0, "هزینه ارسال باید مثبت باشد"), z.null()]).optional()
+  ),
   stockCount: z.number().min(0, "موجودی باید مثبت باشد"),
   inStock: z.boolean(),
   enabled: z.boolean(),
@@ -74,32 +124,53 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
   const router = useRouter();
   const { addProduct, updateProduct, loadProductsFromDB } = useProductStore();
   const { getActiveCategories, loadCategoriesFromDB } = useCategoryStore();
+  const { getEnabledVehicles, loadVehiclesFromDB } = useVehicleStore();
   const { toast } = useToast();
   const categories = getActiveCategories();
+  const vehicles = getEnabledVehicles();
   const [images, setImages] = useState<string[]>(
     product?.images || []
   );
 
-  // Load categories from database when component mounts
+  // Load categories and vehicles from database when component mounts
   useEffect(() => {
-    const loadCategories = async () => {
+    const loadData = async () => {
       try {
-        await loadCategoriesFromDB();
+        // Load both in parallel for better performance
+        await Promise.all([
+          loadCategoriesFromDB(),
+          loadVehiclesFromDB(),
+        ]);
       } catch (error) {
-        console.error("Error loading categories:", error);
+        console.error("Error loading form data:", error);
       }
     };
-    loadCategories();
-  }, [loadCategoriesFromDB]);
-  const [tags, setTags] = useState<string[]>(product?.tags || []);
+    loadData();
+  }, [loadCategoriesFromDB, loadVehiclesFromDB]);
+  const [tags, setTags] = useState<string[]>(() => {
+    // Ensure tags is always an array
+    if (!product?.tags) return [];
+    if (Array.isArray(product.tags)) return product.tags;
+    // If tags is a string (JSON), try to parse it
+    if (typeof product.tags === 'string') {
+      try {
+        const parsed = JSON.parse(product.tags);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
   const [tagInput, setTagInput] = useState("");
   const [specifications, setSpecifications] = useState<
     Record<string, string>
   >(() => {
-    const specs = product?.specifications || {};
+    // Normalize specifications to ensure it's always an object
+    const normalizedSpecs = normalizeSpecifications(product?.specifications);
     // Convert Record<string, unknown> to Record<string, string>
     const result: Record<string, string> = {};
-    for (const [key, value] of Object.entries(specs)) {
+    for (const [key, value] of Object.entries(normalizedSpecs)) {
       result[key] = typeof value === 'string' ? value : String(value);
     }
     return result;
@@ -117,54 +188,85 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
     watch,
   } = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
-    defaultValues: product
-      ? {
+    mode: "onChange",
+    shouldUnregister: false,
+    defaultValues: (() => {
+      if (!product) return {
+        name: "",
+        description: "",
+        price: 0,
+        originalPrice: undefined,
+        brand: "",
+        category: "",
+        vehicle: "",
+        model: "",
+        vin: "",
+        vinEnabled: false,
+        airShippingEnabled: true,
+        seaShippingEnabled: true,
+        airShippingCost: null,
+        seaShippingCost: null,
+        stockCount: 0,
+        inStock: true,
+        enabled: true,
+        images: [],
+        tags: [],
+        specifications: {},
+      };
+      
+      // #region agent log
+      const convertedAirShipping = product.airShippingEnabled !== undefined ? Boolean(product.airShippingEnabled) : true;
+      const convertedSeaShipping = product.seaShippingEnabled !== undefined ? Boolean(product.seaShippingEnabled) : true;
+      const convertedInStock = product.inStock !== undefined ? Boolean(product.inStock) : true;
+      const convertedEnabled = product.enabled !== undefined ? Boolean(product.enabled) : true;
+      fetch('http://127.0.0.1:7242/ingest/6e2493c0-cc8b-4c0b-9456-c04638b7e615',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'product-form.tsx:193',message:'Setting defaultValues from product',data:{airShippingEnabledRaw:product.airShippingEnabled,airShippingEnabledType:typeof product.airShippingEnabled,airShippingEnabledConverted:convertedAirShipping,airShippingEnabledConvertedType:typeof convertedAirShipping,seaShippingEnabledRaw:product.seaShippingEnabled,seaShippingEnabledType:typeof product.seaShippingEnabled,seaShippingEnabledConverted:convertedSeaShipping,seaShippingEnabledConvertedType:typeof convertedSeaShipping,inStockRaw:product.inStock,inStockType:typeof product.inStock,inStockConverted:convertedInStock,inStockConvertedType:typeof convertedInStock,enabledRaw:product.enabled,enabledType:typeof product.enabled,enabledConverted:convertedEnabled,enabledConvertedType:typeof convertedEnabled},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
+      
+      return {
           name: product.name,
           description: product.description ?? "",
           price: product.price,
           originalPrice: product.originalPrice ?? undefined,
           brand: product.brand ?? "",
           category: product.category ?? "",
+          vehicle: product.vehicle ?? "",
+          model: product.model ?? "",
           vin: product.vin ?? "",
-          vinEnabled: product.vinEnabled ?? false,
-          airShippingEnabled: product.airShippingEnabled ?? true,
-          seaShippingEnabled: product.seaShippingEnabled ?? true,
+          vinEnabled: product.vinEnabled !== undefined ? Boolean(product.vinEnabled) : false,
+          airShippingEnabled: convertedAirShipping,
+          seaShippingEnabled: convertedSeaShipping,
           airShippingCost: product.airShippingCost ?? null,
           seaShippingCost: product.seaShippingCost ?? null,
           stockCount: product.stockCount,
-          inStock: product.inStock,
-          enabled: product.enabled,
+          inStock: convertedInStock,
+          enabled: convertedEnabled,
           images: product.images || [],
-          tags: product.tags,
+          tags: (() => {
+            // Ensure tags is always an array
+            if (!product.tags) return [];
+            if (Array.isArray(product.tags)) return product.tags;
+            // If tags is a string (JSON), try to parse it
+            if (typeof product.tags === 'string') {
+              try {
+                const parsed = JSON.parse(product.tags);
+                return Array.isArray(parsed) ? parsed : [];
+              } catch {
+                return [];
+              }
+            }
+            return [];
+          })(),
           specifications: (() => {
-            const specs = product.specifications || {};
+            // Normalize specifications to ensure it's always an object
+            const normalizedSpecs = normalizeSpecifications(product.specifications);
             const result: Record<string, string> = {};
-            for (const [key, value] of Object.entries(specs)) {
+            for (const [key, value] of Object.entries(normalizedSpecs)) {
               result[key] = typeof value === 'string' ? value : String(value);
             }
             return result;
           })(),
-        }
-      : {
-          name: "",
-          description: "",
-          price: 0,
-          originalPrice: undefined,
-          brand: "",
-          category: "",
-          vin: "",
-          vinEnabled: false,
-          airShippingEnabled: true,
-          seaShippingEnabled: true,
-          airShippingCost: null,
-          seaShippingCost: null,
-          stockCount: 0,
-          inStock: true,
-          enabled: true,
-          images: [],
-          tags: [],
-          specifications: {},
-        },
+        };
+    })(),
   });
 
   const inStock = watch("inStock");
@@ -173,6 +275,15 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
   const seaShippingEnabled = watch("seaShippingEnabled");
   const airShippingCost = watch("airShippingCost");
   const seaShippingCost = watch("seaShippingCost");
+  
+  // Get selected vehicle data - use useMemo to prevent re-renders
+  const selectedVehicle = watch("vehicle");
+  const selectedVehicleData = useMemo(() => {
+    if (!selectedVehicle || !vehicles || vehicles.length === 0) {
+      return undefined;
+    }
+    return vehicles.find(v => v.id === selectedVehicle);
+  }, [selectedVehicle, vehicles]);
 
   const handleImagesChange = (newImages: string[]) => {
     setImages(newImages);
@@ -210,6 +321,9 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
   };
 
   const onSubmit = async (data: ProductFormData) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/6e2493c0-cc8b-4c0b-9456-c04638b7e615',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'product-form.tsx:313',message:'onSubmit entry',data:{hasProduct:!!product,productId:product?.id,formDataKeys:Object.keys(data),imagesCount:images.length,tagsCount:tags.length,specsCount:Object.keys(specifications).length,vinEnabled},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     try {
       if (images.length === 0) {
         toast({
@@ -220,6 +334,23 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
         return;
       }
 
+      // Normalize shipping costs - convert NaN, empty strings, and invalid values to null
+      const normalizedAirShippingCost = 
+        data.airShippingCost === null || 
+        data.airShippingCost === undefined || 
+        (typeof data.airShippingCost === "number" && isNaN(data.airShippingCost)) ||
+        data.airShippingCost === 0
+          ? null 
+          : Number(data.airShippingCost);
+      
+      const normalizedSeaShippingCost = 
+        data.seaShippingCost === null || 
+        data.seaShippingCost === undefined || 
+        (typeof data.seaShippingCost === "number" && isNaN(data.seaShippingCost)) ||
+        data.seaShippingCost === 0
+          ? null 
+          : Number(data.seaShippingCost);
+
       const productData = {
         ...data,
         images,
@@ -227,7 +358,13 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
         specifications,
         vin: vinEnabled ? data.vin : undefined,
         vinEnabled,
+        airShippingCost: normalizedAirShippingCost,
+        seaShippingCost: normalizedSeaShippingCost,
       };
+
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/6e2493c0-cc8b-4c0b-9456-c04638b7e615',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'product-form.tsx:350',message:'Before API call',data:{productId:product?.id,productDataKeys:Object.keys(productData),airShippingCost:productData.airShippingCost,seaShippingCost:productData.seaShippingCost,airShippingCostType:typeof productData.airShippingCost,seaShippingCostType:typeof productData.seaShippingCost,specsType:typeof productData.specifications,tagsType:typeof productData.tags},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
 
       if (product) {
         // Update existing product via API
@@ -239,13 +376,31 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
           body: JSON.stringify(productData),
         });
 
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/6e2493c0-cc8b-4c0b-9456-c04638b7e615',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'product-form.tsx:362',message:'API response received',data:{status:response.status,statusText:response.statusText,ok:response.ok},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
+
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/6e2493c0-cc8b-4c0b-9456-c04638b7e615',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'product-form.tsx:363',message:'API error response',data:{errorData,status:response.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+          // #endregion
           throw new Error(errorData.message || "خطا در به‌روزرسانی محصول");
         }
 
         const updatedProduct = await response.json();
         updateProduct(updatedProduct.data);
+        
+        // Reload products from database to ensure the list is up to date
+        await loadProductsFromDB(true);
+        
+        // Notify other tabs/pages that a product was updated
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('product-updated', Date.now().toString());
+          // Trigger a custom event for same-tab updates
+          window.dispatchEvent(new Event('product-updated'));
+        }
+        
         toast({
           title: "موفق",
           description: "محصول با موفقیت به‌روزرسانی شد",
@@ -278,6 +433,13 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
         
         // Reload products from database to ensure the list is up to date (include inactive for admin)
         await loadProductsFromDB(true);
+        
+        // Notify other tabs/pages that a product was created
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('product-created', Date.now().toString());
+          // Trigger a custom event for same-tab updates
+          window.dispatchEvent(new Event('product-created'));
+        }
         
         toast({
           title: "موفق",
@@ -409,15 +571,89 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
               )}
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="vehicle">خودرو</Label>
+              <Select
+                value={watch("vehicle") || undefined}
+                onValueChange={(value) => {
+                  setValue("vehicle", value || null);
+                  setValue("model", null); // Reset model when vehicle changes
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="انتخاب خودرو (اختیاری)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {vehicles.map((v) => (
+                    <SelectItem key={v.id} value={v.id}>
+                      <div className="flex items-center gap-2">
+                        {v.logo && (
+                          <img src={v.logo} alt={v.name} className="h-4 w-4 object-contain" />
+                        )}
+                        <span>{v.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {watch("vehicle") && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => {
+                    setValue("vehicle", null);
+                    setValue("model", null);
+                  }}
+                >
+                  حذف انتخاب
+                </Button>
+              )}
+            </div>
+
+            {selectedVehicleData && selectedVehicleData.models && selectedVehicleData.models.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="model">مدل</Label>
+                <Select
+                  value={watch("model") || undefined}
+                  onValueChange={(value) => setValue("model", value || null)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="انتخاب مدل (اختیاری)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {selectedVehicleData.models.map((model) => (
+                      <SelectItem key={model} value={model}>
+                        {model}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {watch("model") && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => setValue("model", null)}
+                  >
+                    حذف انتخاب
+                  </Button>
+                )}
+              </div>
+            )}
+
             <div className="space-y-2 sm:space-y-3">
-              <div className="flex items-center justify-between gap-2 sm:gap-4">
-                <div className="space-y-0.5 flex-1 min-w-0">
-                  <Label className="text-[10px] sm:text-xs md:text-sm">فعال‌سازی VIN</Label>
-                  <p className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground leading-tight">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="vinEnabled">فعال‌سازی VIN</Label>
+                  <p className="text-sm text-muted-foreground">
                     نمایش VIN برای این محصول
                   </p>
                 </div>
                 <Switch
+                  id="vinEnabled"
                   checked={vinEnabled}
                   onCheckedChange={(checked) => {
                     setVinEnabled(checked);
@@ -426,7 +662,6 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
                       setValue("vin", "");
                     }
                   }}
-                  className="flex-shrink-0"
                 />
               </div>
               <div className="space-y-1.5 sm:space-y-2">
@@ -522,14 +757,19 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
             </Button>
           </div>
           {tags.length > 0 && (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 w-full">
               {tags.map((tag) => (
-                <Badge key={tag} variant="secondary" className="gap-1">
-                  {tag}
+                <Badge 
+                  key={tag} 
+                  variant="secondary" 
+                  className="inline-flex items-center gap-1 max-w-full px-2 py-1"
+                >
+                  <span className="truncate max-w-[200px]">{tag}</span>
                   <button
                     type="button"
                     onClick={() => removeTag(tag)}
-                    className="ml-1 hover:text-destructive"
+                    className="hover:text-destructive flex-shrink-0 ml-1"
+                    aria-label="حذف تگ"
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -603,22 +843,23 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
           )}
           
           {Object.keys(specifications).length > 0 ? (
-            <div className="space-y-2">
+            <div className="space-y-2 w-full">
               {Object.entries(specifications).map(([key, value]) => (
                 <div
                   key={key}
-                  className="flex items-center justify-between p-3 border border-border/30 rounded-lg hover:bg-muted/50 transition-colors group"
+                  className="flex items-start justify-between gap-3 p-3 border border-border/30 rounded-lg hover:bg-muted/50 transition-colors group w-full"
                 >
-                  <div className="flex-1">
-                    <span className="text-sm font-medium text-foreground">{key}:</span>
-                    <span className="text-sm text-muted-foreground mr-2">{value}</span>
+                  <div className="flex-1 min-w-0 flex flex-col gap-1">
+                    <span className="text-sm font-medium text-foreground break-words">{key}:</span>
+                    <span className="text-sm text-muted-foreground break-words">{value}</span>
                   </div>
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 h-8 w-8"
                     onClick={() => removeSpecification(key)}
+                    aria-label="حذف مشخصه"
                   >
                     <X className="h-4 w-4" />
                   </Button>
@@ -653,6 +894,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
               </p>
             </div>
             <Switch
+              id="inStock"
               checked={inStock}
               onCheckedChange={(checked) => setValue("inStock", checked)}
             />
@@ -666,6 +908,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
               </p>
             </div>
             <Switch
+              id="enabled"
               checked={enabled}
               onCheckedChange={(checked) => setValue("enabled", checked)}
             />
@@ -683,17 +926,18 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
         </CardHeader>
         <CardContent className="space-y-3 sm:space-y-4">
           <div className="space-y-3 sm:space-y-4">
-            <div className="flex items-center justify-between gap-2 sm:gap-4">
-              <div className="space-y-0.5 flex-1 min-w-0">
-                <Label className="text-[10px] sm:text-xs md:text-sm flex items-center gap-1.5">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="airShippingEnabled" className="flex items-center gap-1.5">
                   <Plane className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                   ارسال هوایی
                 </Label>
-                <p className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground leading-tight">
+                <p className="text-sm text-muted-foreground">
                   امکان ارسال هوایی برای این محصول
                 </p>
               </div>
               <Switch
+                id="airShippingEnabled"
                 checked={airShippingEnabled}
                 onCheckedChange={(checked) => {
                   setValue("airShippingEnabled", checked);
@@ -701,7 +945,6 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
                     setValue("airShippingCost", null);
                   }
                 }}
-                className="flex-shrink-0"
               />
             </div>
             {airShippingEnabled && (
@@ -729,6 +972,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
                       )}
                     </Badge>
                     <Switch
+                      id="airShippingCostToggle"
                       checked={airShippingCost !== null && airShippingCost !== 0}
                       onCheckedChange={(checked) => {
                         if (checked) {
@@ -739,7 +983,6 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
                           setValue("airShippingCost", null);
                         }
                       }}
-                      className="flex-shrink-0"
                     />
                   </div>
                 </div>
@@ -748,7 +991,16 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
                     <Input
                       id="airShippingCost"
                       type="number"
-                      {...register("airShippingCost", { valueAsNumber: true })}
+                      {...register("airShippingCost", {
+                        valueAsNumber: true,
+                        setValueAs: (value) => {
+                          if (value === "" || value === null || value === undefined) {
+                            return null;
+                          }
+                          const num = typeof value === "string" ? parseFloat(value) : Number(value);
+                          return isNaN(num) ? null : num;
+                        },
+                      })}
                       placeholder="مثال: 50000"
                       min={1}
                       className="text-[11px] sm:text-xs md:text-sm bg-background"
@@ -769,17 +1021,18 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
           </div>
 
           <div className="space-y-3 sm:space-y-4">
-            <div className="flex items-center justify-between gap-2 sm:gap-4">
-              <div className="space-y-0.5 flex-1 min-w-0">
-                <Label className="text-[10px] sm:text-xs md:text-sm flex items-center gap-1.5">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="seaShippingEnabled" className="flex items-center gap-1.5">
                   <Ship className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                   ارسال دریایی
                 </Label>
-                <p className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground leading-tight">
+                <p className="text-sm text-muted-foreground">
                   امکان ارسال دریایی برای این محصول
                 </p>
               </div>
               <Switch
+                id="seaShippingEnabled"
                 checked={seaShippingEnabled}
                 onCheckedChange={(checked) => {
                   setValue("seaShippingEnabled", checked);
@@ -787,7 +1040,6 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
                     setValue("seaShippingCost", null);
                   }
                 }}
-                className="flex-shrink-0"
               />
             </div>
             {seaShippingEnabled && (
@@ -815,6 +1067,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
                       )}
                     </Badge>
                     <Switch
+                      id="seaShippingCostToggle"
                       checked={seaShippingCost !== null && seaShippingCost !== 0}
                       onCheckedChange={(checked) => {
                         if (checked) {
@@ -825,7 +1078,6 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
                           setValue("seaShippingCost", null);
                         }
                       }}
-                      className="flex-shrink-0"
                     />
                   </div>
                 </div>
@@ -834,7 +1086,16 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
                     <Input
                       id="seaShippingCost"
                       type="number"
-                      {...register("seaShippingCost", { valueAsNumber: true })}
+                      {...register("seaShippingCost", {
+                        valueAsNumber: true,
+                        setValueAs: (value) => {
+                          if (value === "" || value === null || value === undefined) {
+                            return null;
+                          }
+                          const num = typeof value === "string" ? parseFloat(value) : Number(value);
+                          return isNaN(num) ? null : num;
+                        },
+                      })}
                       placeholder="مثال: 50000"
                       min={1}
                       className="text-[11px] sm:text-xs md:text-sm bg-background"

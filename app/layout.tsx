@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import "leaflet/dist/leaflet.css";
 import { Providers } from "@/components/providers";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
@@ -80,13 +81,6 @@ export const metadata: Metadata = {
   verification: {
     // Add Google Search Console verification code here when available
     // google: "your-google-verification-code",
-  },
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 5,
-    userScalable: true,
-    viewportFit: "cover", // Support for safe-area-inset
   },
 };
 

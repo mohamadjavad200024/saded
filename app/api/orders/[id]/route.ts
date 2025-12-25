@@ -3,7 +3,7 @@ import { getRow, runQuery } from "@/lib/db/index";
 import { createErrorResponse, createSuccessResponse } from "@/lib/api-route-helpers";
 import { AppError } from "@/lib/api-error-handler";
 import type { Order } from "@/types/order";
-import { requireAdmin, requireAuth } from "@/lib/auth/middleware";
+import { getSessionUserFromRequest } from "@/lib/auth/session";
 
 /**
  * GET /api/orders/[id] - Get order by ID
@@ -16,8 +16,9 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const auth = await requireAuth(request);
-    const isAdmin = auth.userRole === "admin";
+    // Authentication removed - orders are now open to everyone
+    const sessionUser = await getSessionUserFromRequest(request);
+    const isAdmin = sessionUser?.role === "admin";
 
     const order = await getRow<any>("SELECT * FROM orders WHERE id = ?", [id]);
 
@@ -25,17 +26,7 @@ export async function GET(
       throw new AppError("سفارش یافت نشد", 404, "ORDER_NOT_FOUND");
     }
 
-    // Access control:
-    // - Admin: can see all orders
-    // - User: can only see their own orders
-    // - Guest orders (userId null/empty/"guest"): only admin can access
-    const orderUserId = typeof order.userId === "string" ? order.userId.trim() : "";
-    const isGuestOrder = !orderUserId || orderUserId === "guest";
-    if (!isAdmin) {
-      if (isGuestOrder || auth.userId !== orderUserId) {
-        throw new AppError("شما دسترسی به این سفارش را ندارید", 403, "FORBIDDEN");
-      }
-    }
+    // Access control removed - everyone can see all orders
 
     // Parse JSON fields (PostgreSQL JSONB returns objects, not strings)
     const parsedOrder: Order = {
@@ -62,7 +53,12 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
-    await requireAdmin(request);
+    // Authentication removed - but admin check kept for safety
+    const sessionUser = await getSessionUserFromRequest(request);
+    const isAdmin = sessionUser?.role === "admin";
+    if (!isAdmin) {
+      throw new AppError("فقط ادمین می‌تواند سفارش را ویرایش کند", 403, "FORBIDDEN");
+    }
 
     const body = await request.json().catch(() => {
       throw new AppError("Invalid JSON in request body", 400, "INVALID_JSON");
@@ -117,7 +113,12 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    await requireAdmin(request);
+    // Authentication removed - but admin check kept for safety
+    const sessionUser = await getSessionUserFromRequest(request);
+    const isAdmin = sessionUser?.role === "admin";
+    if (!isAdmin) {
+      throw new AppError("فقط ادمین می‌تواند سفارش را ویرایش کند", 403, "FORBIDDEN");
+    }
 
     const order = await getRow<any>("SELECT * FROM orders WHERE id = ?", [id]);
     if (!order) {

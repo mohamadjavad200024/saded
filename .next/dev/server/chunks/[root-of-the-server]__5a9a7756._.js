@@ -380,7 +380,13 @@ function createErrorResponse(error, defaultStatus = 500) {
     let status = defaultStatus;
     let code;
     let details;
-    if (error instanceof Error) {
+    // Handle AppError specifically (most common case)
+    if (error instanceof __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$api$2d$error$2d$handler$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["AppError"]) {
+        message = error.message;
+        status = error.status || defaultStatus;
+        code = error.code;
+        details = error.details;
+    } else if (error instanceof Error) {
         message = error.message;
         if ("status" in error && typeof error.status === "number") {
             status = error.status;
@@ -397,6 +403,9 @@ function createErrorResponse(error, defaultStatus = 500) {
         message = String(error.message);
         if ("status" in error && typeof error.status === "number") {
             status = error.status;
+        }
+        if ("code" in error && typeof error.code === "string") {
+            code = error.code;
         }
     }
     // Log error in development
@@ -477,15 +486,24 @@ async function GET(request) {
         let categories = [];
         try {
             // If all=true, return all enabled categories (for product filters), otherwise only active ones
-            const whereClause = includeAll ? "SELECT * FROM categories WHERE enabled = TRUE ORDER BY name ASC" : "SELECT * FROM categories WHERE enabled = TRUE AND \"isActive\" = TRUE ORDER BY name ASC";
+            const whereClause = includeAll ? "SELECT * FROM categories WHERE enabled = TRUE ORDER BY name ASC" : "SELECT * FROM categories WHERE enabled = TRUE AND \`isActive\` = TRUE ORDER BY name ASC";
             categories = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2f$index$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getRows"])(whereClause);
         } catch (dbError) {
             __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$logger$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["logger"].error("Error fetching categories:", dbError);
-            // If database is not available, throw a clear error
-            if (dbError?.message?.includes("not available") || dbError?.code === "DATABASE_NOT_AVAILABLE" || dbError?.code === "ECONNREFUSED" || dbError?.message?.includes("connect") || dbError?.message?.includes("timeout")) {
-                throw new __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$api$2d$error$2d$handler$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["AppError"]("دیتابیس در دسترس نیست. لطفاً اطمینان حاصل کنید که PostgreSQL نصب و پیکربندی شده است.", 503, "DATABASE_NOT_AVAILABLE");
+            // If table doesn't exist, return empty array instead of error
+            if (dbError?.code === "ER_NO_SUCH_TABLE" || dbError?.message?.includes("doesn't exist") || dbError?.message?.includes("does not exist") || dbError?.message?.includes("Table") && dbError?.message?.includes("doesn't exist")) {
+                __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$logger$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["logger"].warn("Categories table does not exist yet, returning empty array");
+                return (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$api$2d$route$2d$helpers$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["createSuccessResponse"])([]);
             }
-            throw dbError;
+            // If database is not available, return empty array instead of 503
+            // This allows the app to continue working even if database is temporarily unavailable
+            if (dbError?.message?.includes("not available") || dbError?.code === "DATABASE_NOT_AVAILABLE" || dbError?.code === "ECONNREFUSED" || dbError?.message?.includes("connect") || dbError?.message?.includes("timeout")) {
+                __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$logger$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["logger"].warn("Database not available, returning empty categories array");
+                return (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$api$2d$route$2d$helpers$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["createSuccessResponse"])([]);
+            }
+            // For other errors, still return empty array to prevent UI crash
+            __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$logger$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["logger"].error("Unexpected error fetching categories, returning empty array:", dbError);
+            return (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$api$2d$route$2d$helpers$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["createSuccessResponse"])([]);
         }
         const parsedCategories = categories.map((c)=>({
                 ...c,
@@ -555,7 +573,7 @@ async function POST(request) {
             // Insert category
             let insertResult;
             try {
-                insertResult = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2f$index$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["runQuery"])(`INSERT INTO categories (id, name, description, slug, image, icon, enabled, "isActive", "createdAt", "updatedAt")
+                insertResult = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2f$index$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["runQuery"])(`INSERT INTO categories (id, name, description, slug, image, icon, enabled, \`isActive\`, \`createdAt\`, \`updatedAt\`)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
                     id,
                     name.trim(),

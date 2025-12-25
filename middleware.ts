@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server';
 /**
  * Middleware for Next.js
  * This is an empty middleware that just passes through requests
+ * Note: Next.js 16+ may show deprecation warning, but this is still supported
  */
 export function middleware(request: NextRequest) {
   return NextResponse.next();

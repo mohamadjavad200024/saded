@@ -22,7 +22,7 @@ export function useChatAttachments(
         const fileUrl = await uploadFile(file, type);
 
         const attachment: Attachment = {
-          id: Date.now().toString() + Math.random(),
+          id: `${type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           type,
           name: file.name,
           size: file.size,
@@ -88,7 +88,7 @@ export function useChatAttachments(
         logger.info("Location received:", position.coords);
         console.log("[Location Widget] Position received:", position.coords);
         const attachment: Attachment = {
-          id: Date.now().toString(),
+          id: `location-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           type: "location",
           url: `https://www.google.com/maps?q=${position.coords.latitude},${position.coords.longitude}`,
           name: "موقعیت مکانی",

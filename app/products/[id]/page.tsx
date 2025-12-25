@@ -5,6 +5,7 @@ import { ProductDetail } from "@/components/product/product-detail";
 import { getRow } from "@/lib/db/index";
 import type { Product } from "@/types/product";
 import { getPlaceholderImage } from "@/lib/image-utils";
+import { normalizeImages, normalizeTags, normalizeSpecifications } from "@/lib/product-utils";
 
 const baseUrl = process.env.NEXT_PUBLIC_URL || "https://saded.ir";
 
@@ -19,18 +20,12 @@ async function getProduct(id: string): Promise<Product | null> {
       return null;
     }
 
-    // Parse JSON fields
+    // Parse JSON fields with normalization
     const parsedProduct: Product = {
       ...product,
-      images: Array.isArray(product.images) 
-        ? product.images 
-        : (typeof product.images === 'string' ? JSON.parse(product.images) : []),
-      tags: Array.isArray(product.tags) 
-        ? product.tags 
-        : (typeof product.tags === 'string' ? JSON.parse(product.tags) : []),
-      specifications: typeof product.specifications === 'object' && product.specifications !== null 
-        ? product.specifications 
-        : (typeof product.specifications === 'string' ? JSON.parse(product.specifications) : {}),
+      images: normalizeImages(product.images),
+      tags: normalizeTags(product.tags),
+      specifications: normalizeSpecifications(product.specifications),
       price: Number(product.price),
       originalPrice: product.originalPrice ? Number(product.originalPrice) : undefined,
       stockCount: Number(product.stockCount),

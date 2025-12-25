@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { Attachment } from "@/hooks/use-chat-utils";
 import type { Message } from "@/hooks/use-chat-messaging";
+import { AudioPlayer } from "@/components/chat/audio-player";
 
 interface MessageBubbleProps {
   message: Message;
@@ -33,7 +34,7 @@ export function MessageBubble({ message, index, totalMessages, onReply, onEdit, 
         duration: 0.2,
         ease: "easeOut"
       }}
-      className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"} items-end gap-2 group`}
+      className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"} items-end gap-2 group mb-3`}
     >
       <div
         className={`max-w-[85%] sm:max-w-[75%] md:max-w-[70%] rounded-lg px-2.5 sm:px-3 py-2 transition-all ${
@@ -83,12 +84,7 @@ export function MessageBubble({ message, index, totalMessages, onReply, onEdit, 
                   </a>
                 )}
                 {attachment.type === "audio" && attachment.url && (
-                  <div className="flex items-center gap-2 p-2 bg-background/50 rounded">
-                    <Mic className="h-3.5 w-3.5" />
-                    <audio controls className="flex-1 h-7 text-xs">
-                      <source src={attachment.url} />
-                    </audio>
-                  </div>
+                  <AudioPlayer url={attachment.url} duration={attachment.duration} />
                 )}
               </div>
             ))}
@@ -114,8 +110,26 @@ export function MessageBubble({ message, index, totalMessages, onReply, onEdit, 
               message.status === "read" ? "text-primary-foreground/70" : "text-primary-foreground/40"
             }`} />
           )}
-          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-            {(onReply || onEdit || onDelete) && (
+          {/* آیکون حذف مستقیم برای همه پیام‌ها - همیشه قابل مشاهده */}
+          {onDelete && (message.sender === "support" || message.sender === "user") && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 hover:bg-destructive/10 text-destructive hover:text-destructive opacity-70 hover:opacity-100 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (confirm("آیا مطمئن هستید که می‌خواهید این پیام را حذف کنید؟")) {
+                  onDelete(message.id);
+                }
+              }}
+              title="حذف پیام"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {/* منوی 3 نقطه برای سایر گزینه‌ها (پاسخ و ویرایش) */}
+          {(onReply || onEdit) && (
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -162,27 +176,10 @@ export function MessageBubble({ message, index, totalMessages, onReply, onEdit, 
                       </DropdownMenuItem>
                     </>
                   )}
-                  {onDelete && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (confirm("آیا مطمئن هستید که می‌خواهید این پیام را حذف کنید؟")) {
-                            onDelete(message.id);
-                          }
-                        }}
-                        className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
-                      >
-                        <Trash2 className="h-4 w-4 ml-2" />
-                        <span>حذف</span>
-                      </DropdownMenuItem>
-                    </>
-                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </motion.div>

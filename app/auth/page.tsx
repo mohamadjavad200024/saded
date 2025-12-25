@@ -16,9 +16,18 @@ import { validateIranianPhone, normalizePhone, validateStrongPassword } from "@/
 export default function AuthPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { register, login, isAuthenticated, checkAuth, hasCheckedAuth, isCheckingAuth } = useAuthStore();
+  const { register, login, isAuthenticated, checkAuth, hasCheckedAuth, isCheckingAuth, user } = useAuthStore();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [isLoading, setIsLoading] = useState(false);
+  
+  // IMPORTANT: Prevent admin from using regular user login/register page
+  // Admin should use /admin/login instead
+  useEffect(() => {
+    if (hasCheckedAuth && user?.role === "admin") {
+      router.replace("/admin");
+      return;
+    }
+  }, [hasCheckedAuth, user, router]);
   
   const [formData, setFormData] = useState({
     name: "",
@@ -103,10 +112,26 @@ export default function AuthPage() {
     }
   }, [hasCheckedAuth, isCheckingAuth, checkAuth]);
 
-  // Redirect if already authenticated (after session check)
+  // Redirect if already authenticated - use store only
   useEffect(() => {
-    if (hasCheckedAuth && isAuthenticated) {
-      router.push("/");
+    if (!hasCheckedAuth) return; // Wait for auth check to complete
+    
+    if (isAuthenticated) {
+      // IMPORTANT: If user is admin, redirect to admin panel instead of regular user pages
+      // Admin should use /admin/login, not /auth
+      const { user } = useAuthStore.getState();
+      if (user?.role === "admin") {
+        router.replace("/admin");
+        return;
+      }
+      
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirectTo = urlParams.get("redirect") || "/";
+      
+      // Only redirect if not already on target page and not auth page
+      if (redirectTo !== window.location.pathname && redirectTo !== "/auth" && window.location.pathname === "/auth") {
+        router.replace(redirectTo);
+      }
     }
   }, [hasCheckedAuth, isAuthenticated, router]);
 
@@ -165,7 +190,10 @@ export default function AuthPage() {
             description: "حساب کاربری شما با موفقیت ایجاد شد",
           });
 
-          router.push("/");
+          // Redirect immediately - user is already set in store
+          const urlParams = new URLSearchParams(window.location.search);
+          const redirectTo = urlParams.get("redirect") || "/";
+          router.replace(redirectTo);
         } catch (registerError: any) {
           // نمایش خطای دقیق از API
           const errorMessage = registerError?.message || "خطا در ثبت‌نام. لطفاً دوباره تلاش کنید";
@@ -195,7 +223,11 @@ export default function AuthPage() {
             title: "ورود موفق",
             description: "به ساد خوش آمدید",
           });
-          router.push("/");
+          
+          // Redirect immediately - user is already set in store and cookie is set by server
+          const urlParams = new URLSearchParams(window.location.search);
+          const redirectTo = urlParams.get("redirect") || "/";
+          router.replace(redirectTo);
         } else {
           toast({
             title: "خطا",

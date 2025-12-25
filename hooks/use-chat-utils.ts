@@ -3,6 +3,15 @@
 import { useState, useRef, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { logger } from "@/lib/logger-client";
+import { useAuthStore } from "@/store/auth-store";
+
+// Helper to generate unique IDs
+function generateUniqueId(prefix: string = ''): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return prefix ? `${prefix}-${crypto.randomUUID()}` : crypto.randomUUID();
+  }
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${performance.now()}`;
+}
 
 export interface Attachment {
   id: string;
@@ -39,7 +48,9 @@ export interface UseChatUtilsReturn {
 
 export function useChatUtils(): UseChatUtilsReturn {
   const { toast } = useToast();
+  const { user } = useAuthStore();
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const isSavingRef = useRef(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -61,8 +72,16 @@ export function useChatUtils(): UseChatUtilsReturn {
       formData.append("file", file);
       formData.append("type", type);
 
+      // Add userId header if user is available (fallback for session issues)
+      const headers: Record<string, string> = {};
+      if (user?.id) {
+        headers['x-user-id'] = user.id;
+      }
+
       const response = await fetch("/api/chat/upload", {
         method: "POST",
+        credentials: "include", // Include cookies for session
+        headers,
         body: formData,
       });
 
@@ -134,7 +153,7 @@ export function useChatUtils(): UseChatUtilsReturn {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const attachment: Attachment = {
-            id: Date.now().toString(),
+            id: `location-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             type: "location",
             url: `https://www.google.com/maps?q=${position.coords.latitude},${position.coords.longitude}`,
             name: "موقعیت مکانی",
@@ -297,54 +316,72 @@ export function useChatUtils(): UseChatUtilsReturn {
     setRecordingTime(0);
   }, [audioUrl, stopRecording]);
 
-  const saveRecording = useCallback(async (): Promise<Attachment | null> => {
-    if (audioBlob && audioUrl) {
-      try {
-        let extension = "webm";
-        let mimeType = audioBlob.type || "audio/webm";
-        
-        if (mimeType.includes("mp4") || mimeType.includes("m4a")) {
-          extension = "m4a";
-        } else if (mimeType.includes("ogg")) {
-          extension = "ogg";
-        } else if (mimeType.includes("wav")) {
-          extension = "wav";
-        }
-
-        const audioFile = new File([audioBlob], `audio-${Date.now()}.${extension}`, {
-          type: mimeType,
-        });
-
-        const uploadedUrl = await uploadFile(audioFile, "audio");
-
-        const attachment: Attachment = {
-          id: Date.now().toString(),
-          type: "audio",
-          url: uploadedUrl,
-          name: `پیام صوتی ${formatTime(recordingTime)}`,
-          size: audioBlob.size,
-          duration: recordingTime,
-        };
-        setAttachments((prev) => [...prev, attachment]);
-        setAudioBlob(null);
-        if (audioUrl) {
-          URL.revokeObjectURL(audioUrl);
-        }
-        setAudioUrl(null);
-        setRecordingTime(0);
-        return attachment;
-      } catch (error) {
-        return null;
-      }
-    }
-    return null;
-  }, [audioBlob, audioUrl, recordingTime, uploadFile]);
-
   const formatTime = useCallback((seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   }, []);
+
+  const saveRecording = useCallback(async (): Promise<Attachment | null> => {
+    // Prevent concurrent saves
+    if (isSavingRef.current) {
+      logger.warn("saveRecording already in progress, skipping");
+      return null;
+    }
+    
+    if (!audioBlob || !audioUrl) {
+      return null;
+    }
+    
+    isSavingRef.current = true;
+    
+    try {
+      let extension = "webm";
+      let mimeType = audioBlob.type || "audio/webm";
+      
+      if (mimeType.includes("mp4") || mimeType.includes("m4a")) {
+        extension = "m4a";
+      } else if (mimeType.includes("ogg")) {
+        extension = "ogg";
+      } else if (mimeType.includes("wav")) {
+        extension = "wav";
+      }
+
+      const audioFile = new File([audioBlob], `audio-${Date.now()}.${extension}`, {
+        type: mimeType,
+      });
+
+      const uploadedUrl = await uploadFile(audioFile, "audio");
+
+      // Generate truly unique ID
+      const uniqueId = generateUniqueId("audio");
+      
+      const attachment: Attachment = {
+        id: uniqueId,
+        type: "audio",
+        url: uploadedUrl,
+        name: `پیام صوتی ${formatTime(recordingTime)}`,
+        size: audioBlob.size,
+        duration: recordingTime,
+      };
+      
+      // Clean up recording state
+      setAudioBlob(null);
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+      setAudioUrl(null);
+      setRecordingTime(0);
+      
+      // Return attachment - caller should add it to state
+      return attachment;
+    } catch (error) {
+      logger.error("Error saving recording:", error);
+      return null;
+    } finally {
+      isSavingRef.current = false;
+    }
+  }, [audioBlob, audioUrl, recordingTime, uploadFile, formatTime]);
 
   const formatFileSize = useCallback((bytes: number) => {
     if (bytes < 1024) return bytes + " B";

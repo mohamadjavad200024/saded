@@ -3,13 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Car, Wrench, Sparkles, Settings } from "lucide-react";
 
 const navigationItems = [
-  { name: "خانه", href: "/", icon: Car },
-  { name: "محصولات", href: "/products", icon: Wrench },
-  { name: "دسته‌بندی‌ها", href: "/categories", icon: Sparkles },
-  { name: "خدمات", href: "/services", icon: Settings },
+  { name: "خانه", href: "/" },
+  { name: "محصولات", href: "/products" },
+  { name: "دسته‌بندی‌ها", href: "/categories" },
+  { name: "خدمات", href: "/services" },
 ];
 
 interface NavigationProps {
@@ -24,7 +23,6 @@ export function Navigation({ mobile = false, onNavigate }: NavigationProps) {
     return (
       <nav className="flex flex-col space-y-2">
         {navigationItems.map((item) => {
-          const Icon = item.icon;
           const isActive = pathname === item.href;
           return (
             <Link
@@ -38,7 +36,6 @@ export function Navigation({ mobile = false, onNavigate }: NavigationProps) {
                   : "text-foreground hover:bg-accent hover:text-accent-foreground"
               )}
             >
-              <Icon className="h-5 w-5" />
               <span>{item.name}</span>
             </Link>
           );
@@ -50,7 +47,6 @@ export function Navigation({ mobile = false, onNavigate }: NavigationProps) {
   return (
     <nav className="hidden lg:flex items-center space-x-1 space-x-reverse">
       {navigationItems.map((item) => {
-        const Icon = item.icon;
         const isActive = pathname === item.href;
         return (
           <Link
@@ -63,8 +59,7 @@ export function Navigation({ mobile = false, onNavigate }: NavigationProps) {
                 : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             )}
           >
-            <Icon className="h-4 w-4" />
-            <span className="hidden xl:inline">{item.name}</span>
+            <span>{item.name}</span>
           </Link>
         );
       })}

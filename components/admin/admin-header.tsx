@@ -11,8 +11,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { User, LogOut, Bell, Search, Settings, MessageCircle } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { User, LogOut, Bell, Search, Lock, MessageCircle, Eye, EyeOff, CheckCircle2, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 
 interface AdminHeaderProps {
   onSearch?: (query: string) => void;
@@ -22,6 +30,15 @@ export function AdminHeader({ onSearch }: AdminHeaderProps) {
   const [mounted, setMounted] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [totalUnreadCount, setTotalUnreadCount] = useState(0);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoadingPassword, setIsLoadingPassword] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     setMounted(true);
@@ -66,6 +83,93 @@ export function AdminHeader({ onSearch }: AdminHeaderProps) {
     // Refresh count when chat opens or closes
     fetchTotalUnreadCount();
   }, [chatOpen, fetchTotalUnreadCount]);
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!newPassword.trim()) {
+      toast({
+        title: "خطا",
+        description: "لطفاً رمز عبور جدید را وارد کنید",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast({
+        title: "خطا",
+        description: "رمز عبور باید حداقل 6 کاراکتر باشد",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "خطا",
+        description: "رمز عبور جدید و تأیید آن مطابقت ندارند",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoadingPassword(true);
+
+    try {
+      const response = await fetch("/api/admin/password", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          password: newPassword,
+          currentPassword: currentPassword || undefined,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast({
+          title: "موفق",
+          description: "رمز عبور با موفقیت تغییر کرد",
+        });
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+        setPasswordDialogOpen(false);
+      } else {
+        toast({
+          title: "خطا",
+          description: result.error || "خطا در تغییر رمز عبور",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "خطا",
+        description: error.message || "خطا در اتصال به سرور",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingPassword(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+      window.location.href = "/admin/login";
+    } catch (error) {
+      console.error("Logout error:", error);
+      window.location.href = "/admin/login";
+    }
+  };
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">
@@ -119,16 +223,12 @@ export function AdminHeader({ onSearch }: AdminHeaderProps) {
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>حساب کاربری</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <User className="ml-2 h-4 w-4" />
-                  پروفایل
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Settings className="ml-2 h-4 w-4" />
-                  تنظیمات
+                <DropdownMenuItem onClick={() => setPasswordDialogOpen(true)}>
+                  <Lock className="ml-2 h-4 w-4" />
+                  تغییر رمز عبور
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive">
+                <DropdownMenuItem className="text-destructive" onClick={handleLogout}>
                   <LogOut className="ml-2 h-4 w-4" />
                   خروج
                 </DropdownMenuItem>
@@ -142,6 +242,155 @@ export function AdminHeader({ onSearch }: AdminHeaderProps) {
         </div>
       </div>
       <AdminChat isOpen={chatOpen} onOpenChange={setChatOpen} />
+      
+      {/* Change Password Dialog */}
+      <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5" />
+              تغییر رمز عبور ادمین
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleChangePassword} className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label htmlFor="currentPassword">
+                رمز عبور فعلی (اختیاری برای اولین بار)
+              </Label>
+              <div className="relative">
+                <Input
+                  id="currentPassword"
+                  type={showCurrentPassword ? "text" : "password"}
+                  placeholder="رمز عبور فعلی را وارد کنید"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  disabled={isLoadingPassword}
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute left-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  disabled={isLoadingPassword}
+                >
+                  {showCurrentPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">
+                رمز عبور جدید <span className="text-destructive">*</span>
+              </Label>
+              <div className="relative">
+                <Input
+                  id="newPassword"
+                  type={showNewPassword ? "text" : "password"}
+                  placeholder="رمز عبور جدید را وارد کنید (حداقل 6 کاراکتر)"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  disabled={isLoadingPassword}
+                  className="pr-10"
+                  minLength={6}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute left-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  disabled={isLoadingPassword}
+                >
+                  {showNewPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">
+                تأیید رمز عبور جدید <span className="text-destructive">*</span>
+              </Label>
+              <div className="relative">
+                <Input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="رمز عبور جدید را دوباره وارد کنید"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  disabled={isLoadingPassword}
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute left-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  disabled={isLoadingPassword}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              {confirmPassword && newPassword !== confirmPassword && (
+                <p className="text-sm text-destructive">
+                  رمز عبور جدید و تأیید آن مطابقت ندارند
+                </p>
+              )}
+              {confirmPassword && newPassword === confirmPassword && newPassword.length >= 6 && (
+                <p className="text-sm text-green-600 flex items-center gap-1">
+                  <CheckCircle2 className="h-4 w-4" />
+                  رمز عبور جدید معتبر است
+                </p>
+              )}
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  setPasswordDialogOpen(false);
+                  setCurrentPassword("");
+                  setNewPassword("");
+                  setConfirmPassword("");
+                }}
+                disabled={isLoadingPassword}
+              >
+                انصراف
+              </Button>
+              <Button
+                type="submit"
+                className="flex-1"
+                disabled={isLoadingPassword || !newPassword || newPassword !== confirmPassword || newPassword.length < 6}
+              >
+                {isLoadingPassword ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    در حال تغییر...
+                  </>
+                ) : (
+                  "تغییر رمز عبور"
+                )}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }

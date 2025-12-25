@@ -5,15 +5,37 @@ import { Footer } from "@/components/layout/footer";
 import { ProductFilters } from "@/components/product/product-filters";
 import { ProductGrid } from "@/components/product/product-grid";
 import { useCategoryStore } from "@/store/category-store";
+import { useProductStore } from "@/store/product-store";
 import { useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 
 export default function ProductsPage() {
   const { loadCategoriesFromDB } = useCategoryStore();
+  const { setFilters } = useProductStore();
+  const searchParams = useSearchParams();
 
   // Load categories from database on mount
   useEffect(() => {
     loadCategoriesFromDB();
   }, [loadCategoriesFromDB]);
+
+  // Sync filters from URL to store
+  useEffect(() => {
+    const searchQuery = searchParams.get("search");
+    const vehicleId = searchParams.get("vehicle");
+    
+    const filterUpdates: any = {};
+    if (searchQuery) {
+      filterUpdates.search = decodeURIComponent(searchQuery);
+    }
+    if (vehicleId) {
+      filterUpdates.vehicle = vehicleId;
+    }
+    
+    if (Object.keys(filterUpdates).length > 0) {
+      setFilters(filterUpdates);
+    }
+  }, [searchParams, setFilters]);
 
   // Fix mobile zoom issue: Prevent automatic zoom and ensure proper viewport scaling
   useEffect(() => {

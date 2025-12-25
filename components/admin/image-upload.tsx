@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { X, Upload, Image as ImageIcon, Loader2 } from "lucide-react";
+import { SafeImage } from "@/components/ui/safe-image";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -223,10 +224,13 @@ export function ImageUpload({
                   key={index}
                   className="relative group aspect-square rounded-lg border-2 border-border/30 overflow-hidden bg-muted shadow-sm hover:shadow-md transition-all"
                 >
-                  <img
+                  <SafeImage
                     src={image}
                     alt={`تصویر ${index + 1}`}
-                    className="w-full h-full object-cover"
+                    fill
+                    className="object-cover"
+                    priority
+                    loading="eager"
                   />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center">
                     <Button

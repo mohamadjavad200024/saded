@@ -4,6 +4,8 @@ export interface Product {
   description?: string | null;
   brand?: string | null;
   category?: string | null;
+  vehicle?: string | null; // Vehicle ID
+  model?: string | null; // Model name
   price: number;
   originalPrice?: number | null;
   images: string[];
@@ -27,6 +29,7 @@ export interface Product {
 export interface ProductFilters {
   search?: string;
   vin?: string;
+  vehicle?: string;
   minPrice?: number;
   maxPrice?: number;
   brands?: string[];
