@@ -8,6 +8,10 @@ const nextConfig = {
         hostname: '**',
       },
       {
+        protocol: 'http',
+        hostname: '**',
+      },
+      {
         protocol: 'https',
         hostname: 'via.placeholder.com',
       },
@@ -21,10 +25,11 @@ const nextConfig = {
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     // Enable image optimization and lazy loading
+    // Note: Next.js 16 only supports 'image/avif' and 'image/webp' in formats array
     formats: ['image/avif', 'image/webp'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-    minimumCacheTTL: 60,
+    minimumCacheTTL: 31536000, // 1 year cache for better performance
   },
   // Disable source maps in production for security and performance
   productionBrowserSourceMaps: false,
@@ -37,12 +42,9 @@ const nextConfig = {
   // Production optimizations
   compress: true,
   poweredByHeader: false,
-  // Turbopack configuration (Next.js 16+)
-  turbopack: {},
-  // Webpack configuration
-  webpack: (config, { isServer, webpack }) => {
-    return config;
-  },
+  // Turbopack disabled to avoid resource issues on Windows and shared hosting
+  // Use webpack instead (more stable on resource-constrained systems)
+  // turbopack: {},
 };
 
 module.exports = nextConfig;

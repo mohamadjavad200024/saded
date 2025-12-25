@@ -19,12 +19,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MoreHorizontal, Package, Truck, User, Phone, Mail, MapPin, Calendar, FileText, CreditCard, MessageCircle } from "lucide-react";
+import { MoreHorizontal, Package, Truck, User, Phone, Mail, MapPin, Calendar, FileText, CreditCard, MessageCircle, ExternalLink } from "lucide-react";
 import { useOrderStore } from "@/store/order-store";
 import { useProductStore } from "@/store/product-store";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
-import Image from "next/image";
+import { SafeImage } from "@/components/ui/safe-image";
 import {
   Dialog,
   DialogContent,
@@ -354,17 +354,65 @@ export function OrderTable({ orders, onRefresh }: OrderTableProps) {
                   <div className="space-y-3">
                     <div className="flex items-start gap-2">
                       <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                      <div>
+                      <div className="flex-1">
                         <p className="text-xs text-muted-foreground">آدرس ارسال</p>
-                        <p className="text-sm font-medium">
-                          {selectedOrder.shippingAddress.province && `${selectedOrder.shippingAddress.province}، `}
-                          {selectedOrder.shippingAddress.city}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">{selectedOrder.shippingAddress.address}</p>
-                        {selectedOrder.shippingAddress.postalCode && (
-                          <p className="text-xs text-muted-foreground mt-1">
+                        {selectedOrder.shippingAddress.addressType === "location" && selectedOrder.shippingAddress.location ? (
+                          <div className="space-y-2 mt-1">
+                            <p className="text-sm font-medium break-words">
+                              {(() => {
+                                // اگر location به صورت "lat,lng" است، آن را نمایش بده
+                                const locationStr = selectedOrder.shippingAddress.location;
+                                if (locationStr.includes(',') && /^-?\d+\.?\d*,-?\d+\.?\d*$/.test(locationStr.trim())) {
+                                  const [lat, lng] = locationStr.split(',').map(s => s.trim());
+                                  return `${lat}, ${lng}`;
+                                }
+                                return locationStr;
+                              })()}
+                            </p>
+                            {(() => {
+                              // اگر location به صورت "lat,lng" است، دکمه نقشه را نمایش بده
+                              const locationStr = selectedOrder.shippingAddress.location;
+                              if (locationStr.includes(',') && /^-?\d+\.?\d*,-?\d+\.?\d*$/.test(locationStr.trim())) {
+                                const [lat, lng] = locationStr.split(',').map(s => s.trim());
+                                const mapUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+                                return (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-xs h-7"
+                                    onClick={() => window.open(mapUrl, '_blank')}
+                                  >
+                                    <MapPin className="h-3 w-3 ml-1" />
+                                    مشاهده در نقشه
+                                    <ExternalLink className="h-3 w-3 mr-1" />
+                                  </Button>
+                                );
+                              }
+                              return null;
+                            })()}
+                          </div>
+                        ) : selectedOrder.shippingAddress.addressType === "postalCode" && selectedOrder.shippingAddress.postalCode ? (
+                          <p className="text-sm font-medium">
                             کد پستی: {selectedOrder.shippingAddress.postalCode}
                           </p>
+                        ) : (
+                          <>
+                            {(selectedOrder.shippingAddress.province || selectedOrder.shippingAddress.city) && (
+                              <p className="text-sm font-medium">
+                                {selectedOrder.shippingAddress.province && `${selectedOrder.shippingAddress.province}، `}
+                                {selectedOrder.shippingAddress.city}
+                              </p>
+                            )}
+                            {selectedOrder.shippingAddress.address && (
+                              <p className="text-xs text-muted-foreground mt-1">{selectedOrder.shippingAddress.address}</p>
+                            )}
+                            {selectedOrder.shippingAddress.postalCode && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                کد پستی: {selectedOrder.shippingAddress.postalCode}
+                              </p>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
@@ -387,7 +435,25 @@ export function OrderTable({ orders, onRefresh }: OrderTableProps) {
                     if (!imageUrl && product && product.images && product.images.length > 0) {
                       imageUrl = product.images[0];
                     }
-                    const hasImage = imageUrl && imageUrl.trim() !== "";
+                    // Validate URL - must be a valid URL string
+                    const isValidUrl = (url: string): boolean => {
+                      if (!url || typeof url !== 'string' || url.trim() === '') {
+                        return false;
+                      }
+                      // Allow blob: and data: URLs
+                      if (url.startsWith('blob:') || url.startsWith('data:')) {
+                        return true;
+                      }
+                      // Try to construct URL to validate
+                      try {
+                        new URL(url);
+                        return true;
+                      } catch {
+                        return false;
+                      }
+                    };
+                    
+                    const hasImage = imageUrl && isValidUrl(imageUrl);
                     
                     return (
                       <div
@@ -397,13 +463,14 @@ export function OrderTable({ orders, onRefresh }: OrderTableProps) {
                         <div className="text-xs text-muted-foreground w-6">{index + 1}</div>
                         {hasImage ? (
                           <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-background flex-shrink-0 border shadow-sm">
-                            <Image
+                            <SafeImage
                               src={imageUrl}
-                              alt={item.name}
+                              alt={item.name || 'Product image'}
                               fill
                               className="object-cover"
-                              unoptimized={imageUrl.startsWith('blob:') || imageUrl.startsWith('data:')}
-                              priority={index < 3} // Prioritize first 3 images
+                              productId={item.productId || item.id}
+                              priority={index < 3}
+                              loading="eager"
                             />
                           </div>
                         ) : (
@@ -481,6 +548,7 @@ export function OrderTable({ orders, onRefresh }: OrderTableProps) {
       <AdminChat 
         isOpen={adminChatOpen} 
         onOpenChange={setAdminChatOpen}
+        initialCustomerPhone={selectedOrder?.customerPhone}
       />
     </>
   );

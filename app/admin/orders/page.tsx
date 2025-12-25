@@ -51,6 +51,17 @@ export default function OrdersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
+  // Reload orders when page becomes visible (admin might need to see new orders)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadOrdersFromDB();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [loadOrdersFromDB]);
+
   const filteredOrders = useMemo(() => {
     let filtered = orders;
 

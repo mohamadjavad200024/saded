@@ -380,7 +380,13 @@ function createErrorResponse(error, defaultStatus = 500) {
     let status = defaultStatus;
     let code;
     let details;
-    if (error instanceof Error) {
+    // Handle AppError specifically (most common case)
+    if (error instanceof __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$api$2d$error$2d$handler$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["AppError"]) {
+        message = error.message;
+        status = error.status || defaultStatus;
+        code = error.code;
+        details = error.details;
+    } else if (error instanceof Error) {
         message = error.message;
         if ("status" in error && typeof error.status === "number") {
             status = error.status;
@@ -397,6 +403,9 @@ function createErrorResponse(error, defaultStatus = 500) {
         message = String(error.message);
         if ("status" in error && typeof error.status === "number") {
             status = error.status;
+        }
+        if ("code" in error && typeof error.code === "string") {
+            code = error.code;
         }
     }
     // Log error in development
@@ -480,16 +489,16 @@ async function GET(request) {
                 await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2f$index$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["runQuery"])(`
           CREATE TABLE IF NOT EXISTS carts (
             id VARCHAR(255) PRIMARY KEY,
-            "sessionId" VARCHAR(255) NOT NULL,
-            "userId" VARCHAR(255),
-            items JSONB NOT NULL DEFAULT '[]'::jsonb,
-            "shippingMethod" VARCHAR(50),
-            "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
-            "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW(),
-            UNIQUE("sessionId")
+            \`sessionId\` VARCHAR(255) NOT NULL,
+            \`userId\` VARCHAR(255),
+            items JSON NOT NULL DEFAULT '[]',
+            \`shippingMethod\` VARCHAR(50),
+            \`createdAt\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            \`updatedAt\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE(\`sessionId\`)
           );
-          CREATE INDEX IF NOT EXISTS idx_carts_sessionId ON carts("sessionId");
-          CREATE INDEX IF NOT EXISTS idx_carts_userId ON carts("userId");
+          CREATE INDEX IF NOT EXISTS idx_carts_sessionId ON carts(\`sessionId\`);
+          CREATE INDEX IF NOT EXISTS idx_carts_userId ON carts(\`userId\`);
         `);
             } catch (createError) {
                 // Ignore if table already exists
@@ -605,16 +614,16 @@ async function POST(request) {
                 await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2f$index$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["runQuery"])(`
           CREATE TABLE IF NOT EXISTS carts (
             id VARCHAR(255) PRIMARY KEY,
-            "sessionId" VARCHAR(255) NOT NULL,
-            "userId" VARCHAR(255),
-            items JSONB NOT NULL DEFAULT '[]'::jsonb,
-            "shippingMethod" VARCHAR(50),
-            "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
-            "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW(),
-            UNIQUE("sessionId")
+            \`sessionId\` VARCHAR(255) NOT NULL,
+            \`userId\` VARCHAR(255),
+            items JSON NOT NULL DEFAULT '[]',
+            \`shippingMethod\` VARCHAR(50),
+            \`createdAt\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            \`updatedAt\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE(\`sessionId\`)
           );
-          CREATE INDEX IF NOT EXISTS idx_carts_sessionId ON carts("sessionId");
-          CREATE INDEX IF NOT EXISTS idx_carts_userId ON carts("userId");
+          CREATE INDEX IF NOT EXISTS idx_carts_sessionId ON carts(\`sessionId\`);
+          CREATE INDEX IF NOT EXISTS idx_carts_userId ON carts(\`userId\`);
         `);
             } catch (createError) {
                 // Ignore if table already exists
@@ -628,7 +637,7 @@ async function POST(request) {
             ]);
             if (existingCart) {
                 // Update existing cart
-                const updateResult = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2f$index$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["runQuery"])(`UPDATE carts SET items = ?::jsonb, "shippingMethod" = ?, "updatedAt" = ? WHERE "sessionId" = ?`, [
+                const updateResult = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2f$index$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["runQuery"])(`UPDATE carts SET items = ?, \`shippingMethod\` = ?, \`updatedAt\` = ? WHERE \`sessionId\` = ?`, [
                     JSON.stringify(items),
                     shippingMethod || null,
                     now,
@@ -641,8 +650,8 @@ async function POST(request) {
             } else {
                 // Create new cart
                 const cartId = `cart-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                const insertResult = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2f$index$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["runQuery"])(`INSERT INTO carts (id, "sessionId", items, "shippingMethod", "createdAt", "updatedAt")
-           VALUES (?, ?, ?::jsonb, ?, ?, ?)`, [
+                const insertResult = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2f$index$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["runQuery"])(`INSERT INTO carts (id, \`sessionId\`, items, \`shippingMethod\`, \`createdAt\`, \`updatedAt\`)
+           VALUES (?, ?, ?, ?, ?, ?)`, [
                     cartId,
                     sessionId,
                     JSON.stringify(items),

@@ -14,20 +14,26 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { ShoppingBag, Loader2, ArrowRight, AlertCircle, Package } from "lucide-react";
+import { ShoppingBag, Loader2, ArrowRight, AlertCircle, Package, MapPin, User, Phone } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { checkoutFormSchema, sanitizeCheckoutInput, type CheckoutFormData } from "@/lib/validations/checkout";
+import { ProtectedRoute } from "@/components/auth/protected-route";
+import { LocationPicker } from "@/components/checkout/location-picker";
+import { cn } from "@/lib/utils";
 
-export default function CheckoutPage() {
+function CheckoutPageContent() {
   const router = useRouter();
   const { toast } = useToast();
   const { items, getTotal, shippingMethod, clearCart } = useCartStore();
-  const { addOrder } = useOrderStore();
+  const { addOrder, loadOrdersFromDB } = useOrderStore();
   const { getProduct } = useProductStore();
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, checkAuth, hasCheckedAuth, isCheckingAuth } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [addressType, setAddressType] = useState<"location" | "postalCode" | "address">("address");
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   const {
     register,
@@ -44,6 +50,8 @@ export default function CheckoutPage() {
       lastName: "",
       phone: "",
       email: "",
+      addressType: "address",
+      location: "",
       address: "",
       city: "",
       postalCode: "",
@@ -51,6 +59,28 @@ export default function CheckoutPage() {
       notes: "",
     },
   });
+
+  // Watch addressType برای همگام‌سازی با state
+  const watchedAddressType = watch("addressType");
+  
+  // Watch all form fields to check if they have values
+  const firstName = watch("firstName");
+  const lastName = watch("lastName");
+  const phone = watch("phone");
+  const email = watch("email");
+  const postalCode = watch("postalCode");
+  const address = watch("address");
+  const notes = watch("notes");
+  const location = watch("location");
+  
+  // همگام‌سازی state با form value
+  useEffect(() => {
+    if (watchedAddressType && watchedAddressType !== addressType) {
+      setAddressType(watchedAddressType as "location" | "postalCode" | "address");
+    }
+  }, [watchedAddressType, addressType]);
+
+  // Authentication removed - checkout is now open to everyone
 
   // بارگذاری اطلاعات checkout از localStorage یا auth store
   useEffect(() => {
@@ -65,6 +95,8 @@ export default function CheckoutPage() {
         lastName,
         phone: user.phone || "",
         email: "",
+        addressType: "address",
+        location: "",
         address: "",
         city: "",
         postalCode: "",
@@ -83,12 +115,17 @@ export default function CheckoutPage() {
               lastName: data.formData.lastName || "",
               phone: data.formData.phone || "",
               email: data.formData.email || "",
+              addressType: data.formData.addressType || "address",
+              location: data.formData.location || "",
               address: data.formData.address || "",
               city: data.formData.city || "",
               postalCode: data.formData.postalCode || "",
               province: data.formData.province || "",
               notes: data.formData.notes || "",
             });
+            if (data.formData.addressType) {
+              setAddressType(data.formData.addressType);
+            }
           }
         } catch (error) {
           console.error("Error loading checkout data:", error);
@@ -248,11 +285,22 @@ export default function CheckoutPage() {
 
       // ابتدا سفارش را ثبت می‌کنیم (بدون پرداخت)
       console.log("Sending order creation request...");
+      
+      // Prepare headers
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+      };
+      
+      // In development, send userId in header as fallback if session cookie fails
+      if (process.env.NODE_ENV === 'development' && user?.id) {
+        headers['x-user-id'] = user.id;
+        console.log('[Checkout] Adding userId header (development fallback):', user.id);
+      }
+      
       const orderResponse = await fetch("/api/orders/create", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        credentials: "include", // CRITICAL: Include cookies for session
+        headers,
         body: JSON.stringify({
           items: validatedItems,
           formData: sanitizedData,
@@ -264,9 +312,19 @@ export default function CheckoutPage() {
 
       console.log("Order response status:", orderResponse.status);
       if (!orderResponse.ok) {
-        const errorData = await orderResponse.json().catch(() => ({}));
+        let errorData: any = {};
+        try {
+          const responseText = await orderResponse.text();
+          console.error("Order creation failed - response text:", responseText);
+          if (responseText) {
+            errorData = JSON.parse(responseText);
+          }
+        } catch (parseError) {
+          console.error("Error parsing error response:", parseError);
+          errorData = { error: `HTTP error! status: ${orderResponse.status}` };
+        }
         console.error("Order creation failed:", errorData);
-        throw new Error(errorData.error || `HTTP error! status: ${orderResponse.status}`);
+        throw new Error(errorData.error || errorData.message || `HTTP error! status: ${orderResponse.status}`);
       }
 
       const orderResult = await orderResponse.json();
@@ -325,6 +383,15 @@ export default function CheckoutPage() {
       console.log("[Mock Payment] Adding order to store:", updatedOrder);
       addOrder(updatedOrder);
 
+      // بارگذاری مجدد سفارش‌ها از دیتابیس برای اطمینان از همگام‌سازی
+      console.log("[Mock Payment] Reloading orders from database...");
+      try {
+        await loadOrdersFromDB();
+      } catch (reloadError) {
+        console.error("[Mock Payment] Error reloading orders:", reloadError);
+        // ادامه می‌دهیم حتی اگر reload خطا داشته باشد
+      }
+
       // پاک کردن سبد خرید
       console.log("[Mock Payment] Clearing cart...");
       clearCart();
@@ -346,11 +413,18 @@ export default function CheckoutPage() {
       // هدایت به صفحه پیگیری سفارش
       const orderNumber = updatedOrder.orderNumber || order.orderNumber;
       console.log("[Mock Payment] Redirecting to track page with orderNumber:", orderNumber);
+      console.log("[Mock Payment] Order details:", {
+        id: updatedOrder.id,
+        orderNumber: orderNumber,
+        userId: updatedOrder.userId,
+        customerPhone: updatedOrder.customerPhone,
+      });
       
       // استفاده از router.push برای هدایت بهتر (به جای window.location.href)
+      // کمی تاخیر برای اطمینان از ذخیره شدن در دیتابیس
       setTimeout(() => {
-        router.push(`/order/track?orderNumber=${orderNumber}`);
-      }, 1000); // افزایش تاخیر برای نمایش بهتر پیام موفقیت
+        router.push(`/order/track?orderNumber=${encodeURIComponent(orderNumber)}`);
+      }, 1500); // افزایش تاخیر برای اطمینان از ذخیره شدن در دیتابیس
     } catch (error) {
       console.error("[Checkout] Order creation error:", {
         message: error instanceof Error ? error.message : 'Unknown error',
@@ -377,6 +451,8 @@ export default function CheckoutPage() {
     }
   };
 
+  // Authentication removed - no loading or redirect needed
+
   if (items.length === 0) {
     return (
       <div className="container mx-auto px-4 py-12 sm:py-20">
@@ -400,9 +476,12 @@ export default function CheckoutPage() {
 
   return (
     <div className="container mx-auto px-4 py-6 sm:py-8 md:py-12">
-      <h1 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8">
-        تکمیل اطلاعات و پرداخت
-      </h1>
+      <div className="flex items-center gap-3 mb-6 sm:mb-8">
+        <h1 className="text-xl sm:text-2xl font-bold">
+          تکمیل اطلاعات و پرداخت
+        </h1>
+        <div className="flex-1 h-0.5 sm:h-1 bg-background dark:bg-foreground"></div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
         {/* فرم اطلاعات */}
@@ -412,17 +491,40 @@ export default function CheckoutPage() {
               <CardTitle>اطلاعات تحویل</CardTitle>
             </CardHeader>
             <CardContent>
+              {/* باکس اطلاعات کاربر */}
+              {user && (
+                <div className="mb-6 p-4 sm:p-5 rounded-lg bg-primary dark:bg-primary border border-primary/30">
+                  <div className="flex items-center gap-4">
+                    <div className="flex-shrink-0">
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-primary-foreground/20 flex items-center justify-center">
+                        <User className="h-8 w-8 sm:h-10 sm:w-10 text-primary-foreground" />
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <User className="h-4 w-4 text-primary-foreground flex-shrink-0" />
+                        <span className="font-semibold text-base sm:text-lg text-primary-foreground truncate">
+                          {user?.name || "کاربر"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-3.5 w-3.5 text-primary-foreground/80 flex-shrink-0" />
+                        <span className="text-sm sm:text-base text-primary-foreground/80 truncate">
+                          {(user as any)?.phone || "-"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
               <form 
                 onSubmit={(e) => {
                   e.preventDefault();
-                  console.log("[Form] Submit event triggered");
                   handleSubmit(
                     (data) => {
-                      console.log("[Form] Validation passed, data:", data);
                       onSubmit(data);
                     },
                     (errors) => {
-                      console.error("[Form] Validation errors:", errors);
                       setSubmitAttempted(true);
                       // نمایش پیام خطا برای کاربر
                       const firstError = Object.values(errors)[0];
@@ -440,31 +542,14 @@ export default function CheckoutPage() {
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="firstName">
-                      نام <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      id="firstName"
-                      {...register("firstName")}
-                      placeholder="نام"
-                      className={errors.firstName ? "border-destructive" : ""}
-                    />
-                    {errors.firstName && (
-                      <p className="text-sm text-destructive flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        {errors.firstName.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
                     <Label htmlFor="lastName">
-                      نام خانوادگی <span className="text-destructive">*</span>
+                      نام خانوادگی <span className="text-muted-foreground text-xs">(پیشنهادی)</span>
                     </Label>
                     <Input
                       id="lastName"
                       {...register("lastName")}
                       placeholder="نام خانوادگی"
-                      className={errors.lastName ? "border-destructive" : ""}
+                      className={cn(errors.lastName && "!border-destructive")}
                     />
                     {errors.lastName && (
                       <p className="text-sm text-destructive flex items-center gap-1">
@@ -473,39 +558,16 @@ export default function CheckoutPage() {
                       </p>
                     )}
                   </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">
-                      شماره تماس <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      id="phone"
-                      {...register("phone")}
-                      type="tel"
-                      onChange={handlePhoneChange}
-                      placeholder="09123456789"
-                      maxLength={11}
-                      className={errors.phone ? "border-destructive" : ""}
-                    />
-                    {errors.phone && (
-                      <p className="text-sm text-destructive flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        {errors.phone.message}
-                      </p>
-                    )}
-                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">
-                      ایمیل <span className="text-destructive">*</span>
+                      ایمیل <span className="text-muted-foreground text-xs">(اختیاری)</span>
                     </Label>
                     <Input
                       id="email"
                       {...register("email")}
                       type="email"
                       placeholder="example@email.com"
-                      className={errors.email ? "border-destructive" : ""}
+                      className={cn(errors.email && "!border-destructive")}
                     />
                     {errors.email && (
                       <p className="text-sm text-destructive flex items-center gap-1">
@@ -516,52 +578,153 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
+                {/* انتخاب نوع آدرس */}
                 <div className="space-y-2">
-                  <Label htmlFor="address">
-                    آدرس کامل <span className="text-destructive">*</span>
+                  <Label>
+                    نوع آدرس <span className="text-destructive">*</span>
                   </Label>
-                  <Textarea
-                    id="address"
-                    {...register("address")}
-                    placeholder="آدرس کامل تحویل"
-                    rows={3}
-                    className={errors.address ? "border-destructive" : ""}
-                  />
-                  {errors.address && (
+                  <p className="text-sm text-muted-foreground mb-3">
+                    لطفاً یکی از گزینه‌های زیر را انتخاب کنید
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddressType("location");
+                        setValue("addressType", "location");
+                        // پاک کردن فیلدهای دیگر
+                        setValue("postalCode", "");
+                        setValue("address", "");
+                        setValue("city", "");
+                      }}
+                      className={`p-3 rounded-lg border-2 transition-all text-right ${
+                        addressType === "location"
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/50"
+                      }`}
+                    >
+                      <div className="text-sm font-medium">لوکیشن</div>
+                      <div className="text-xs text-muted-foreground mt-1">استفاده از موقعیت جغرافیایی</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddressType("postalCode");
+                        setValue("addressType", "postalCode");
+                        // پاک کردن فیلدهای دیگر
+                        setValue("location", "");
+                        setValue("address", "");
+                        setValue("city", "");
+                      }}
+                      className={`p-3 rounded-lg border-2 transition-all text-right ${
+                        addressType === "postalCode"
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/50"
+                      }`}
+                    >
+                      <div className="text-sm font-medium">کد پستی</div>
+                      <div className="text-xs text-muted-foreground mt-1">فقط کد پستی</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddressType("address");
+                        setValue("addressType", "address");
+                        // پاک کردن فیلدهای دیگر
+                        setValue("location", "");
+                        setValue("postalCode", "");
+                      }}
+                      className={`p-3 rounded-lg border-2 transition-all text-right ${
+                        addressType === "address"
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/50"
+                      }`}
+                    >
+                      <div className="text-sm font-medium">اطلاعات آدرس</div>
+                      <div className="text-xs text-muted-foreground mt-1">آدرس کامل</div>
+                    </button>
+                  </div>
+                  <input type="hidden" {...register("addressType")} />
+                  {errors.addressType && (
                     <p className="text-sm text-destructive flex items-center gap-1">
                       <AlertCircle className="h-3 w-3" />
-                      {errors.address.message}
+                      {errors.addressType.message}
                     </p>
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* نمایش فیلدهای مربوط به نوع آدرس انتخاب شده */}
+                {addressType === "location" && (
                   <div className="space-y-2">
-                    <Label htmlFor="city">
-                      شهر <span className="text-destructive">*</span>
+                    <Label>
+                      لوکیشن <span className="text-destructive">*</span>
                     </Label>
-                    <Input
-                      id="city"
-                      {...register("city")}
-                      placeholder="شهر"
-                      className={errors.city ? "border-destructive" : ""}
+                    <div className="flex gap-2">
+                      <Input
+                        type="text"
+                        readOnly
+                        value={selectedLocation ? `${selectedLocation.lat},${selectedLocation.lng}` : ""}
+                        placeholder="انتخاب موقعیت روی نقشه"
+                        className="flex-1 font-mono text-xs sm:text-sm"
+                        style={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap"
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setShowLocationPicker(true);
+                        }}
+                        className="flex-shrink-0"
+                      >
+                        <MapPin className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <input
+                      type="hidden"
+                      {...register("location")}
+                      value={selectedLocation ? `${selectedLocation.lat},${selectedLocation.lng}` : ""}
                     />
-                    {errors.city && (
+                    {/* نمایش مختصات دقیق برای کاربر */}
+                    {selectedLocation && (
+                      <Input
+                        type="text"
+                        readOnly
+                        value={`مختصات دقیق: ${selectedLocation.lat}, ${selectedLocation.lng}`}
+                        className="text-xs sm:text-sm font-mono bg-muted/50"
+                        style={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap"
+                        }}
+                      />
+                    )}
+                    {errors.location && (
                       <p className="text-sm text-destructive flex items-center gap-1">
                         <AlertCircle className="h-3 w-3" />
-                        {errors.city.message}
+                        {errors.location.message}
                       </p>
                     )}
                   </div>
+                )}
+
+                {addressType === "postalCode" && (
                   <div className="space-y-2">
-                    <Label htmlFor="postalCode">کد پستی</Label>
+                    <Label htmlFor="postalCode">
+                      کد پستی <span className="text-destructive">*</span>
+                    </Label>
                     <Input
                       id="postalCode"
                       {...register("postalCode")}
                       onChange={handlePostalCodeChange}
                       placeholder="1234567890"
                       maxLength={10}
-                      className={errors.postalCode ? "border-destructive" : ""}
+                      className={cn(errors.postalCode && "!border-destructive")}
                     />
                     {errors.postalCode && (
                       <p className="text-sm text-destructive flex items-center gap-1">
@@ -570,23 +733,30 @@ export default function CheckoutPage() {
                       </p>
                     )}
                   </div>
-                </div>
+                )}
 
-                <div className="space-y-2">
-                  <Label htmlFor="province">استان (اختیاری)</Label>
-                  <Input
-                    id="province"
-                    {...register("province")}
-                    placeholder="استان"
-                    className={errors.province ? "border-destructive" : ""}
-                  />
-                  {errors.province && (
-                    <p className="text-sm text-destructive flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      {errors.province.message}
-                    </p>
-                  )}
-                </div>
+                {addressType === "address" && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="address">
+                        آدرس کامل <span className="text-destructive">*</span>
+                      </Label>
+                      <Textarea
+                        id="address"
+                        {...register("address")}
+                        placeholder="آدرس کامل تحویل"
+                        rows={3}
+                        className={cn(errors.address && "!border-destructive")}
+                      />
+                      {errors.address && (
+                        <p className="text-sm text-destructive flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {errors.address.message}
+                        </p>
+                      )}
+                    </div>
+                  </>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="notes">یادداشت (اختیاری)</Label>
@@ -595,7 +765,7 @@ export default function CheckoutPage() {
                     {...register("notes")}
                     placeholder="یادداشت یا توضیحات اضافی"
                     rows={3}
-                    className={errors.notes ? "border-destructive" : ""}
+                    className={cn(errors.notes && "!border-destructive")}
                   />
                   {errors.notes && (
                     <p className="text-sm text-destructive flex items-center gap-1">
@@ -652,22 +822,52 @@ export default function CheckoutPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-3 max-h-[300px] overflow-y-auto">
-                {items.map((item) => (
-                  <div key={item.id} className="flex gap-3 pb-3 border-b border-border/30 last:border-0">
-                    <div className="relative w-16 h-16 bg-muted rounded-lg overflow-hidden flex-shrink-0">
-                      {item.image && item.image.trim() !== "" ? (
-                      <Image
-                        src={item.image}
-                        alt={item.name}
-                        fill
-                        className="object-cover"
-                      />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                          <Package className="h-6 w-6" />
-                        </div>
-                      )}
-                    </div>
+                {items.map((item) => {
+                  // Validate URL - must be a valid URL string
+                  const isValidUrl = (url: string): boolean => {
+                    if (!url || typeof url !== 'string' || url.trim() === '') {
+                      return false;
+                    }
+                    // Allow blob: and data: URLs
+                    if (url.startsWith('blob:') || url.startsWith('data:')) {
+                      return true;
+                    }
+                    // Try to construct URL to validate
+                    try {
+                      new URL(url);
+                      return true;
+                    } catch {
+                      return false;
+                    }
+                  };
+                  
+                  const hasValidImage = item.image && isValidUrl(item.image);
+                  
+                  return (
+                    <div key={item.id} className="flex gap-3 pb-3 border-b border-border/30 last:border-0">
+                      <div className="relative w-16 h-16 bg-muted rounded-lg overflow-hidden flex-shrink-0">
+                        {hasValidImage ? (
+                          <Image
+                            src={item.image}
+                            alt={item.name || 'Product image'}
+                            fill
+                            className="object-cover"
+                            priority
+                            loading="eager"
+                            unoptimized={item.image.startsWith('blob:') || item.image.startsWith('data:')}
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              if (target) {
+                                target.style.display = 'none';
+                              }
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                            <Package className="h-6 w-6" />
+                          </div>
+                        )}
+                      </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-medium text-sm line-clamp-2 mb-1">
                         {item.name}
@@ -681,7 +881,8 @@ export default function CheckoutPage() {
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="space-y-2 pt-2 border-t border-border/30">
@@ -719,7 +920,27 @@ export default function CheckoutPage() {
         </div>
       </div>
 
+      {/* Location Picker Modal */}
+      <LocationPicker
+        open={showLocationPicker}
+        onOpenChange={setShowLocationPicker}
+        onLocationSelect={(location) => {
+          setSelectedLocation({ lat: location.lat, lng: location.lng });
+          // همیشه مختصات را ذخیره کن (lat,lng)
+          setValue("location", `${location.lat},${location.lng}`);
+          setShowLocationPicker(false);
+        }}
+        initialLocation={selectedLocation || undefined}
+      />
     </div>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <ProtectedRoute requireAuth={true}>
+      <CheckoutPageContent />
+    </ProtectedRoute>
   );
 }
 

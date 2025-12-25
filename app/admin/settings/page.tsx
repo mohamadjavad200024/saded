@@ -1,261 +1,514 @@
 "use client";
 
-import { useState } from "react";
-import * as React from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
-import { useAdminStore } from "@/store/admin-store";
-import { useToast } from "@/hooks/use-toast";
-import { Save, RefreshCw, Trash2, Database, Bell, Palette, Download, Upload, Info, Settings, FileText } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2, Settings, Save, PanelBottom, FileText, Globe, Upload, X, Image as ImageIcon } from "lucide-react";
+import { useAuthStore } from "@/store/auth-store";
+import { useAdminStore } from "@/store/admin-store";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FooterContentEditor } from "@/components/admin/footer-content-editor";
 import { PageContentEditor } from "@/components/admin/page-content-editor";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 
-export default function SettingsPage() {
-  const { settings, updateSettings } = useAdminStore();
+interface SiteSettings {
+  siteName: string;
+  siteDescription: string;
+  logoUrl: string;
+  maintenanceMode: boolean;
+  allowRegistration: boolean;
+  emailNotifications: boolean;
+  lowStockThreshold: number;
+  itemsPerPage: number;
+}
+
+export default function AdminSettingsPage() {
+  const router = useRouter();
+  const { user, isAuthenticated } = useAuthStore();
+  const { updateSettings: updateAdminSettings } = useAdminStore();
   const { toast } = useToast();
-  const [clearDataDialogOpen, setClearDataDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState("general");
+  const [settings, setSettings] = useState<SiteSettings>({
+    siteName: "",
+    siteDescription: "",
+    logoUrl: "",
+    maintenanceMode: false,
+    allowRegistration: true,
+    emailNotifications: true,
+    lowStockThreshold: 10,
+    itemsPerPage: 10,
+  });
 
-  // Ensure settings has default values
-  const safeSettings = {
-    itemsPerPage: settings?.itemsPerPage ?? 10,
-    showNotifications: settings?.showNotifications ?? true,
-    theme: settings?.theme ?? "system",
-    lastUpdated: settings?.lastUpdated,
+  useEffect(() => {
+    // #region agent log
+    if (typeof window !== "undefined") {
+      const cookies = document.cookie;
+      const allCookies = cookies.split(';').map(c => c.trim().split('=')[0]);
+      const hasSadedSession = cookies.includes('saded_session');
+      fetch('http://127.0.0.1:7242/ingest/6e2493c0-cc8b-4c0b-9456-c04638b7e615',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:52',message:'AdminSettingsPage: Auth state check',data:{isAuthenticated,userId:user?.id||null,userRole:user?.role||null,hasCookies:!!cookies,cookieNames:allCookies,hasSadedSession},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'L'})}).catch(()=>{});
+    }
+    // #endregion
+    if (!isAuthenticated || user?.role !== "admin") {
+      return;
+    }
+    loadSettings();
+  }, [isAuthenticated, user]);
+
+  const loadSettings = async () => {
+    setIsLoading(true);
+    try {
+      // Load from API
+      const response = await fetch("/api/site-settings");
+      // #region agent log
+      if (typeof window !== "undefined") {
+        fetch('http://127.0.0.1:7242/ingest/6e2493c0-cc8b-4c0b-9456-c04638b7e615',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:67',message:'loadSettings: API response received',data:{status:response.status,statusText:response.statusText,ok:response.ok},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'R'})}).catch(()=>{});
+      }
+      // #endregion
+      if (response.ok) {
+        const result = await response.json();
+        // #region agent log
+        if (typeof window !== "undefined") {
+          fetch('http://127.0.0.1:7242/ingest/6e2493c0-cc8b-4c0b-9456-c04638b7e615',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:70',message:'loadSettings: Parsed result',data:{success:result.success,hasData:!!result.data,dataKeys:result.data?Object.keys(result.data):[],error:result.error||null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'S'})}).catch(()=>{});
+        }
+        // #endregion
+        if (result.success && result.data) {
+          setSettings(prev => ({ ...prev, ...result.data }));
+        
+        // Sync with admin store
+        updateAdminSettings({
+            siteName: result.data.siteName ?? "",
+            logoUrl: result.data.logoUrl ?? "",
+            lowStockThreshold: result.data.lowStockThreshold ?? 10,
+            itemsPerPage: result.data.itemsPerPage ?? 10,
+        });
+        } else {
+          // #region agent log
+          if (typeof window !== "undefined") {
+            fetch('http://127.0.0.1:7242/ingest/6e2493c0-cc8b-4c0b-9456-c04638b7e615',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:81',message:'loadSettings: Invalid response structure',data:{success:result.success,hasData:!!result.data,resultKeys:Object.keys(result)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'T'})}).catch(()=>{});
+          }
+          // #endregion
+          throw new Error(result.error || "ساختار پاسخ نامعتبر است");
+        }
+      } else {
+        const errorText = await response.text().catch(() => "Unknown error");
+        // #region agent log
+        if (typeof window !== "undefined") {
+          fetch('http://127.0.0.1:7242/ingest/6e2493c0-cc8b-4c0b-9456-c04638b7e615',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:87',message:'loadSettings: Response not OK',data:{status:response.status,statusText:response.statusText,errorText:errorText.substring(0,200)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'U'})}).catch(()=>{});
+        }
+        // #endregion
+        throw new Error(`خطا در بارگذاری تنظیمات از سرور: ${response.status} ${response.statusText}`);
+      }
+    } catch (error: any) {
+      // #region agent log
+      if (typeof window !== "undefined") {
+        fetch('http://127.0.0.1:7242/ingest/6e2493c0-cc8b-4c0b-9456-c04638b7e615',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:92',message:'loadSettings: Error caught',data:{errorMessage:error?.message||'unknown',errorStack:error?.stack?.substring(0,300)||'none'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'V'})}).catch(()=>{});
+      }
+      // #endregion
+      console.error("Error loading settings:", error);
+      toast({
+        title: "خطا",
+        description: error.message || "خطا در بارگذاری تنظیمات",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleSave = () => {
-    toast({
-      title: "موفق",
-      description: "تنظیمات با موفقیت ذخیره شد",
-    });
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+
+    try {
+      // #region agent log
+      const cookies = document.cookie;
+      fetch('http://127.0.0.1:7242/ingest/6e2493c0-cc8b-4c0b-9456-c04638b7e615',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:98',message:'Client: handleSave - About to send PUT',data:{hasCookies:!!cookies,cookieCount:(cookies.match(/;/g)||[]).length+1,hasSadedSession:cookies.includes('saded_session')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
+      // #endregion
+      
+      // Prepare headers with userId fallback
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+      };
+      
+      // Add userId header as fallback if session cookie fails
+      if (user?.id) {
+        headers['x-user-id'] = user.id;
+      }
+      
+      // Save to API (database)
+      const response = await fetch("/api/site-settings", {
+        method: "PUT",
+        credentials: "include", // Include cookies for session authentication
+        headers,
+        body: JSON.stringify(settings),
+      });
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/6e2493c0-cc8b-4c0b-9456-c04638b7e615',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:109',message:'Client: handleSave - Response received',data:{status:response.status,statusText:response.statusText,ok:response.ok},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'K'})}).catch(()=>{});
+      // #endregion
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "خطا در ذخیره تنظیمات");
+      }
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.message || "خطا در ذخیره تنظیمات");
+      }
+      
+      // Sync with admin store
+      updateAdminSettings({
+        siteName: settings.siteName,
+        logoUrl: settings.logoUrl,
+        lowStockThreshold: settings.lowStockThreshold,
+        itemsPerPage: settings.itemsPerPage,
+      });
+      
+      // Save to localStorage for Header/Sidebar components
+      try {
+        localStorage.setItem("admin_site_settings", JSON.stringify(settings));
+      } catch (storageError) {
+        console.warn("Failed to save settings to localStorage:", storageError);
+      }
+      
+      // Dispatch custom event to update header/sidebar in same tab
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("settingsUpdated"));
+      }
+      
+      toast({
+        title: "موفق",
+        description: "تنظیمات با موفقیت در دیتابیس ذخیره شد",
+      });
+    } catch (error: any) {
+      toast({
+        title: "خطا",
+        description: error.message || "خطا در ذخیره تنظیمات",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleClearData = () => {
-    localStorage.clear();
-    toast({
-      title: "موفق",
-      description: "همه داده‌ها پاک شدند",
-    });
-    setClearDataDialogOpen(false);
-    window.location.reload();
-  };
+  if (!isAuthenticated || user?.role !== "admin") {
+    return (
+      <div className="container mx-auto px-4 py-12">
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-center text-muted-foreground">
+              دسترسی غیرمجاز
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-12">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-          تنظیمات
+    <div className="container mx-auto px-4 py-6 max-w-6xl">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold flex items-center gap-3">
+          <Settings className="h-8 w-8" />
+          تنظیمات سایت
         </h1>
-        <p className="text-muted-foreground mt-1">
-          مدیریت تنظیمات پنل ادمین
+        <p className="text-muted-foreground mt-2">
+          مدیریت تنظیمات عمومی سایت، فوتر و محتوای صفحات
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* General Settings */}
-        <Card className="shadow-sm">
-          <CardHeader className="bg-gradient-to-r from-primary/5 to-transparent border-b">
-            <CardTitle className="flex items-center gap-2">
-              <Settings className="h-5 w-5 text-primary" />
-              تنظیمات عمومی
-            </CardTitle>
-            <CardDescription>
-              تنظیمات کلی پنل مدیریت
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 pt-6">
-            <div className="space-y-2">
-              <Label htmlFor="itemsPerPage">تعداد آیتم در هر صفحه</Label>
-              <Select
-                value={safeSettings.itemsPerPage.toString()}
-                onValueChange={(value) =>
-                  updateSettings({ itemsPerPage: parseInt(value) })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="10">10</SelectItem>
-                  <SelectItem value="25">25</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
-                  <SelectItem value="100">100</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="general" className="flex items-center gap-2">
+            <Globe className="h-4 w-4" />
+            تنظیمات عمومی
+          </TabsTrigger>
+          <TabsTrigger value="footer" className="flex items-center gap-2">
+            <PanelBottom className="h-4 w-4" />
+            فوتر
+          </TabsTrigger>
+          <TabsTrigger value="pages" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            محتوای صفحات
+          </TabsTrigger>
+        </TabsList>
 
-            <Separator />
+        {/* تنظیمات عمومی */}
+        <TabsContent value="general" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>تنظیمات عمومی سایت</CardTitle>
+              <CardDescription>
+                تنظیمات اصلی و عمومی سایت
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSave} className="space-y-6">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="siteName">
+                      نام سایت <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="siteName"
+                      placeholder="نام سایت را وارد کنید"
+                      value={settings.siteName}
+                      onChange={(e) => setSettings({ ...settings, siteName: e.target.value })}
+                      disabled={isSaving}
+                      required
+                    />
+                  </div>
 
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>اعلان‌ها</Label>
-                <p className="text-sm text-muted-foreground">
-                  نمایش اعلان‌ها برای رویدادهای مهم
-                </p>
-              </div>
-              <Switch
-                checked={safeSettings.showNotifications}
-                onCheckedChange={(checked) =>
-                  updateSettings({ showNotifications: checked })
-                }
-              />
-            </div>
-          </CardContent>
-        </Card>
+                  <div className="space-y-2">
+                    <Label htmlFor="logo">لوگوی سایت</Label>
+                    <div className="space-y-3">
+                      {settings.logoUrl ? (
+                        <div className="relative inline-block">
+                          <div className="relative w-32 h-32 border-2 border-border rounded-lg overflow-hidden bg-muted">
+                            <img
+                              src={settings.logoUrl}
+                              alt="لوگوی سایت"
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                            onClick={() => setSettings({ ...settings, logoUrl: "" })}
+                            disabled={isSaving}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-4">
+                          <div
+                            onClick={() => {
+                              if (!isSaving) {
+                                document.getElementById("logo-upload")?.click();
+                              }
+                            }}
+                            className="flex items-center justify-center w-32 h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors bg-muted/20"
+                          >
+                            <div className="text-center">
+                              <ImageIcon className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                              <p className="text-xs text-muted-foreground">آپلود لوگو</p>
+                            </div>
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm text-muted-foreground mb-2">
+                              فرمت‌های مجاز: JPG, PNG, WebP
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              حداکثر حجم: 5 مگابایت
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      <input
+                        id="logo-upload"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
 
-        {/* Appearance */}
-        <Card className="shadow-sm">
-          <CardHeader className="bg-gradient-to-r from-primary/5 to-transparent border-b">
-            <CardTitle className="flex items-center gap-2">
-              <Palette className="h-5 w-5 text-primary" />
-              ظاهر
-            </CardTitle>
-            <CardDescription>
-              تنظیمات تم و ظاهر پنل
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 pt-6">
-            <div className="space-y-2">
-              <Label htmlFor="theme">تم</Label>
-              <Select
-                value={safeSettings.theme}
-                onValueChange={(value: "light" | "dark" | "system") =>
-                  updateSettings({ theme: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="light">روشن</SelectItem>
-                  <SelectItem value="dark">تاریک</SelectItem>
-                  <SelectItem value="system">سیستمی</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
+                          // Validate file type
+                          if (!file.type.startsWith("image/")) {
+                            toast({
+                              title: "خطا",
+                              description: "فقط فایل‌های تصویری مجاز هستند",
+                              variant: "destructive",
+                            });
+                            return;
+                          }
 
-        {/* Data Management */}
-        <Card className="shadow-sm">
-          <CardHeader className="bg-gradient-to-r from-primary/5 to-transparent border-b">
-            <CardTitle className="flex items-center gap-2">
-              <Database className="h-5 w-5 text-primary" />
-              مدیریت داده‌ها
-            </CardTitle>
-            <CardDescription>
-              پشتیبان‌گیری و مدیریت داده‌ها
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 pt-6">
-            <Button variant="outline" className="w-full justify-start">
-              <Download className="ml-2 h-4 w-4" />
-              دانلود پشتیبان
-            </Button>
-            <Button variant="outline" className="w-full justify-start">
-              <Upload className="ml-2 h-4 w-4" />
-              بازگردانی پشتیبان
-            </Button>
-            <Separator />
-            <Dialog open={clearDataDialogOpen} onOpenChange={setClearDataDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="destructive" className="w-full justify-start">
-                  <Trash2 className="ml-2 h-4 w-4" />
-                  پاک کردن همه داده‌ها
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>پاک کردن همه داده‌ها</DialogTitle>
-                  <DialogDescription>
-                    آیا از پاک کردن همه داده‌ها اطمینان دارید؟ این عمل قابل بازگشت نیست و همه
-                    اطلاعات شامل محصولات، سفارشات و کاربران حذف خواهند شد.
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
+                          // Validate file size (max 5MB)
+                          if (file.size > 5 * 1024 * 1024) {
+                            toast({
+                              title: "خطا",
+                              description: "حجم فایل باید کمتر از 5 مگابایت باشد",
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+
+                          try {
+                            // Convert to base64
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                              const base64 = event.target?.result as string;
+                              setSettings({ ...settings, logoUrl: base64 });
+                              toast({
+                                title: "موفق",
+                                description: "لوگو با موفقیت آپلود شد",
+                              });
+                            };
+                            reader.onerror = () => {
+                              toast({
+                                title: "خطا",
+                                description: "خطا در خواندن فایل",
+                                variant: "destructive",
+                              });
+                            };
+                            reader.readAsDataURL(file);
+                          } catch (error) {
+                            toast({
+                              title: "خطا",
+                              description: "خطا در آپلود لوگو",
+                              variant: "destructive",
+                            });
+                          }
+
+                          // Reset input
+                          e.target.value = "";
+                        }}
+                        disabled={isSaving}
+                      />
+                      {!settings.logoUrl && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => document.getElementById("logo-upload")?.click()}
+                          disabled={isSaving}
+                          className="gap-2"
+                        >
+                          <Upload className="h-4 w-4" />
+                          انتخاب لوگو
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="siteDescription">توضیحات سایت</Label>
+                  <Textarea
+                    id="siteDescription"
+                    placeholder="توضیحات سایت را وارد کنید"
+                    value={settings.siteDescription}
+                    onChange={(e) => setSettings({ ...settings, siteDescription: e.target.value })}
+                    disabled={isSaving}
+                    rows={4}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+                  <div className="space-y-2">
+                    <Label htmlFor="lowStockThreshold">حد آستانه موجودی کم</Label>
+                    <Input
+                      id="lowStockThreshold"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={settings.lowStockThreshold}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value) || 0;
+                        setSettings({ ...settings, lowStockThreshold: Math.max(0, value) });
+                      }}
+                      disabled={isSaving}
+                      required
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      محصولاتی که موجودی آنها کمتر از این عدد باشد، به عنوان موجودی کم نمایش داده می‌شوند
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="itemsPerPage">تعداد آیتم در هر صفحه</Label>
+                    <Input
+                      id="itemsPerPage"
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={settings.itemsPerPage}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value) || 10;
+                        setSettings({ ...settings, itemsPerPage: Math.max(1, value) });
+                      }}
+                      disabled={isSaving}
+                      required
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      تعداد محصولاتی که در هر صفحه نمایش داده می‌شوند
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-4">
                   <Button
-                    variant="outline"
-                    onClick={() => setClearDataDialogOpen(false)}
+                    type="submit"
+                    className="flex-1"
+                    disabled={isSaving}
                   >
-                    انصراف
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        در حال ذخیره...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="mr-2 h-4 w-4" />
+                        ذخیره تنظیمات
+                      </>
+                    )}
                   </Button>
-                  <Button variant="destructive" onClick={handleClearData}>
-                    پاک کردن
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </CardContent>
-        </Card>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-        {/* Page Content Editor - همه محتواها در یک بخش */}
-        <div className="md:col-span-2">
-          <PageContentEditor />
-        </div>
+        {/* تنظیمات فوتر */}
+        <TabsContent value="footer">
+          <Card>
+            <CardHeader>
+              <CardTitle>تنظیمات فوتر</CardTitle>
+              <CardDescription>
+                مدیریت محتوای فوتر سایت
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FooterContentEditor />
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-        {/* System Info */}
-        <Card className="shadow-sm">
-          <CardHeader className="bg-gradient-to-r from-primary/5 to-transparent border-b">
-            <CardTitle className="flex items-center gap-2">
-              <Info className="h-5 w-5 text-primary" />
-              اطلاعات سیستم
-            </CardTitle>
-            <CardDescription>
-              اطلاعات و آمار سیستم
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 pt-6">
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">نسخه:</span>
-                <span className="font-medium">1.0.0</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">آخرین بروزرسانی:</span>
-                <span className="font-medium">
-                  {safeSettings.lastUpdated
-                    ? new Date(safeSettings.lastUpdated).toLocaleDateString("fa-IR")
-                    : "-"}
-                </span>
-              </div>
-            </div>
-            <Separator />
-            <Button variant="outline" className="w-full" onClick={handleSave}>
-              <RefreshCw className="ml-2 h-4 w-4" />
-              بررسی بروزرسانی
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="flex justify-end">
-        <Button onClick={handleSave} size="lg">
-          <Save className="ml-2 h-4 w-4" />
-          ذخیره تنظیمات
-        </Button>
-      </div>
+        {/* محتوای صفحات */}
+        <TabsContent value="pages">
+          <Card>
+            <CardHeader>
+              <CardTitle>محتوای صفحات</CardTitle>
+              <CardDescription>
+                ویرایش محتوای صفحات مختلف سایت
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <PageContentEditor />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
-

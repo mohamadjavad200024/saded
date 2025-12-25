@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/store/auth-store";
 import { Loader2 } from "lucide-react";
 
@@ -13,7 +13,7 @@ interface ProtectedRouteProps {
 
 /**
  * کامپوننت برای محافظت از صفحات
- * اگر کاربر لاگین نشده باشد، به صفحه لاگین redirect می‌کند
+ * منتظر تأیید سرور می‌ماند و فقط از useAuthStore استفاده می‌کند
  */
 export function ProtectedRoute({
   children,
@@ -21,43 +21,57 @@ export function ProtectedRoute({
   requireAdmin = false,
 }: ProtectedRouteProps) {
   const router = useRouter();
-  const { isAuthenticated, user, checkAuth, isCheckingAuth, hasCheckedAuth } = useAuthStore();
+  const pathname = usePathname();
+  const { user, isAuthenticated, hasCheckedAuth, isCheckingAuth } = useAuthStore();
+  const hasRedirectedRef = useRef(false);
 
+  // Check and redirect only once after auth check is complete
   useEffect(() => {
-    // Ensure we check cookie-based session before redirecting
-    if (requireAuth && !hasCheckedAuth && !isCheckingAuth) {
-      checkAuth();
-    }
-  }, [requireAuth, hasCheckedAuth, isCheckingAuth, checkAuth]);
-
-  useEffect(() => {
+    if (!hasCheckedAuth) return; // Wait for auth check to complete
     if (!requireAuth) return;
-    if (!hasCheckedAuth || isCheckingAuth) return;
-
-    if (!isAuthenticated) {
-      router.push("/auth?redirect=" + encodeURIComponent(window.location.pathname));
+    if (hasRedirectedRef.current) return; // Prevent multiple redirects
+    if (pathname === "/auth") return; // Don't redirect if already on auth page
+    
+    if (!isAuthenticated || !user) {
+      // No user - redirect to auth
+      hasRedirectedRef.current = true;
+      router.replace("/auth?redirect=" + encodeURIComponent(pathname));
       return;
     }
 
-    if (requireAdmin && user?.role !== "admin") {
-      router.push("/");
+    // Check admin access
+    if (requireAdmin && user.role !== "admin") {
+      hasRedirectedRef.current = true;
+      router.replace("/");
     }
-  }, [isAuthenticated, user, requireAuth, requireAdmin, router, hasCheckedAuth, isCheckingAuth]);
+  }, [hasCheckedAuth, isAuthenticated, user, requireAuth, requireAdmin, router, pathname]);
 
-  // نمایش loading در حال بررسی
-  if (requireAuth && (!hasCheckedAuth || isCheckingAuth)) {
+  // Show loading while checking auth
+  if (isCheckingAuth || !hasCheckedAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">در حال بررسی دسترسی...</p>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">در حال بارگذاری...</p>
         </div>
       </div>
     );
   }
 
-  // بررسی دسترسی admin
-  if (requireAdmin && (!isAuthenticated || user?.role !== "admin")) {
+  // If no user and require auth, show loading (redirect is happening)
+  if (requireAuth && (!isAuthenticated || !user)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">در حال هدایت...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Check admin access
+  if (requireAdmin && user && user.role !== "admin") {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -67,6 +81,7 @@ export function ProtectedRoute({
     );
   }
 
+  // Allow access
   return <>{children}</>;
 }
 

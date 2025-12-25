@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { useProductStore } from "@/store/product-store";
 import { useOrderStore } from "@/store/order-store";
+import { useUserStore } from "@/store/user-store";
 import { RefreshCw, Plus, Package, ShoppingCart, ArrowLeft, Eye, AlertCircle, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { useAdminStore } from "@/store/admin-store";
@@ -35,10 +36,37 @@ export default function AdminDashboard() {
   const products = useProductStore((state) => state.products);
   const orders = useOrderStore((state) => state.orders);
   const enabledProducts = useProductStore((state) => state.getEnabledProducts());
+  const { loadProductsFromDB } = useProductStore();
+  const { loadOrdersFromDB } = useOrderStore();
+  const { loadUsersFromDB } = useUserStore();
 
+  // Load all data on mount
   useEffect(() => {
-    refreshStats();
-  }, [refreshStats]);
+    const loadAllData = async () => {
+      try {
+        // Load all data in parallel
+        await Promise.all([
+          loadProductsFromDB(true), // Include inactive products for admin
+          loadOrdersFromDB(),
+          loadUsersFromDB(),
+        ]);
+        // Refresh stats after data is loaded
+        refreshStats();
+      } catch (error) {
+        console.error("Error loading dashboard data:", error);
+      }
+    };
+
+    loadAllData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
+
+  // Also refresh stats when data changes
+  useEffect(() => {
+    if (products.length > 0 || orders.length > 0) {
+      refreshStats();
+    }
+  }, [products, orders, refreshStats]);
 
   const recentProducts = useMemo(() => {
     return products

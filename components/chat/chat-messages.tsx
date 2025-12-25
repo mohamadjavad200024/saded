@@ -4,20 +4,10 @@ import { useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   Loader2,
   Check,
   CheckCheck,
-  Reply,
-  Edit2,
   Trash2,
-  MoreVertical,
   X,
   FileText,
   MapPin,
@@ -26,6 +16,7 @@ import {
 import { TypingIndicator } from "@/components/chat/typing-indicator";
 import { logger } from "@/lib/logger-client";
 import type { Message } from "@/components/chat/chat-types";
+import { AudioPlayer } from "@/components/chat/audio-player";
 
 interface ChatMessagesProps {
   messages: Message[];
@@ -42,15 +33,14 @@ export function ChatMessages({
   messagesContainerRef,
   messagesEndRef,
   isSupportTyping,
-  onReply,
-  onEdit,
   onDelete,
 }: ChatMessagesProps) {
   return (
     <div
       ref={messagesContainerRef}
-      className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-6 md:p-8 space-y-5 sm:space-y-6 bg-gradient-to-b from-background via-background/95 to-muted/5 scroll-smooth"
+      className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-6 md:p-8 bg-gradient-to-b from-background via-background/95 to-muted/5 scroll-smooth"
     >
+      <div className="space-y-3">
       {messages.length === 0 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -162,12 +152,7 @@ export function ChatMessages({
                       </a>
                     )}
                     {attachment.type === "audio" && attachment.url && (
-                      <div className="flex items-center gap-2 p-2 bg-background/50 rounded">
-                        <Mic className="h-3.5 w-3.5" />
-                        <audio controls className="flex-1 h-7 text-xs">
-                          <source src={attachment.url} />
-                        </audio>
-                      </div>
+                      <AudioPlayer url={attachment.url} duration={attachment.duration} />
                     )}
                   </motion.div>
                 ))}
@@ -214,71 +199,27 @@ export function ChatMessages({
                   )}
                 </>
               )}
-              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 hover:bg-background/20"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                      }}
-                      title="گزینه‌های بیشتر"
-                    >
-                      <MoreVertical className="h-3.5 w-3.5" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align={msg.sender === "user" ? "end" : "start"}
-                    className="min-w-[140px]"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onReply(msg);
-                      }}
-                      className="cursor-pointer"
-                    >
-                      <Reply className="h-4 w-4 ml-2" />
-                      <span>پاسخ</span>
-                    </DropdownMenuItem>
-                    {msg.sender === "user" && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onEdit(msg);
-                          }}
-                          className="cursor-pointer"
-                        >
-                          <Edit2 className="h-4 w-4 ml-2" />
-                          <span>ویرایش</span>
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (
-                          confirm(
-                            "آیا مطمئن هستید که می‌خواهید این پیام را حذف کنید؟"
-                          )
-                        ) {
-                          onDelete(msg.id);
-                        }
-                      }}
-                      className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
-                    >
-                      <Trash2 className="h-4 w-4 ml-2" />
-                      <span>حذف</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+              {/* آیکون حذف مستقیم فقط برای پیام‌های ارسالی کاربر - همیشه قابل مشاهده */}
+              {msg.sender === "user" && onDelete && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 hover:bg-destructive/10 text-destructive hover:text-destructive opacity-70 hover:opacity-100 transition-opacity"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (
+                      confirm(
+                        "آیا مطمئن هستید که می‌خواهید این پیام را حذف کنید؟"
+                      )
+                    ) {
+                      onDelete(msg.id);
+                    }
+                  }}
+                  title="حذف پیام"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
             </div>
           </div>
         </motion.div>
@@ -294,6 +235,7 @@ export function ChatMessages({
         </motion.div>
       )}
       <div ref={messagesEndRef} />
+      </div>
     </div>
   );
 }

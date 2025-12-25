@@ -1,6 +1,6 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getRow, runQuery } from "@/lib/db/index";
-import { createErrorResponse, createSuccessResponse } from "@/lib/api-route-helpers";
+import { createErrorResponse } from "@/lib/api-route-helpers";
 import { AppError } from "@/lib/api-error-handler";
 import { logger } from "@/lib/logger";
 import bcrypt from "bcryptjs";
@@ -81,6 +81,20 @@ export async function POST(request: NextRequest) {
     // Ensure users table exists
     // NOTE: We do NOT pre-check duplicates anymore.
     // We rely on UNIQUE index on users.phone (atomic + reliable).
+
+    // IMPORTANT: Check if phone number belongs to an existing admin user
+    // Prevent registering with admin phone number
+    const existingAdmin = await getRow<{
+      id: string;
+      role: string;
+    }>(
+      "SELECT id, role FROM users WHERE phone = ? AND role = 'admin' LIMIT 1",
+      [normalizedPhone]
+    );
+    
+    if (existingAdmin) {
+      throw new AppError("این شماره تماس متعلق به ادمین است. لطفاً از صفحه ورود ادمین استفاده کنید", 403, "ADMIN_PHONE_NOT_ALLOWED");
+    }
 
     // Hash password
     let hashedPassword: string;
@@ -190,14 +204,18 @@ export async function POST(request: NextRequest) {
     logger.info("User registered successfully:", { id, phone: phone.trim() });
 
     const sessionToken = await createSession(newUser.id, request);
-    const res = createSuccessResponse({
-      user: {
-        id: newUser.id,
-        name: newUser.name,
-        phone: newUser.phone,
-        createdAt: newUser.createdAt,
+    // Create response directly to ensure cookie is set on the same object
+    const res = NextResponse.json({
+      success: true,
+      data: {
+        user: {
+          id: newUser.id,
+          name: newUser.name,
+          phone: newUser.phone,
+          createdAt: newUser.createdAt,
+        },
+        message: "ثبت‌نام با موفقیت انجام شد",
       },
-      message: "ثبت‌نام با موفقیت انجام شد",
     });
     setSessionCookie(res, sessionToken, request);
     return res;

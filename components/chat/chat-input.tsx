@@ -257,7 +257,14 @@ export function ChatInput({
                   e.stopPropagation();
                   console.log("[Voice Widget] Save button clicked!");
                   if (actualSaveRecording) {
-                    await actualSaveRecording();
+                    // Disable button to prevent double-click
+                    const button = e.currentTarget;
+                    button.disabled = true;
+                    try {
+                      await actualSaveRecording();
+                    } finally {
+                      button.disabled = false;
+                    }
                   }
                 }}
                 size="sm"

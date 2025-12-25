@@ -5,16 +5,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Sparkles, ArrowLeft, ShoppingBag } from "lucide-react";
 import { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ProductSearch } from "@/components/product/product-search";
 import { MinimalCategoryGrid } from "@/components/home/category-grid";
+import { useProductStore } from "@/store/product-store";
 
 export function HeroSection() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isMounted, setIsMounted] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+  const { setFilters, filters } = useProductStore();
 
   useEffect(() => {
     setIsMounted(true);
@@ -27,15 +30,48 @@ export function HeroSection() {
     }
   }, [pathname]);
 
+  // Sync search query with store filter when on products page
+  useEffect(() => {
+    if (pathname === "/products" && filters.search && filters.search !== searchQuery) {
+      setSearchQuery(filters.search);
+    }
+  }, [filters.search, pathname]);
+
+  const handleSearchSubmit = () => {
+    const trimmedQuery = searchQuery.trim();
+    
+    // Apply search filter first
+    setFilters({ search: trimmedQuery || undefined });
+    
+    // Use setTimeout to ensure filter is applied before navigation
+    setTimeout(() => {
+      // Navigate to products page with search query in URL
+      if (trimmedQuery) {
+        router.push(`/products?search=${encodeURIComponent(trimmedQuery)}`);
+      } else {
+        router.push("/products");
+      }
+      
+      // Close search modal if open
+      setSearchOpen(false);
+      
+      // Close filter sheet if open
+      window.dispatchEvent(new CustomEvent("closeFilterSheet"));
+    }, 50);
+  };
+
   const handleSearchClick = () => {
     if (searchQuery.trim()) {
-      setSearchOpen(true);
+      handleSearchSubmit();
+    } else {
+      // If no query, just navigate to products page
+      router.push("/products");
     }
   };
 
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && searchQuery.trim()) {
-      setSearchOpen(true);
+    if (e.key === "Enter") {
+      handleSearchSubmit();
     }
   };
 
@@ -79,7 +115,14 @@ export function HeroSection() {
                     type="text"
                     placeholder="جستجو..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setSearchQuery(value);
+                      // If input is cleared, clear filter
+                      if (!value.trim() && filters.search) {
+                        setFilters({ search: undefined });
+                      }
+                    }}
                     onKeyDown={handleSearchKeyDown}
                     className="pr-8 sm:pr-10 md:pr-12 bg-background border-border/30 text-foreground placeholder:text-muted-foreground h-10 sm:h-11 md:h-12 text-xs sm:text-sm md:text-base rounded-lg sm:rounded-xl focus:border-accent/30 focus:ring-1 focus:ring-accent/20 transition-all"
                   />

@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -174,9 +175,8 @@ export function BottomNavigation() {
                 const isHome = item.href === "/";
                 
                 return (
-                  <>
+                  <React.Fragment key={item.href}>
                     <Link
-                      key={item.href}
                       href={item.href}
                       className={cn(
                         "flex flex-col items-center justify-center",
@@ -281,7 +281,7 @@ export function BottomNavigation() {
                         )}
                       </Link>
                     )}
-                  </>
+                  </React.Fragment>
                 );
               })}
             </div>

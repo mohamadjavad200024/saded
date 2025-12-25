@@ -111,12 +111,10 @@ if ("TURBOPACK compile-time truthy", 1) {
         password: process.env.DB_PASSWORD ? "***SET***" : "❌ NOT SET"
     });
 }
-if (!process.env.DB_PASSWORD) {
-    __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$logger$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["logger"].error("⚠️  WARNING: DB_PASSWORD is not set in environment variables!");
-    __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$logger$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["logger"].error("   Please make sure .env file exists and contains DB_PASSWORD");
-    __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$logger$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["logger"].error("   If you just updated .env, restart your Next.js server");
-    __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$logger$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["logger"].error("   Current working directory:", process.cwd());
-}
+// Note: DB_PASSWORD can be empty for XAMPP MySQL (default installation)
+// Only show warning in production or if explicitly needed
+if ("TURBOPACK compile-time falsy", 0) //TURBOPACK unreachable
+;
 const DB_CONFIG = {
     host: process.env.DB_HOST || "localhost",
     port: parseInt(process.env.DB_PORT || "3306"),
@@ -130,8 +128,7 @@ const DB_CONFIG = {
     keepAliveInitialDelay: 0,
     // Connection timeout settings
     connectTimeout: 10000,
-    // Reconnect on connection loss
-    reconnect: true,
+    // Note: reconnect option removed - MySQL2 handles reconnection automatically
     ssl: process.env.DB_SSL === 'true' ? {
         rejectUnauthorized: false
     } : undefined
@@ -154,6 +151,14 @@ function getPool() {
         // Handle pool connection errors
         pool.on("connection", (connection)=>{
             connection.on("error", (err)=>{
+                // If connection is closed, destroy the pool and recreate it
+                if (err.code === 'ER_VARIABLE_IS_READONLY' || err.message?.includes('closed state')) {
+                    __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$logger$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["logger"].warn("MySQL connection pool error, will recreate pool:", err.code);
+                    // Destroy current pool
+                    pool?.end().catch(()=>{});
+                    pool = null;
+                    return;
+                }
                 // Don't log ECONNRESET as error - it's expected when connections are idle
                 if (err.code !== 'ECONNRESET' && err.code !== 'PROTOCOL_CONNECTION_LOST') {
                     __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$logger$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["logger"].error("Unexpected error on MySQL connection", err);
@@ -180,7 +185,9 @@ async function query(text, params, retries = 2) {
     for(let attempt = 0; attempt <= retries; attempt++){
         let connection = null;
         try {
-            connection = await getPool().getConnection();
+            // If pool was destroyed due to error, recreate it
+            let currentPool = getPool();
+            connection = await currentPool.getConnection();
             const [rows, fields] = await connection.execute(text, params);
             // For INSERT/UPDATE/DELETE, rows is a ResultSetHeader with affectedRows
             // For SELECT, rows is an array
@@ -210,12 +217,22 @@ async function query(text, params, retries = 2) {
                 await new Promise((resolve)=>setTimeout(resolve, 100 * (attempt + 1)));
                 continue;
             }
-            // Log non-retryable errors
-            __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$logger$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["logger"].error("Database query error:", {
-                sql: text.substring(0, 100),
-                error: error instanceof Error ? error.message : String(error),
-                code: error.code
-            });
+            // Don't log duplicate key/constraint errors as they're expected
+            const isDuplicateError = error.code === 'ER_DUP_KEYNAME' || error.code === 'ER_DUP_KEY' || error.code === 'ER_CANT_CREATE_TABLE' && error.message?.includes('Duplicate');
+            if (!isDuplicateError) {
+                // Log non-retryable errors (except duplicates)
+                __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$logger$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["logger"].error("Database query error:", {
+                    sql: text.substring(0, 100),
+                    error: error instanceof Error ? error.message : String(error),
+                    code: error.code
+                });
+            } else if ("TURBOPACK compile-time truthy", 1) {
+                // Only log duplicate errors in development as debug
+                __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$logger$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["logger"].debug("Database query skipped (duplicate):", {
+                    sql: text.substring(0, 100),
+                    code: error.code
+                });
+            }
             throw error;
         } finally{
             if (connection) {

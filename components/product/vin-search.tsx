@@ -12,11 +12,13 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Hash, Search, X, Package, ArrowUpRight } from "lucide-react";
-import Image from "next/image";
+import { Hash, Search, X, Package, ArrowUpRight, Car } from "lucide-react";
 import Link from "next/link";
 import type { Product } from "@/types/product";
 import { getPlaceholderImage } from "@/lib/image-utils";
+import { SafeImage } from "@/components/ui/safe-image";
+import { useVehicleStore } from "@/store/vehicle-store";
+import { VehicleLogo } from "@/components/ui/vehicle-logo";
 
 interface VinSearchProps {
   onProductClick?: (product: Product) => void;
@@ -28,6 +30,14 @@ export function VinSearch({ onProductClick, trigger }: VinSearchProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const { vehicles, getVehicle, loadVehiclesFromDB } = useVehicleStore();
+
+  // Load vehicles on mount
+  useEffect(() => {
+    if (vehicles.length === 0) {
+      loadVehiclesFromDB().catch(console.error);
+    }
+  }, [vehicles.length, loadVehiclesFromDB]);
   const [hasSearched, setHasSearched] = useState(false);
 
   // Validate VIN format (17 characters, alphanumeric, no I, O, Q)
@@ -211,19 +221,44 @@ export function VinSearch({ onProductClick, trigger }: VinSearchProps) {
                         onClick={() => handleProductClick(product)}
                       >
                         <div className="relative h-48 w-full bg-muted rounded-t-lg overflow-hidden">
-                          <Image
+                          <SafeImage
                             src={product.images[0] || getPlaceholderImage(300, 300)}
                             alt={product.name}
                             fill
                             className="object-cover"
-                            loading="lazy"
+                            priority
+                            loading="eager"
                             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                            productId={product.id}
                           />
                         </div>
                         <CardContent className="p-4 flex-1 flex flex-col">
-                          <h3 className="font-semibold mb-2 line-clamp-2 text-sm">
+                          <h3 className="font-semibold mb-1.5 line-clamp-2 text-sm">
                             {product.name}
                           </h3>
+                          {/* Vehicle Info */}
+                          {product.vehicle && (() => {
+                            const vehicle = getVehicle(product.vehicle);
+                            if (!vehicle) return null;
+                            return (
+                              <div className="flex items-center gap-1.5 mb-1.5 text-xs text-muted-foreground">
+                                <VehicleLogo
+                                  logo={vehicle.logo}
+                                  alt={vehicle.name}
+                                  size="sm"
+                                  fallbackIcon={false}
+                                  className="flex-shrink-0"
+                                />
+                                <span className="font-medium truncate">{vehicle.name}</span>
+                                {product.model && (
+                                  <>
+                                    <span className="text-[10px]">•</span>
+                                    <span className="truncate">{product.model}</span>
+                                  </>
+                                )}
+                              </div>
+                            );
+                          })()}
                           {product.brand && (
                             <p className="text-xs text-muted-foreground mb-2">
                               {product.brand}

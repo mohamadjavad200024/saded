@@ -14,10 +14,12 @@ export interface OrderItem {
 }
 
 export interface ShippingAddress {
+  addressType?: "location" | "postalCode" | "address";
   province?: string;
-  city: string;
-  address: string;
+  city?: string;
+  address?: string;
   postalCode?: string;
+  location?: string;
 }
 
 export interface Order {

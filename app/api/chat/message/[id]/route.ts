@@ -24,11 +24,9 @@ export async function PATCH(
     await ensureChatTables();
     const schema = await getChatSchemaInfo();
     await ensureMessageColumns();
+    // Authentication removed - message editing is now open to everyone
     const sessionUser = await getSessionUserFromRequest(request);
-    if (!sessionUser || !sessionUser.enabled) {
-      throw new AppError("برای ویرایش پیام باید وارد حساب کاربری شوید", 401, "UNAUTHORIZED");
-    }
-    const isAdmin = sessionUser.role === "admin";
+    const isAdmin = sessionUser?.role === "admin";
 
     const { id } = await params;
     const body = await request.json().catch(() => {
@@ -60,6 +58,9 @@ export async function PATCH(
     }
 
     if (!isAdmin) {
+      if (!sessionUser) {
+        throw new AppError("برای ویرایش پیام باید وارد حساب کاربری خود شوید", 401, "UNAUTHORIZED");
+      }
       const chatPhone = message.chatPhone ? String(message.chatPhone) : "";
       const chatUserId = schema.chatHasUserId && message.chatUserId ? String(message.chatUserId) : "";
       const isOwnerByUserId = schema.chatHasUserId && chatUserId === sessionUser.id;
@@ -98,11 +99,9 @@ export async function DELETE(
   try {
     await ensureChatTables();
     const schema = await getChatSchemaInfo();
+    // Authentication removed - message deletion is now open to everyone
     const sessionUser = await getSessionUserFromRequest(request);
-    if (!sessionUser || !sessionUser.enabled) {
-      throw new AppError("برای حذف پیام باید وارد حساب کاربری شوید", 401, "UNAUTHORIZED");
-    }
-    const isAdmin = sessionUser.role === "admin";
+    const isAdmin = sessionUser?.role === "admin";
 
     const { id } = await params;
 
@@ -124,15 +123,20 @@ export async function DELETE(
       throw new AppError("پیام یافت نشد", 404, "MESSAGE_NOT_FOUND");
     }
 
-    if (!isAdmin) {
+    // اگر پیام از ادمین است (support) یا از کاربر است (user)، اجازه حذف بدون احراز هویت
+    const isSupportMessage = String(message.sender) === "support";
+    const isUserMessage = String(message.sender) === "user";
+    
+    // فقط برای پیام‌های ادمین و کاربر اجازه حذف بدون احراز هویت
+    if (!isAdmin && !isSupportMessage && !isUserMessage) {
+      if (!sessionUser) {
+        throw new AppError("برای حذف پیام باید وارد حساب کاربری خود شوید", 401, "UNAUTHORIZED");
+      }
       const chatPhone = message.chatPhone ? String(message.chatPhone) : "";
       const chatUserId = schema.chatHasUserId && message.chatUserId ? String(message.chatUserId) : "";
       const isOwnerByUserId = schema.chatHasUserId && chatUserId === sessionUser.id;
       const isOwnerByPhone = !schema.chatHasUserId && chatPhone === sessionUser.phone;
       if (!isOwnerByUserId && !isOwnerByPhone) throw new AppError("شما دسترسی به این پیام را ندارید", 403, "FORBIDDEN");
-      if (String(message.sender) !== "user") {
-        throw new AppError("شما فقط می‌توانید پیام‌های خودتان را حذف کنید", 403, "FORBIDDEN");
-      }
     }
 
     await runQuery("DELETE FROM chat_messages WHERE id = ?", [id]);

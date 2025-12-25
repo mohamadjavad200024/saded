@@ -19,11 +19,12 @@ if (process.env.NODE_ENV === "development") {
   });
 }
 
-if (!process.env.DB_PASSWORD) {
-  logger.error("⚠️  WARNING: DB_PASSWORD is not set in environment variables!");
-  logger.error("   Please make sure .env file exists and contains DB_PASSWORD");
-  logger.error("   If you just updated .env, restart your Next.js server");
-  logger.error("   Current working directory:", process.cwd());
+// Note: DB_PASSWORD can be empty for XAMPP MySQL (default installation)
+// Only show warning in production or if explicitly needed
+if (!process.env.DB_PASSWORD && process.env.NODE_ENV === 'production') {
+  logger.warn("⚠️  WARNING: DB_PASSWORD is not set in environment variables!");
+  logger.warn("   For XAMPP MySQL, empty password is normal.");
+  logger.warn("   For production, please set DB_PASSWORD in .env.production");
 }
 
 const DB_CONFIG = {
@@ -39,8 +40,7 @@ const DB_CONFIG = {
   keepAliveInitialDelay: 0,
   // Connection timeout settings
   connectTimeout: 10000, // 10 seconds
-  // Reconnect on connection loss
-  reconnect: true,
+  // Note: reconnect option removed - MySQL2 handles reconnection automatically
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
 };
 
@@ -68,6 +68,14 @@ export function getPool(): mysql.Pool {
     // Handle pool connection errors
     pool.on("connection", (connection) => {
       connection.on("error", (err: any) => {
+        // If connection is closed, destroy the pool and recreate it
+        if (err.code === 'ER_VARIABLE_IS_READONLY' || err.message?.includes('closed state')) {
+          logger.warn("MySQL connection pool error, will recreate pool:", err.code);
+          // Destroy current pool
+          pool?.end().catch(() => {});
+          pool = null;
+          return;
+        }
         // Don't log ECONNRESET as error - it's expected when connections are idle
         if (err.code !== 'ECONNRESET' && err.code !== 'PROTOCOL_CONNECTION_LOST') {
           logger.error("Unexpected error on MySQL connection", err);
@@ -108,7 +116,9 @@ export async function query<T = any>(
   for (let attempt = 0; attempt <= retries; attempt++) {
     let connection: mysql.PoolConnection | null = null;
     try {
-      connection = await getPool().getConnection();
+      // If pool was destroyed due to error, recreate it
+      let currentPool = getPool();
+      connection = await currentPool.getConnection();
       const [rows, fields] = await connection.execute<any[]>(text, params);
       // For INSERT/UPDATE/DELETE, rows is a ResultSetHeader with affectedRows
       // For SELECT, rows is an array
@@ -147,12 +157,26 @@ export async function query<T = any>(
         continue;
       }
       
-      // Log non-retryable errors
-      logger.error("Database query error:", {
-        sql: text.substring(0, 100),
-        error: error instanceof Error ? error.message : String(error),
-        code: error.code,
-      });
+      // Don't log duplicate key/constraint errors as they're expected
+      const isDuplicateError = 
+        error.code === 'ER_DUP_KEYNAME' || 
+        error.code === 'ER_DUP_KEY' || 
+        error.code === 'ER_CANT_CREATE_TABLE' && error.message?.includes('Duplicate');
+      
+      if (!isDuplicateError) {
+        // Log non-retryable errors (except duplicates)
+        logger.error("Database query error:", {
+          sql: text.substring(0, 100),
+          error: error instanceof Error ? error.message : String(error),
+          code: error.code,
+        });
+      } else if (process.env.NODE_ENV === 'development') {
+        // Only log duplicate errors in development as debug
+        logger.debug("Database query skipped (duplicate):", {
+          sql: text.substring(0, 100),
+          code: error.code,
+        });
+      }
       throw error;
     } finally {
       if (connection) {

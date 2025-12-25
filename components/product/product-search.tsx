@@ -12,11 +12,13 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Search, X, Package, ArrowUpRight } from "lucide-react";
-import Image from "next/image";
+import { Search, X, Package, ArrowUpRight, Car } from "lucide-react";
 import Link from "next/link";
 import type { Product } from "@/types/product";
 import { getPlaceholderImage } from "@/lib/image-utils";
+import { SafeImage } from "@/components/ui/safe-image";
+import { useVehicleStore } from "@/store/vehicle-store";
+import { VehicleLogo } from "@/components/ui/vehicle-logo";
 
 interface ProductSearchProps {
   onProductClick?: (product: Product) => void;
@@ -234,16 +236,18 @@ export function ProductSearch({
                             onClick={() => handleProductClick(product)}
                           >
                             <div className="relative h-28 sm:h-36 w-full bg-muted/50 overflow-hidden">
-                              <Image
+                              <SafeImage
                                 src={product.images[0] || getPlaceholderImage(300, 300)}
                                 alt={product.name}
                                 fill
                                 className="object-cover group-hover:scale-105 transition-transform duration-200"
-                                loading="lazy"
+                                priority
+                                loading="eager"
                                 sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                                productId={product.id}
                               />
                               {discountPercentage && (
-                                <div className="absolute top-1 left-1 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-sm shadow-sm">
+                                <div className="absolute top-1 right-1 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-sm shadow-sm z-10">
                                   {discountPercentage}%
                                 </div>
                               )}
@@ -252,6 +256,29 @@ export function ProductSearch({
                               <h3 className="font-medium line-clamp-2 text-[10px] sm:text-[11px] leading-tight min-h-[2.5em]">
                                 {product.name}
                               </h3>
+                              {/* Vehicle Info */}
+                              {product.vehicle && (() => {
+                                const vehicle = getVehicle(product.vehicle);
+                                if (!vehicle) return null;
+                                return (
+                                  <div className="flex items-center gap-1 text-[8px] sm:text-[9px] text-muted-foreground/70 line-clamp-1">
+                                    <VehicleLogo
+                                      logo={vehicle.logo}
+                                      alt={vehicle.name}
+                                      size="sm"
+                                      fallbackIcon={false}
+                                      className="flex-shrink-0"
+                                    />
+                                    <span className="font-medium truncate">{vehicle.name}</span>
+                                    {product.model && (
+                                      <>
+                                        <span className="text-[7px]">•</span>
+                                        <span className="truncate">{product.model}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                               {product.brand && (
                                 <p className="text-[8px] sm:text-[9px] text-muted-foreground/70 line-clamp-1">
                                   {product.brand}

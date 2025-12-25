@@ -1,11 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Car, Wrench, Settings, Sparkles, Zap, Shield, ArrowLeft, ChevronDown, ChevronUp } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useCategories } from "@/services/categories";
+import { useVehicleStore } from "@/store/vehicle-store";
+import { useProductStore } from "@/store/product-store";
+import { VehicleLogo } from "@/components/ui/vehicle-logo";
 
 const iconMap: Record<string, typeof Car> = {
   "موتور و قطعات": Car,
@@ -178,47 +181,55 @@ export function CategoryGrid() {
   );
 }
 
-// Minimal Category Grid Component for Hero Section
+// Minimal Category Grid Component for Hero Section - Now shows Vehicles instead of Categories
 export function MinimalCategoryGrid() {
-  const { data: categories = [], isLoading } = useCategories();
+  const { vehicles, loadVehiclesFromDB } = useVehicleStore();
+  const { setFilters } = useProductStore();
   const [showAll, setShowAll] = useState(false);
-  
-  const allCategories = useMemo(() => {
-    return (categories || [])
-      .filter((cat) => cat.isActive)
-      .map((category, index) => {
-        const Icon = iconMap[category.name] || Car;
-        const colors = colorMap[index % 3];
-        return {
-          ...category,
-          Icon,
-          ...colors,
-          href: `/categories/${category.id}`,
-        };
-      });
-  }, [categories]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const displayCategories = useMemo(() => {
-    if (showAll) {
-      return allCategories;
+  useEffect(() => {
+    const loadVehicles = async () => {
+      try {
+        await loadVehiclesFromDB();
+      } catch (error) {
+        console.error("Error loading vehicles:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    if (vehicles.length === 0) {
+      loadVehicles();
+    } else {
+      setIsLoading(false);
     }
-    return allCategories.slice(0, 6);
-  }, [allCategories, showAll]);
+  }, [vehicles.length, loadVehiclesFromDB]);
 
-  const hasMoreCategories = allCategories.length > 6;
+  const allVehicles = useMemo(() => {
+    return vehicles.filter((vehicle) => vehicle.isActive || vehicle.isActive === undefined);
+  }, [vehicles]);
 
-  if (isLoading || allCategories.length === 0) {
+  const displayVehicles = useMemo(() => {
+    if (showAll) {
+      return allVehicles;
+    }
+    return allVehicles.slice(0, 6);
+  }, [allVehicles, showAll]);
+
+  const hasMoreVehicles = allVehicles.length > 6;
+
+  if (isLoading || allVehicles.length === 0) {
     return null;
   }
 
   return (
     <div className="space-y-3 sm:space-y-4">
       <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        {displayCategories.map((category, index) => {
-          const Icon = category.Icon;
+        {displayVehicles.map((vehicle, index) => {
           return (
             <motion.div
-              key={category.id || index}
+              key={vehicle.id || index}
               initial={{ opacity: 0, y: 10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ 
@@ -233,20 +244,28 @@ export function MinimalCategoryGrid() {
               }}
               className="group relative"
             >
-              <Link href={category.href}>
+              <Link 
+                href={`/products?vehicle=${vehicle.id}`}
+                onClick={(e) => {
+                  // Apply vehicle filter immediately
+                  setFilters({ vehicle: vehicle.id });
+                }}
+              >
                 <div className="glass-morphism-light rounded-lg sm:rounded-xl p-2 sm:p-3 relative overflow-hidden transition-all duration-300 hover:shadow-lg cursor-pointer border border-border/30 flex items-center justify-between gap-3 sm:gap-4">
-                  {/* Icon - Right side */}
-                  <div className={`
-                    relative w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0
-                    ${category.iconBg} rounded-md sm:rounded-lg flex items-center justify-center 
-                    transition-all duration-300
-                  `}>
-                    <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${category.color} transition-transform duration-300`} />
+                  {/* Vehicle Logo - Right side */}
+                  <div className="relative w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0">
+                    <VehicleLogo
+                      logo={vehicle.logo}
+                      alt={vehicle.name}
+                      size="sm"
+                      fallbackIcon={true}
+                      className="w-full h-full"
+                    />
                   </div>
 
-                  {/* Category Name - Left side */}
+                  {/* Vehicle Name - Left side */}
                   <h3 className="text-[10px] sm:text-xs md:text-sm font-medium text-right text-foreground group-hover:text-primary transition-colors duration-300 leading-tight line-clamp-2 flex-1 min-w-0">
-                    {category.name}
+                    {vehicle.name}
                   </h3>
                 </div>
               </Link>
@@ -256,7 +275,7 @@ export function MinimalCategoryGrid() {
       </div>
 
       {/* Show More/Less Button */}
-      {hasMoreCategories && (
+      {hasMoreVehicles && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -270,7 +289,7 @@ export function MinimalCategoryGrid() {
             <span className="text-xs sm:text-sm font-medium text-foreground group-hover:text-primary transition-colors duration-200">
               {showAll 
                 ? 'نمایش کمتر' 
-                : `مشاهده همه دسته‌ها (${allCategories.length - 6} مورد دیگر)`
+                : `مشاهده همه خودروها (${allVehicles.length - 6} مورد دیگر)`
               }
             </span>
             <motion.div

@@ -6,7 +6,9 @@ import { cn } from "@/lib/utils";
 import { Car, ShoppingCart, LogOut, LogIn } from "lucide-react";
 import { useCartStore } from "@/store/cart-store";
 import { useNavigationStore } from "@/store/navigation-store";
+import { useAdminStore } from "@/store/admin-store";
 import { Button } from "@/components/ui/button";
+import { useState, useEffect } from "react";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getIcon } from "@/lib/icon-utils";
@@ -27,7 +29,71 @@ export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname();
   const itemCount = useCartStore((state) => state.getItemCount());
   const { getEnabledItems, getItemsByGroup, groups } = useNavigationStore();
+  const { settings } = useAdminStore();
   const enabledItems = getEnabledItems();
+
+  // Use settings directly from admin store (which loads from API)
+  // Also sync with localStorage for backward compatibility
+  const [siteSettings, setSiteSettings] = useState({
+    siteName: settings.siteName || "ساد",
+    logoUrl: settings.logoUrl || "",
+    siteDescription: settings.siteDescription || "فروشگاه قطعات خودرو",
+  });
+
+  useEffect(() => {
+    // Update from admin store (which loads from API)
+    setSiteSettings({
+      siteName: settings.siteName || "ساد",
+      logoUrl: settings.logoUrl || "",
+      siteDescription: settings.siteDescription || "فروشگاه قطعات خودرو",
+    });
+    
+    // Also load from localStorage as fallback
+    const loadFromLocalStorage = () => {
+      const savedSettings = localStorage.getItem("admin_site_settings");
+      if (savedSettings) {
+        try {
+          const parsed = JSON.parse(savedSettings);
+          setSiteSettings({
+            siteName: parsed.siteName || settings.siteName || "ساد",
+            logoUrl: parsed.logoUrl || settings.logoUrl || "",
+            siteDescription: parsed.siteDescription || settings.siteDescription || "فروشگاه قطعات خودرو",
+          });
+        } catch (error) {
+          console.error("Error loading site settings from localStorage:", error);
+        }
+      }
+    };
+
+    loadFromLocalStorage();
+
+    // Listen for storage changes (when settings are updated in another tab/window)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "admin_site_settings") {
+        loadFromLocalStorage();
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+
+    // Also listen for custom event (for same-tab updates)
+    const handleSettingsUpdate = () => {
+      // Reload from admin store (which will have latest from API)
+      setSiteSettings({
+        siteName: settings.siteName || "ساد",
+        logoUrl: settings.logoUrl || "",
+        siteDescription: settings.siteDescription || "فروشگاه قطعات خودرو",
+      });
+      loadFromLocalStorage();
+    };
+
+    window.addEventListener("settingsUpdated", handleSettingsUpdate);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("settingsUpdated", handleSettingsUpdate);
+    };
+  }, [settings]);
 
   const NavItem = ({
     item,
@@ -70,12 +136,24 @@ export function Sidebar({ className }: SidebarProps) {
         {/* Logo Section */}
         <div className="p-4 border-b border-border/30">
           <Link href="/" className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary text-primary-foreground">
-              <Car className="h-6 w-6" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-lg font-bold text-primary">ساد</span>
-              <span className="text-xs text-muted-foreground">فروشگاه قطعات خودرو</span>
+            {siteSettings.logoUrl ? (
+              <div className="relative w-10 h-10 flex-shrink-0 rounded-lg overflow-hidden bg-muted">
+                <img
+                  src={siteSettings.logoUrl}
+                  alt={siteSettings.siteName}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+            ) : (
+              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary text-primary-foreground">
+                <Car className="h-6 w-6" />
+              </div>
+            )}
+            <div className="flex flex-col min-w-0">
+              <span className="text-lg font-bold text-primary truncate">{siteSettings.siteName}</span>
+              {siteSettings.siteDescription && (
+                <span className="text-xs text-muted-foreground truncate">{siteSettings.siteDescription}</span>
+              )}
             </div>
           </Link>
         </div>

@@ -224,28 +224,41 @@ export const useCartStore = create<CartStore>()(
 
           if (!response.ok) {
             let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+            let errorData: any = null;
             try {
-              const errorData = await response.json();
+              errorData = await response.json();
               if (errorData && typeof errorData === 'object') {
                 errorMessage = errorData.error || errorData.message || errorMessage;
               }
             } catch (parseError) {
               // If JSON parsing fails, use the status text
-              const text = await response.text().catch(() => '');
-              if (text) {
-                errorMessage = `${errorMessage} - ${text.substring(0, 100)}`;
+              try {
+                const text = await response.text();
+                if (text) {
+                  errorMessage = `${errorMessage} - ${text.substring(0, 100)}`;
+                }
+              } catch (textError) {
+                // If text parsing also fails, just use the status
+                logger.warn("Could not parse error response", { status: response.status });
               }
             }
             
             // Only log if it's a real error (not 200-299 range)
             if (response.status >= 400) {
-              logger.error("Failed to sync cart to database:", {
+              const errorInfo: any = {
                 status: response.status,
                 statusText: response.statusText,
                 error: errorMessage,
-                sessionId,
+                sessionId: sessionId || 'unknown',
                 itemCount: itemsForDB.length,
-              });
+              };
+              
+              // Add error data if available
+              if (errorData) {
+                errorInfo.errorData = errorData;
+              }
+              
+              logger.error("Failed to sync cart to database:", errorInfo);
             }
           } else {
             try {
@@ -276,7 +289,23 @@ export const useCartStore = create<CartStore>()(
               });
             }
           } else {
-            logger.error("Error syncing cart to database:", error);
+            // Build error info for non-Error objects
+            const errorInfo: any = {
+              sessionId: get().sessionId || getSessionId() || 'unknown',
+              itemCount: get().items.length,
+            };
+            
+            if (error && typeof error === 'object') {
+              errorInfo.error = error;
+              const errorObj = error as { message?: string; code?: string; status?: number };
+              errorInfo.message = errorObj.message || error.toString() || 'Unknown error';
+              if (errorObj.code) errorInfo.code = errorObj.code;
+              if (errorObj.status) errorInfo.status = errorObj.status;
+            } else {
+              errorInfo.message = String(error) || 'Unknown error';
+            }
+            
+            logger.error("Failed to sync cart to database:", errorInfo);
           }
           // Don't throw - allow app to continue with localStorage
         }

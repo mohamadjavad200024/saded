@@ -7,13 +7,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Plus, Trash2, Link as LinkIcon, RefreshCw, GripVertical, AlertCircle } from "lucide-react";
+import { Save, Link as LinkIcon, RefreshCw, Instagram, Facebook, Twitter, Youtube, Linkedin, MessageCircle, Send } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 
+interface SocialLink {
+  url: string;
+  enabled: boolean;
+}
+
 interface SocialLinks {
-  instagram: string;
-  facebook: string;
-  twitter: string;
+  instagram: SocialLink;
+  facebook: SocialLink;
+  twitter: SocialLink;
+  whatsapp: SocialLink;
+  telegram: SocialLink;
+  youtube: SocialLink;
+  linkedin: SocialLink;
+  tiktok: SocialLink;
 }
 
 interface LinkItem {
@@ -27,14 +38,6 @@ interface FooterContent {
       title: string;
       description: string;
       socialLinks: SocialLinks;
-    };
-    quickLinks: {
-      title: string;
-      links: LinkItem[];
-    };
-    support: {
-      title: string;
-      links: LinkItem[];
     };
     contact: {
       title: string;
@@ -52,28 +55,15 @@ const defaultContent: FooterContent = {
       title: "درباره ساد",
       description: "فروشگاه آنلاین قطعات خودرو وارداتی با بهترین کیفیت و قیمت. ما متعهد به ارائه بهترین خدمات به مشتریان خود هستیم.",
       socialLinks: {
-        instagram: "#",
-        facebook: "#",
-        twitter: "#",
+        instagram: { url: "#", enabled: false },
+        facebook: { url: "#", enabled: false },
+        twitter: { url: "#", enabled: false },
+        whatsapp: { url: "#", enabled: false },
+        telegram: { url: "#", enabled: false },
+        youtube: { url: "#", enabled: false },
+        linkedin: { url: "#", enabled: false },
+        tiktok: { url: "#", enabled: false },
       },
-    },
-    quickLinks: {
-      title: "دسترسی سریع",
-      links: [
-        { label: "محصولات", href: "/products" },
-        { label: "درباره ما", href: "/about" },
-        { label: "تماس با ما", href: "/contact" },
-        { label: "وبلاگ", href: "/blog" },
-      ],
-    },
-    support: {
-      title: "پشتیبانی",
-      links: [
-        { label: "سوالات متداول", href: "/faq" },
-        { label: "ارسال و تحویل", href: "/shipping" },
-        { label: "بازگشت کالا", href: "/returns" },
-        { label: "گارانتی", href: "/warranty" },
-      ],
     },
     contact: {
       title: "تماس با ما",
@@ -109,24 +99,33 @@ export function FooterContentEditor() {
               about: {
                 ...defaultContent.footer.about,
                 ...data.data.footer.about,
-                socialLinks: {
-                  ...defaultContent.footer.about.socialLinks,
-                  ...data.data.footer.about?.socialLinks,
-                },
-              },
-              quickLinks: {
-                ...defaultContent.footer.quickLinks,
-                ...data.data.footer.quickLinks,
-                links: data.data.footer.quickLinks?.links?.length > 0 
-                  ? data.data.footer.quickLinks.links 
-                  : defaultContent.footer.quickLinks.links,
-              },
-              support: {
-                ...defaultContent.footer.support,
-                ...data.data.footer.support,
-                links: data.data.footer.support?.links?.length > 0 
-                  ? data.data.footer.support.links 
-                  : defaultContent.footer.support.links,
+                socialLinks: (() => {
+                  const oldLinks = data.data.footer.about?.socialLinks;
+                  if (!oldLinks) return defaultContent.footer.about.socialLinks;
+                  
+                  // Handle old format (string) or new format (object with url and enabled)
+                  const convertLink = (oldValue: any, defaultLink: SocialLink): SocialLink => {
+                    if (typeof oldValue === "string") {
+                      // Old format: just a URL string
+                      return { url: oldValue, enabled: oldValue !== "#" && oldValue !== "" };
+                    } else if (oldValue && typeof oldValue === "object") {
+                      // New format: object with url and enabled
+                      return { url: oldValue.url || "#", enabled: oldValue.enabled ?? false };
+                    }
+                    return defaultLink;
+                  };
+                  
+                  return {
+                    instagram: convertLink(oldLinks.instagram, defaultContent.footer.about.socialLinks.instagram),
+                    facebook: convertLink(oldLinks.facebook, defaultContent.footer.about.socialLinks.facebook),
+                    twitter: convertLink(oldLinks.twitter, defaultContent.footer.about.socialLinks.twitter),
+                    whatsapp: convertLink(oldLinks.whatsapp, defaultContent.footer.about.socialLinks.whatsapp),
+                    telegram: convertLink(oldLinks.telegram, defaultContent.footer.about.socialLinks.telegram),
+                    youtube: convertLink(oldLinks.youtube, defaultContent.footer.about.socialLinks.youtube),
+                    linkedin: convertLink(oldLinks.linkedin, defaultContent.footer.about.socialLinks.linkedin),
+                    tiktok: convertLink(oldLinks.tiktok, defaultContent.footer.about.socialLinks.tiktok),
+                  };
+                })(),
               },
               contact: {
                 ...defaultContent.footer.contact,
@@ -166,35 +165,29 @@ export function FooterContentEditor() {
       return "ایمیل وارد شده معتبر نیست";
     }
 
-    // Validate links
-    for (const link of content.footer.quickLinks.links) {
-      if (!link.label.trim() || !link.href.trim()) {
-        return "تمام لینک‌های دسترسی سریع باید عنوان و آدرس داشته باشند";
-      }
-      if (!link.href.startsWith("/") && !link.href.startsWith("http")) {
-        return `آدرس لینک "${link.label}" باید با "/" یا "http" شروع شود`;
-      }
-    }
-
-    for (const link of content.footer.support.links) {
-      if (!link.label.trim() || !link.href.trim()) {
-        return "تمام لینک‌های پشتیبانی باید عنوان و آدرس داشته باشند";
-      }
-      if (!link.href.startsWith("/") && !link.href.startsWith("http")) {
-        return `آدرس لینک "${link.label}" باید با "/" یا "http" شروع شود`;
-      }
-    }
-
-    // Validate social links URLs
+    // Validate social links URLs (only if enabled)
     const socialLinks = content.footer.about.socialLinks;
-    if (socialLinks.instagram && !socialLinks.instagram.startsWith("http") && socialLinks.instagram !== "#") {
-      return "لینک اینستاگرام باید با http شروع شود یا # باشد";
-    }
-    if (socialLinks.facebook && !socialLinks.facebook.startsWith("http") && socialLinks.facebook !== "#") {
-      return "لینک فیسبوک باید با http شروع شود یا # باشد";
-    }
-    if (socialLinks.twitter && !socialLinks.twitter.startsWith("http") && socialLinks.twitter !== "#") {
-      return "لینک توییتر باید با http شروع شود یا # باشد";
+    const socialNetworks = [
+      { key: "instagram", name: "اینستاگرام" },
+      { key: "facebook", name: "فیسبوک" },
+      { key: "twitter", name: "توییتر" },
+      { key: "whatsapp", name: "واتساپ" },
+      { key: "telegram", name: "تلگرام" },
+      { key: "youtube", name: "یوتیوب" },
+      { key: "linkedin", name: "لینکدین" },
+      { key: "tiktok", name: "تیک‌تاک" },
+    ];
+
+    for (const network of socialNetworks) {
+      const link = socialLinks[network.key as keyof SocialLinks];
+      if (link && link.enabled && link.url && link.url !== "#") {
+        const url = link.url;
+        if (typeof url === "string" && url.trim() !== "") {
+          if (!url.startsWith("http") && !url.startsWith("https") && !url.startsWith("wa.me") && !url.startsWith("t.me")) {
+            return `لینک ${network.name} باید با http، https، wa.me یا t.me شروع شود`;
+          }
+        }
+      }
     }
 
     return null;
@@ -246,46 +239,6 @@ export function FooterContentEditor() {
     }
   };
 
-  const addLink = (section: "quickLinks" | "support") => {
-    setContent((prev) => ({
-      ...prev,
-      footer: {
-        ...prev.footer,
-        [section]: {
-          ...prev.footer[section],
-          links: [...prev.footer[section].links, { label: "", href: "" }],
-        },
-      },
-    }));
-  };
-
-  const removeLink = (section: "quickLinks" | "support", index: number) => {
-    setContent((prev) => ({
-      ...prev,
-      footer: {
-        ...prev.footer,
-        [section]: {
-          ...prev.footer[section],
-          links: prev.footer[section].links.filter((_, i) => i !== index),
-        },
-      },
-    }));
-  };
-
-  const updateLink = (section: "quickLinks" | "support", index: number, field: "label" | "href", value: string) => {
-    setContent((prev) => ({
-      ...prev,
-      footer: {
-        ...prev.footer,
-        [section]: {
-          ...prev.footer[section],
-          links: prev.footer[section].links.map((link, i) =>
-            i === index ? { ...link, [field]: value } : link
-          ),
-        },
-      },
-    }));
-  };
 
   if (loading) {
     return (
@@ -351,16 +304,40 @@ export function FooterContentEditor() {
               این متن در بخش درباره ساد در Footer نمایش داده می‌شود
             </p>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-4">
             <Label>لینک‌های شبکه‌های اجتماعی</Label>
             <p className="text-xs text-muted-foreground mb-3">
-              آدرس کامل شبکه‌های اجتماعی را وارد کنید یا # برای غیرفعال کردن
+              آدرس کامل شبکه‌های اجتماعی را وارد کنید و با Switch آن‌ها را فعال/غیرفعال کنید
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>Instagram</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Instagram */}
+              <div className="space-y-2 p-4 border rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Instagram className="h-5 w-5 text-pink-500" />
+                    <Label>Instagram</Label>
+                  </div>
+                  <Switch
+                    checked={content.footer.about.socialLinks.instagram.enabled}
+                    onCheckedChange={(checked) =>
+                      setContent((prev) => ({
+                        ...prev,
+                        footer: {
+                          ...prev.footer,
+                          about: {
+                            ...prev.footer.about,
+                            socialLinks: {
+                              ...prev.footer.about.socialLinks,
+                              instagram: { ...prev.footer.about.socialLinks.instagram, enabled: checked },
+                            },
+                          },
+                        },
+                      }))
+                    }
+                  />
+                </div>
                 <Input
-                  value={content.footer.about.socialLinks.instagram}
+                  value={content.footer.about.socialLinks.instagram.url}
                   onChange={(e) =>
                     setContent((prev) => ({
                       ...prev,
@@ -370,19 +347,45 @@ export function FooterContentEditor() {
                           ...prev.footer.about,
                           socialLinks: {
                             ...prev.footer.about.socialLinks,
-                            instagram: e.target.value,
+                            instagram: { ...prev.footer.about.socialLinks.instagram, url: e.target.value },
                           },
                         },
                       },
                     }))
                   }
                   placeholder="https://instagram.com/..."
+                  disabled={!content.footer.about.socialLinks.instagram.enabled}
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Facebook</Label>
+
+              {/* Facebook */}
+              <div className="space-y-2 p-4 border rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Facebook className="h-5 w-5 text-blue-600" />
+                    <Label>Facebook</Label>
+                  </div>
+                  <Switch
+                    checked={content.footer.about.socialLinks.facebook.enabled}
+                    onCheckedChange={(checked) =>
+                      setContent((prev) => ({
+                        ...prev,
+                        footer: {
+                          ...prev.footer,
+                          about: {
+                            ...prev.footer.about,
+                            socialLinks: {
+                              ...prev.footer.about.socialLinks,
+                              facebook: { ...prev.footer.about.socialLinks.facebook, enabled: checked },
+                            },
+                          },
+                        },
+                      }))
+                    }
+                  />
+                </div>
                 <Input
-                  value={content.footer.about.socialLinks.facebook}
+                  value={content.footer.about.socialLinks.facebook.url}
                   onChange={(e) =>
                     setContent((prev) => ({
                       ...prev,
@@ -392,19 +395,45 @@ export function FooterContentEditor() {
                           ...prev.footer.about,
                           socialLinks: {
                             ...prev.footer.about.socialLinks,
-                            facebook: e.target.value,
+                            facebook: { ...prev.footer.about.socialLinks.facebook, url: e.target.value },
                           },
                         },
                       },
                     }))
                   }
                   placeholder="https://facebook.com/..."
+                  disabled={!content.footer.about.socialLinks.facebook.enabled}
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Twitter</Label>
+
+              {/* Twitter/X */}
+              <div className="space-y-2 p-4 border rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Twitter className="h-5 w-5 text-blue-400" />
+                    <Label>Twitter/X</Label>
+                  </div>
+                  <Switch
+                    checked={content.footer.about.socialLinks.twitter.enabled}
+                    onCheckedChange={(checked) =>
+                      setContent((prev) => ({
+                        ...prev,
+                        footer: {
+                          ...prev.footer,
+                          about: {
+                            ...prev.footer.about,
+                            socialLinks: {
+                              ...prev.footer.about.socialLinks,
+                              twitter: { ...prev.footer.about.socialLinks.twitter, enabled: checked },
+                            },
+                          },
+                        },
+                      }))
+                    }
+                  />
+                </div>
                 <Input
-                  value={content.footer.about.socialLinks.twitter}
+                  value={content.footer.about.socialLinks.twitter.url}
                   onChange={(e) =>
                     setContent((prev) => ({
                       ...prev,
@@ -414,152 +443,257 @@ export function FooterContentEditor() {
                           ...prev.footer.about,
                           socialLinks: {
                             ...prev.footer.about.socialLinks,
-                            twitter: e.target.value,
+                            twitter: { ...prev.footer.about.socialLinks.twitter, url: e.target.value },
                           },
                         },
                       },
                     }))
                   }
-                  placeholder="https://twitter.com/..."
+                  placeholder="https://twitter.com/... یا https://x.com/..."
+                  disabled={!content.footer.about.socialLinks.twitter.enabled}
+                />
+              </div>
+
+              {/* WhatsApp */}
+              <div className="space-y-2 p-4 border rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="h-5 w-5 text-green-500" />
+                    <Label>WhatsApp</Label>
+                  </div>
+                  <Switch
+                    checked={content.footer.about.socialLinks.whatsapp.enabled}
+                    onCheckedChange={(checked) =>
+                      setContent((prev) => ({
+                        ...prev,
+                        footer: {
+                          ...prev.footer,
+                          about: {
+                            ...prev.footer.about,
+                            socialLinks: {
+                              ...prev.footer.about.socialLinks,
+                              whatsapp: { ...prev.footer.about.socialLinks.whatsapp, enabled: checked },
+                            },
+                          },
+                        },
+                      }))
+                    }
+                  />
+                </div>
+                <Input
+                  value={content.footer.about.socialLinks.whatsapp.url}
+                  onChange={(e) =>
+                    setContent((prev) => ({
+                      ...prev,
+                      footer: {
+                        ...prev.footer,
+                        about: {
+                          ...prev.footer.about,
+                          socialLinks: {
+                            ...prev.footer.about.socialLinks,
+                            whatsapp: { ...prev.footer.about.socialLinks.whatsapp, url: e.target.value },
+                          },
+                        },
+                      },
+                    }))
+                  }
+                  placeholder="https://wa.me/..."
+                  disabled={!content.footer.about.socialLinks.whatsapp.enabled}
+                />
+              </div>
+
+              {/* Telegram */}
+              <div className="space-y-2 p-4 border rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Send className="h-5 w-5 text-blue-400" />
+                    <Label>Telegram</Label>
+                  </div>
+                  <Switch
+                    checked={content.footer.about.socialLinks.telegram.enabled}
+                    onCheckedChange={(checked) =>
+                      setContent((prev) => ({
+                        ...prev,
+                        footer: {
+                          ...prev.footer,
+                          about: {
+                            ...prev.footer.about,
+                            socialLinks: {
+                              ...prev.footer.about.socialLinks,
+                              telegram: { ...prev.footer.about.socialLinks.telegram, enabled: checked },
+                            },
+                          },
+                        },
+                      }))
+                    }
+                  />
+                </div>
+                <Input
+                  value={content.footer.about.socialLinks.telegram.url}
+                  onChange={(e) =>
+                    setContent((prev) => ({
+                      ...prev,
+                      footer: {
+                        ...prev.footer,
+                        about: {
+                          ...prev.footer.about,
+                          socialLinks: {
+                            ...prev.footer.about.socialLinks,
+                            telegram: { ...prev.footer.about.socialLinks.telegram, url: e.target.value },
+                          },
+                        },
+                      },
+                    }))
+                  }
+                  placeholder="https://t.me/..."
+                  disabled={!content.footer.about.socialLinks.telegram.enabled}
+                />
+              </div>
+
+              {/* YouTube */}
+              <div className="space-y-2 p-4 border rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Youtube className="h-5 w-5 text-red-600" />
+                    <Label>YouTube</Label>
+                  </div>
+                  <Switch
+                    checked={content.footer.about.socialLinks.youtube.enabled}
+                    onCheckedChange={(checked) =>
+                      setContent((prev) => ({
+                        ...prev,
+                        footer: {
+                          ...prev.footer,
+                          about: {
+                            ...prev.footer.about,
+                            socialLinks: {
+                              ...prev.footer.about.socialLinks,
+                              youtube: { ...prev.footer.about.socialLinks.youtube, enabled: checked },
+                            },
+                          },
+                        },
+                      }))
+                    }
+                  />
+                </div>
+                <Input
+                  value={content.footer.about.socialLinks.youtube.url}
+                  onChange={(e) =>
+                    setContent((prev) => ({
+                      ...prev,
+                      footer: {
+                        ...prev.footer,
+                        about: {
+                          ...prev.footer.about,
+                          socialLinks: {
+                            ...prev.footer.about.socialLinks,
+                            youtube: { ...prev.footer.about.socialLinks.youtube, url: e.target.value },
+                          },
+                        },
+                      },
+                    }))
+                  }
+                  placeholder="https://youtube.com/..."
+                  disabled={!content.footer.about.socialLinks.youtube.enabled}
+                />
+              </div>
+
+              {/* LinkedIn */}
+              <div className="space-y-2 p-4 border rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Linkedin className="h-5 w-5 text-blue-700" />
+                    <Label>LinkedIn</Label>
+                  </div>
+                  <Switch
+                    checked={content.footer.about.socialLinks.linkedin.enabled}
+                    onCheckedChange={(checked) =>
+                      setContent((prev) => ({
+                        ...prev,
+                        footer: {
+                          ...prev.footer,
+                          about: {
+                            ...prev.footer.about,
+                            socialLinks: {
+                              ...prev.footer.about.socialLinks,
+                              linkedin: { ...prev.footer.about.socialLinks.linkedin, enabled: checked },
+                            },
+                          },
+                        },
+                      }))
+                    }
+                  />
+                </div>
+                <Input
+                  value={content.footer.about.socialLinks.linkedin.url}
+                  onChange={(e) =>
+                    setContent((prev) => ({
+                      ...prev,
+                      footer: {
+                        ...prev.footer,
+                        about: {
+                          ...prev.footer.about,
+                          socialLinks: {
+                            ...prev.footer.about.socialLinks,
+                            linkedin: { ...prev.footer.about.socialLinks.linkedin, url: e.target.value },
+                          },
+                        },
+                      },
+                    }))
+                  }
+                  placeholder="https://linkedin.com/..."
+                  disabled={!content.footer.about.socialLinks.linkedin.enabled}
+                />
+              </div>
+
+              {/* TikTok */}
+              <div className="space-y-2 p-4 border rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="h-5 w-5 text-black dark:text-white" />
+                    <Label>TikTok</Label>
+                  </div>
+                  <Switch
+                    checked={content.footer.about.socialLinks.tiktok.enabled}
+                    onCheckedChange={(checked) =>
+                      setContent((prev) => ({
+                        ...prev,
+                        footer: {
+                          ...prev.footer,
+                          about: {
+                            ...prev.footer.about,
+                            socialLinks: {
+                              ...prev.footer.about.socialLinks,
+                              tiktok: { ...prev.footer.about.socialLinks.tiktok, enabled: checked },
+                            },
+                          },
+                        },
+                      }))
+                    }
+                  />
+                </div>
+                <Input
+                  value={content.footer.about.socialLinks.tiktok.url}
+                  onChange={(e) =>
+                    setContent((prev) => ({
+                      ...prev,
+                      footer: {
+                        ...prev.footer,
+                        about: {
+                          ...prev.footer.about,
+                          socialLinks: {
+                            ...prev.footer.about.socialLinks,
+                            tiktok: { ...prev.footer.about.socialLinks.tiktok, url: e.target.value },
+                          },
+                        },
+                      },
+                    }))
+                  }
+                  placeholder="https://tiktok.com/..."
+                  disabled={!content.footer.about.socialLinks.tiktok.enabled}
                 />
               </div>
             </div>
-          </div>
-        </div>
-
-        <Separator />
-
-        {/* Quick Links */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h4 className="font-semibold text-lg">دسترسی سریع</h4>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => addLink("quickLinks")}
-            >
-              <Plus className="h-4 w-4 ml-2" />
-              افزودن لینک
-            </Button>
-          </div>
-          <div className="space-y-2">
-            <Label>عنوان</Label>
-            <Input
-              value={content.footer.quickLinks.title}
-              onChange={(e) =>
-                setContent((prev) => ({
-                  ...prev,
-                  footer: {
-                    ...prev.footer,
-                    quickLinks: { ...prev.footer.quickLinks, title: e.target.value },
-                  },
-                }))
-              }
-            />
-          </div>
-          {content.footer.quickLinks.links.length === 0 && (
-            <div className="flex items-center gap-2 p-4 border border-dashed rounded-lg text-muted-foreground">
-              <AlertCircle className="h-4 w-4" />
-              <span className="text-sm">هنوز لینکی اضافه نشده است</span>
-            </div>
-          )}
-          <div className="space-y-3">
-            {content.footer.quickLinks.links.map((link, index) => (
-              <div key={index} className="flex gap-2 items-end">
-                <div className="flex-1 space-y-2">
-                  <Input
-                    placeholder="عنوان لینک (مثال: محصولات)"
-                    value={link.label}
-                    onChange={(e) => updateLink("quickLinks", index, "label", e.target.value)}
-                  />
-                </div>
-                <div className="flex-1 space-y-2">
-                  <Input
-                    placeholder="/products یا https://..."
-                    value={link.href}
-                    onChange={(e) => updateLink("quickLinks", index, "href", e.target.value)}
-                  />
-                </div>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="icon"
-                  onClick={() => removeLink("quickLinks", index)}
-                  title="حذف لینک"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <Separator />
-
-        {/* Support Links */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h4 className="font-semibold text-lg">پشتیبانی</h4>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => addLink("support")}
-            >
-              <Plus className="h-4 w-4 ml-2" />
-              افزودن لینک
-            </Button>
-          </div>
-          <div className="space-y-2">
-            <Label>عنوان</Label>
-            <Input
-              value={content.footer.support.title}
-              onChange={(e) =>
-                setContent((prev) => ({
-                  ...prev,
-                  footer: {
-                    ...prev.footer,
-                    support: { ...prev.footer.support, title: e.target.value },
-                  },
-                }))
-              }
-            />
-          </div>
-          {content.footer.support.links.length === 0 && (
-            <div className="flex items-center gap-2 p-4 border border-dashed rounded-lg text-muted-foreground">
-              <AlertCircle className="h-4 w-4" />
-              <span className="text-sm">هنوز لینکی اضافه نشده است</span>
-            </div>
-          )}
-          <div className="space-y-3">
-            {content.footer.support.links.map((link, index) => (
-              <div key={index} className="flex gap-2 items-end">
-                <div className="flex-1 space-y-2">
-                  <Input
-                    placeholder="عنوان لینک (مثال: سوالات متداول)"
-                    value={link.label}
-                    onChange={(e) => updateLink("support", index, "label", e.target.value)}
-                  />
-                </div>
-                <div className="flex-1 space-y-2">
-                  <Input
-                    placeholder="/faq یا https://..."
-                    value={link.href}
-                    onChange={(e) => updateLink("support", index, "href", e.target.value)}
-                  />
-                </div>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="icon"
-                  onClick={() => removeLink("support", index)}
-                  title="حذف لینک"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
           </div>
         </div>
 

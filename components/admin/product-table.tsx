@@ -25,6 +25,7 @@ import { MoreHorizontal, Edit, Trash2, Eye, EyeOff } from "lucide-react";
 import { useProductStore } from "@/store/product-store";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
+import { SafeImage } from "@/components/ui/safe-image";
 import {
   Dialog,
   DialogContent,
@@ -230,15 +231,49 @@ export function ProductTable({ products, onRefresh }: ProductTableProps) {
                     </TableCell>
                     <TableCell>
                       <div className="relative w-14 h-14 rounded-lg overflow-hidden border-2 border-border/30 shadow-sm group">
-                        {product.images && product.images.length > 0 ? (
-                          <>
-                            <img
-                              src={product.images[0]}
-                              alt={product.name}
-                              className="w-full h-full object-cover transition-transform group-hover:scale-110"
-                            />
+                        {(() => {
+                          // Debug logging
+                          if (process.env.NODE_ENV === 'development') {
+                            console.log(`[ProductTable] Product ${product.id} (${product.name}):`, {
+                              hasImages: !!product.images,
+                              imagesType: typeof product.images,
+                              isArray: Array.isArray(product.images),
+                              imagesLength: Array.isArray(product.images) ? product.images.length : 0,
+                              firstImage: product.images?.[0] ? {
+                                type: typeof product.images[0],
+                                length: product.images[0].length,
+                                preview: product.images[0].substring(0, 100),
+                                startsWithData: product.images[0].startsWith('data:'),
+                                startsWithHttp: product.images[0].startsWith('http'),
+                              } : null,
+                            });
+                          }
+                          
+                          return product.images && Array.isArray(product.images) && product.images.length > 0 && product.images[0] ? (
+                            <>
+                              <SafeImage
+                                src={product.images[0]}
+                                alt={product.name}
+                                fill
+                                className="object-cover transition-transform group-hover:scale-110"
+                                productId={product.id}
+                                priority
+                                loading="eager"
+                                onError={() => {
+                                  // Log error for debugging in development
+                                  if (process.env.NODE_ENV === 'development') {
+                                    console.warn('Failed to load image for product:', {
+                                      productId: product.id,
+                                      productName: product.name,
+                                      imageUrl: product.images[0]?.substring(0, 100),
+                                      imageType: product.images[0]?.startsWith('data:') ? 'base64' : 'url',
+                                      fullImageLength: product.images[0]?.length,
+                                    });
+                                  }
+                                }}
+                              />
                             {product.images.length > 1 && (
-                              <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs px-1 py-0.5 text-center">
+                              <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs px-1 py-0.5 text-center z-10">
                                 +{product.images.length - 1}
                               </div>
                             )}
@@ -249,7 +284,8 @@ export function ProductTable({ products, onRefresh }: ProductTableProps) {
                               بدون تصویر
                             </span>
                           </div>
-                        )}
+                        );
+                        })()}
                       </div>
                     </TableCell>
                     <TableCell className="font-medium">{product.name}</TableCell>

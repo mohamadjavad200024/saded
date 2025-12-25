@@ -7,12 +7,15 @@ __turbopack_context__.s([
     ()=>useUserStore
 ]);
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zustand$2f$esm$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/node_modules/zustand/esm/index.mjs [app-client] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$logger$2d$client$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/logger-client.ts [app-client] (ecmascript)");
 "use client";
+;
 ;
 const defaultFilters = {};
 const useUserStore = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zustand$2f$esm$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["create"])((set, get)=>({
         users: [],
         filters: defaultFilters,
+        isLoading: false,
         setUsers: (users)=>set({
                 users
             }),
@@ -82,7 +85,55 @@ const useUserStore = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_mo
                 })),
         clearFilters: ()=>set({
                 filters: defaultFilters
-            })
+            }),
+        loadUsersFromDB: async ()=>{
+            set({
+                isLoading: true
+            });
+            try {
+                const response = await fetch("/api/users?limit=1000", {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    cache: "no-store"
+                });
+                if (!response.ok) {
+                    const errorData = await response.json().catch(()=>({}));
+                    const errorMessage = errorData.error || errorData.message || "خطا در بارگذاری کاربران";
+                    throw new Error(errorMessage);
+                }
+                const result = await response.json();
+                if (result.success && result.data) {
+                    const users = result.data.map((u)=>({
+                            id: u.id,
+                            name: u.name,
+                            email: u.email,
+                            phone: u.phone || undefined,
+                            role: u.role || "user",
+                            status: u.status || (u.enabled === 1 || u.enabled === true ? "active" : "inactive"),
+                            avatar: u.avatar || undefined,
+                            ordersCount: u.ordersCount || undefined,
+                            totalSpent: u.totalSpent || undefined,
+                            createdAt: u.createdAt instanceof Date ? u.createdAt : new Date(u.createdAt),
+                            updatedAt: u.updatedAt instanceof Date ? u.updatedAt : new Date(u.updatedAt)
+                        }));
+                    get().setUsers(users);
+                    __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$logger$2d$client$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["logger"].info(`✅ Loaded ${users.length} users from database`);
+                } else {
+                    get().setUsers([]);
+                    __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$logger$2d$client$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["logger"].info("No users found in database");
+                }
+            } catch (error) {
+                __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$logger$2d$client$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["logger"].error("Error loading users from DB:", error);
+                // Don't throw - allow app to continue with empty users
+                get().setUsers([]);
+            } finally{
+                set({
+                    isLoading: false
+                });
+            }
+        }
     }));
 if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
     __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);

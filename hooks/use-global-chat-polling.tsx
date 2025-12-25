@@ -132,6 +132,11 @@ export function useGlobalChatPolling({
           // Don't poll for a while - the interval will handle retry
           return;
         }
+        // Don't log error for 401 (unauthorized) - user is not logged in, this is expected
+        if (response.status === 401) {
+          // Silently return - user needs to log in first
+          return;
+        }
         // Don't log error for 404 (chat not found) - this is expected for new chats
         if (response.status !== 404) {
           // Only log in development to avoid console spam

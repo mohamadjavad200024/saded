@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import type { Order, OrderFilters, OrderStatus, PaymentStatus } from "@/types/order";
 import { logger } from "@/lib/logger-client";
+import { useAuthStore } from "@/store/auth-store";
 
 interface OrderStore {
   orders: Order[];
@@ -98,10 +99,36 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
       // استفاده از fetchWithAuth برای ارسال header های احراز هویت
       const { fetchWithAuth } = await import("@/lib/api/fetch-with-auth");
       logger.debug("Loading orders from database...");
+      
+      // Log auth state before request
+      const authState = useAuthStore.getState();
+      console.log('[OrderStore] Auth state before request:', {
+        isAuthenticated: authState.isAuthenticated,
+        hasUser: !!authState.user,
+        userId: authState.user?.id,
+        hasCheckedAuth: authState.hasCheckedAuth,
+      });
+      
+      // Prepare headers
+      const headers: HeadersInit = {
+        "Cache-Control": "no-cache",
+      };
+      
+      // Send userId in header as fallback if session cookie fails
+      // This ensures admin can access orders even if session cookie has issues
+      if (authState.user?.id) {
+        headers['x-user-id'] = authState.user.id;
+        console.log('[OrderStore] Adding userId header (fallback):', authState.user.id);
+      }
+      
       const response = await fetchWithAuth("/api/orders", {
         signal: controller.signal,
         credentials: "include", // Ensure session cookies are sent
+        cache: "no-store", // Don't cache
+        headers,
       });
+      
+      console.log('[OrderStore] Response status:', response.status);
       
       clearTimeout(timeoutId);
       
@@ -114,6 +141,12 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
           set({ orders: [], isLoading: false });
           return;
         }
+        
+        console.log('[OrderStore] Response from /api/orders:', {
+          success: result.success,
+          dataLength: result.data?.length || 0,
+          hasData: !!result.data,
+        });
         
         if (result.success && result.data) {
           try {
@@ -162,6 +195,13 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
       } else {
         const errorText = await response.text().catch(() => "Unknown error");
         logger.error(`Failed to load orders: ${response.status} - ${errorText}`);
+        
+        // If 401 (Unauthorized), don't show error - user will be redirected by ProtectedRoute
+        if (response.status === 401) {
+          set({ orders: [], isLoading: false });
+          return;
+        }
+        
         // Set empty orders and stop loading on error
         set({ orders: [], isLoading: false });
       }

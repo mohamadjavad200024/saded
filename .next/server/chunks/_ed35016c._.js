@@ -1,0 +1,62 @@
+module.exports=[94914,e=>{"use strict";var t=e.i(12e3);let a="__saded_chat_schema_info";async function r(){await (0,t.runQuery)(`
+    CREATE TABLE IF NOT EXISTS quick_buy_chats (
+      id VARCHAR(255) PRIMARY KEY,
+      userId VARCHAR(255) NULL,
+      customerName VARCHAR(255) NOT NULL,
+      customerPhone VARCHAR(255) NOT NULL,
+      customerEmail VARCHAR(255),
+      status VARCHAR(50) NOT NULL DEFAULT 'active',
+      createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    );
+  `),await (0,t.runQuery)(`
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id VARCHAR(255) PRIMARY KEY,
+      chatId VARCHAR(255) NOT NULL,
+      userId VARCHAR(255) NULL,
+      text TEXT,
+      sender VARCHAR(50) NOT NULL,
+      attachments JSON DEFAULT '[]',
+      status VARCHAR(50) DEFAULT 'sent',
+      createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+  `),await (0,t.runQuery)(`
+    CREATE TABLE IF NOT EXISTS chat_attachments (
+      id VARCHAR(255) PRIMARY KEY,
+      messageId VARCHAR(255) NOT NULL,
+      type VARCHAR(50) NOT NULL,
+      filePath VARCHAR(500),
+      fileName VARCHAR(255),
+      fileSize BIGINT,
+      fileUrl VARCHAR(500),
+      createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+  `);try{let e=await (0,t.getRows)("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'quick_buy_chats'");new Set(e.map(e=>String(e.COLUMN_NAME))).has("userId")||await (0,t.runQuery)("ALTER TABLE quick_buy_chats ADD COLUMN userId VARCHAR(255) NULL");try{await (0,t.runQuery)("CREATE INDEX idx_quick_buy_chats_userId ON quick_buy_chats (userId)")}catch(e){e?.code}try{await (0,t.runQuery)("CREATE INDEX idx_quick_buy_chats_customerPhone ON quick_buy_chats (customerPhone)")}catch(e){e?.code}}catch{}try{let e=await (0,t.getRows)("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'chat_messages'"),a=new Set(e.map(e=>String(e.COLUMN_NAME)));a.has("userId")||await (0,t.runQuery)("ALTER TABLE chat_messages ADD COLUMN userId VARCHAR(255) NULL");try{await (0,t.runQuery)("CREATE INDEX idx_chat_messages_userId ON chat_messages (userId)")}catch(e){e?.code}try{await (0,t.runQuery)("CREATE INDEX idx_chat_messages_chatId ON chat_messages (chatId)")}catch(e){e?.code}a.has("updatedAt")||await (0,t.runQuery)("ALTER TABLE chat_messages ADD COLUMN updatedAt TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP")}catch{}try{await (0,t.runQuery)("ALTER TABLE chat_messages ADD CONSTRAINT fk_chat_messages_chatId FOREIGN KEY (chatId) REFERENCES quick_buy_chats(id) ON DELETE CASCADE")}catch(e){e?.code!=="ER_DUP_KEY"&&e?.code!=="ER_CANT_CREATE_TABLE"&&e?.code}try{await (0,t.runQuery)("ALTER TABLE chat_attachments ADD CONSTRAINT fk_chat_attachments_messageId FOREIGN KEY (messageId) REFERENCES chat_messages(id) ON DELETE CASCADE")}catch(e){e?.code!=="ER_DUP_KEY"&&e?.code!=="ER_CANT_CREATE_TABLE"&&e?.code}}async function s(){let e,r=!(e=globalThis[a])||"number"!=typeof e.expiresAt||e.expiresAt<Date.now()?null:e;if(r)return r.value;let[s,n]=await Promise.all([(0,t.getRow)(`SELECT COUNT(*) as cnt
+       FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'quick_buy_chats'
+         AND COLUMN_NAME = 'userId'`).then(e=>Number(e?.cnt||0)>0).catch(()=>!1),(0,t.getRow)(`SELECT COUNT(*) as cnt
+       FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'chat_messages'
+         AND COLUMN_NAME = 'userId'`).then(e=>Number(e?.cnt||0)>0).catch(()=>!1)]),o={chatHasUserId:s,messageHasUserId:n};return globalThis[a]={value:o,expiresAt:Date.now()+3e5},o}e.s(["ensureChatTables",()=>r,"getChatSchemaInfo",()=>s])},73817,e=>{"use strict";var t=e.i(47909),a=e.i(74017),r=e.i(96250),s=e.i(59756),n=e.i(61916),o=e.i(14444),i=e.i(10680),c=e.i(69741),E=e.i(16795),u=e.i(87718),l=e.i(95169),A=e.i(47587),d=e.i(66012),R=e.i(70101),T=e.i(26937),h=e.i(10372),N=e.i(93695);e.i(52474);var p=e.i(220),_=e.i(12e3),C=e.i(17939),I=e.i(39142),L=e.i(25686),M=e.i(94914);async function S(e){try{let t;await (0,M.ensureChatTables)();let a=await (0,M.getChatSchemaInfo)(),r=await (0,L.getSessionUserFromRequest)(e);if(!r||"admin"!==r.role)throw new I.AppError("فقط ادمین می‌تواند کاربران را مسدود کند",403,"FORBIDDEN");let{chatId:s,customerPhone:n}=await e.json().catch(()=>{throw new I.AppError("Invalid JSON in request body",400,"INVALID_JSON")});if(!s&&!n)throw new I.AppError("chatId یا customerPhone الزامی است",400,"MISSING_PARAMS");if(s?t=await (0,_.getRow)("SELECT * FROM quick_buy_chats WHERE id = ?",[s]):n&&(t=await (0,_.getRow)("SELECT * FROM quick_buy_chats WHERE customerPhone = ?",[n])),!t)throw new I.AppError("چت یافت نشد",404,"CHAT_NOT_FOUND");let o=n||t.customerPhone,i=a.chatHasUserId?t.userId:null;try{await (0,_.runQuery)(`
+        CREATE TABLE IF NOT EXISTS blocked_users (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          phone TEXT,
+          userId TEXT,
+          blockedBy TEXT,
+          blockedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+          reason TEXT
+        )
+      `)}catch(e){}if(await (0,_.getRow)("SELECT * FROM blocked_users WHERE phone = ? OR userId = ?",[o,i||""]))throw new I.AppError("این کاربر قبلاً مسدود شده است",400,"ALREADY_BLOCKED");return await (0,_.runQuery)("INSERT INTO blocked_users (phone, userId, blockedBy, reason) VALUES (?, ?, ?, ?)",[o,i||null,r.id,"مسدود شده توسط ادمین"]),(0,C.createSuccessResponse)({message:"کاربر با موفقیت مسدود شد",blockedPhone:o,blockedUserId:i})}catch(e){return(0,C.createErrorResponse)(e)}}async function O(e){try{await (0,M.ensureChatTables)();let{searchParams:t}=new URL(e.url),a=t.get("phone"),r=t.get("userId");if(!a&&!r)throw new I.AppError("phone یا userId الزامی است",400,"MISSING_PARAMS");try{await (0,_.runQuery)(`
+        CREATE TABLE IF NOT EXISTS blocked_users (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          phone TEXT,
+          userId TEXT,
+          blockedBy TEXT,
+          blockedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+          reason TEXT
+        )
+      `)}catch(e){}let s=await (0,_.getRow)("SELECT * FROM blocked_users WHERE phone = ? OR userId = ?",[a||"",r||""]);return(0,C.createSuccessResponse)({isBlocked:!!s,blockInfo:s||null})}catch(e){return(0,C.createErrorResponse)(e)}}e.s(["GET",()=>O,"POST",()=>S],95066);var w=e.i(95066);let U=new t.AppRouteRouteModule({definition:{kind:a.RouteKind.APP_ROUTE,page:"/api/chat/block/route",pathname:"/api/chat/block",filename:"route",bundlePath:""},distDir:".next",relativeProjectDir:"",resolvedPagePath:"[project]/app/api/chat/block/route.ts",nextConfigOutput:"",userland:w}),{workAsyncStorage:m,workUnitAsyncStorage:y,serverHooks:g}=U;function D(){return(0,r.patchFetch)({workAsyncStorage:m,workUnitAsyncStorage:y})}async function f(e,t,r){U.isDev&&(0,s.addRequestMeta)(e,"devRequestTimingInternalsEnd",process.hrtime.bigint());let _="/api/chat/block/route";_=_.replace(/\/index$/,"")||"/";let C=await U.prepare(e,t,{srcPage:_,multiZoneDraftMode:!1});if(!C)return t.statusCode=400,t.end("Bad Request"),null==r.waitUntil||r.waitUntil.call(r,Promise.resolve()),null;let{buildId:I,params:L,nextConfig:M,parsedUrl:S,isDraftMode:O,prerenderManifest:w,routerServerContext:m,isOnDemandRevalidate:y,revalidateOnlyGenerated:g,resolvedPathname:D,clientReferenceManifest:f,serverActionsManifest:b}=C,P=(0,c.normalizeAppPath)(_),v=!!(w.dynamicRoutes[P]||w.routes[D]),H=async()=>((null==m?void 0:m.render404)?await m.render404(e,t,S,!1):t.end("This page could not be found"),null);if(v&&!O){let e=!!w.routes[D],t=w.dynamicRoutes[P];if(t&&!1===t.fallback&&!e){if(M.experimental.adapterPath)return await H();throw new N.NoFallbackError}}let k=null;!v||U.isDev||O||(k="/index"===(k=D)?"/":k);let F=!0===U.isDev||!v,x=v&&!F;b&&f&&(0,o.setReferenceManifestsSingleton)({page:_,clientReferenceManifest:f,serverActionsManifest:b,serverModuleMap:(0,i.createServerModuleMap)({serverActionsManifest:b})});let B=e.method||"GET",q=(0,n.getTracer)(),V=q.getActiveScopeSpan(),X={params:L,prerenderManifest:w,renderOpts:{experimental:{authInterrupts:!!M.experimental.authInterrupts},cacheComponents:!!M.cacheComponents,supportsDynamicResponse:F,incrementalCache:(0,s.getRequestMeta)(e,"incrementalCache"),cacheLifeProfiles:M.cacheLife,waitUntil:r.waitUntil,onClose:e=>{t.on("close",e)},onAfterTaskError:void 0,onInstrumentationRequestError:(t,a,r)=>U.onRequestError(e,t,r,m)},sharedContext:{buildId:I}},K=new E.NodeNextRequest(e),Q=new E.NodeNextResponse(t),Y=u.NextRequestAdapter.fromNodeNextRequest(K,(0,u.signalFromNodeResponse)(t));try{let o=async e=>U.handle(Y,X).finally(()=>{if(!e)return;e.setAttributes({"http.status_code":t.statusCode,"next.rsc":!1});let a=q.getRootSpanAttributes();if(!a)return;if(a.get("next.span_type")!==l.BaseServerSpan.handleRequest)return void console.warn(`Unexpected root span type '${a.get("next.span_type")}'. Please report this Next.js issue https://github.com/vercel/next.js`);let r=a.get("next.route");if(r){let t=`${B} ${r}`;e.setAttributes({"next.route":r,"http.route":r,"next.span_name":t}),e.updateName(t)}else e.updateName(`${B} ${_}`)}),i=!!(0,s.getRequestMeta)(e,"minimalMode"),c=async s=>{var n,c;let E=async({previousCacheEntry:a})=>{try{if(!i&&y&&g&&!a)return t.statusCode=404,t.setHeader("x-nextjs-cache","REVALIDATED"),t.end("This page could not be found"),null;let n=await o(s);e.fetchMetrics=X.renderOpts.fetchMetrics;let c=X.renderOpts.pendingWaitUntil;c&&r.waitUntil&&(r.waitUntil(c),c=void 0);let E=X.renderOpts.collectedTags;if(!v)return await (0,d.sendResponse)(K,Q,n,X.renderOpts.pendingWaitUntil),null;{let e=await n.blob(),t=(0,R.toNodeOutgoingHttpHeaders)(n.headers);E&&(t[h.NEXT_CACHE_TAGS_HEADER]=E),!t["content-type"]&&e.type&&(t["content-type"]=e.type);let a=void 0!==X.renderOpts.collectedRevalidate&&!(X.renderOpts.collectedRevalidate>=h.INFINITE_CACHE)&&X.renderOpts.collectedRevalidate,r=void 0===X.renderOpts.collectedExpire||X.renderOpts.collectedExpire>=h.INFINITE_CACHE?void 0:X.renderOpts.collectedExpire;return{value:{kind:p.CachedRouteKind.APP_ROUTE,status:n.status,body:Buffer.from(await e.arrayBuffer()),headers:t},cacheControl:{revalidate:a,expire:r}}}}catch(t){throw(null==a?void 0:a.isStale)&&await U.onRequestError(e,t,{routerKind:"App Router",routePath:_,routeType:"route",revalidateReason:(0,A.getRevalidateReason)({isStaticGeneration:x,isOnDemandRevalidate:y})},m),t}},u=await U.handleResponse({req:e,nextConfig:M,cacheKey:k,routeKind:a.RouteKind.APP_ROUTE,isFallback:!1,prerenderManifest:w,isRoutePPREnabled:!1,isOnDemandRevalidate:y,revalidateOnlyGenerated:g,responseGenerator:E,waitUntil:r.waitUntil,isMinimalMode:i});if(!v)return null;if((null==u||null==(n=u.value)?void 0:n.kind)!==p.CachedRouteKind.APP_ROUTE)throw Object.defineProperty(Error(`Invariant: app-route received invalid cache entry ${null==u||null==(c=u.value)?void 0:c.kind}`),"__NEXT_ERROR_CODE",{value:"E701",enumerable:!1,configurable:!0});i||t.setHeader("x-nextjs-cache",y?"REVALIDATED":u.isMiss?"MISS":u.isStale?"STALE":"HIT"),O&&t.setHeader("Cache-Control","private, no-cache, no-store, max-age=0, must-revalidate");let l=(0,R.fromNodeOutgoingHttpHeaders)(u.value.headers);return i&&v||l.delete(h.NEXT_CACHE_TAGS_HEADER),!u.cacheControl||t.getHeader("Cache-Control")||l.get("Cache-Control")||l.set("Cache-Control",(0,T.getCacheControlHeader)(u.cacheControl)),await (0,d.sendResponse)(K,Q,new Response(u.value.body,{headers:l,status:u.value.status||200})),null};V?await c(V):await q.withPropagatedContext(e.headers,()=>q.trace(l.BaseServerSpan.handleRequest,{spanName:`${B} ${_}`,kind:n.SpanKind.SERVER,attributes:{"http.method":B,"http.target":e.url}},c))}catch(t){if(t instanceof N.NoFallbackError||await U.onRequestError(e,t,{routerKind:"App Router",routePath:P,routeType:"route",revalidateReason:(0,A.getRevalidateReason)({isStaticGeneration:x,isOnDemandRevalidate:y})}),v)throw t;return await (0,d.sendResponse)(K,Q,new Response(null,{status:500})),null}}e.s(["handler",()=>f,"patchFetch",()=>D,"routeModule",()=>U,"serverHooks",()=>g,"workAsyncStorage",()=>m,"workUnitAsyncStorage",()=>y],73817)},6149,e=>{e.v(t=>Promise.all(["server/chunks/[externals]_util_be9989c7._.js","server/chunks/_19ab7056._.js","server/chunks/[root-of-the-server]__473dce0e._.js"].map(t=>e.l(t))).then(()=>t(85238)))}];
+
+//# sourceMappingURL=_ed35016c._.js.map

@@ -380,7 +380,13 @@ function createErrorResponse(error, defaultStatus = 500) {
     let status = defaultStatus;
     let code;
     let details;
-    if (error instanceof Error) {
+    // Handle AppError specifically (most common case)
+    if (error instanceof __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$api$2d$error$2d$handler$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["AppError"]) {
+        message = error.message;
+        status = error.status || defaultStatus;
+        code = error.code;
+        details = error.details;
+    } else if (error instanceof Error) {
         message = error.message;
         if ("status" in error && typeof error.status === "number") {
             status = error.status;
@@ -397,6 +403,9 @@ function createErrorResponse(error, defaultStatus = 500) {
         message = String(error.message);
         if ("status" in error && typeof error.status === "number") {
             status = error.status;
+        }
+        if ("code" in error && typeof error.code === "string") {
+            code = error.code;
         }
     }
     // Log error in development
@@ -471,27 +480,27 @@ async function POST(request) {
         // Ensure admin_presence table exists
         await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2f$index$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["runQuery"])(`
       CREATE TABLE IF NOT EXISTS admin_presence (
-        "adminId" VARCHAR(255) PRIMARY KEY,
-        "isOnline" BOOLEAN DEFAULT FALSE,
-        "lastSeen" TIMESTAMP NOT NULL DEFAULT NOW(),
-        "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW()
+        \`adminId\` VARCHAR(255) PRIMARY KEY,
+        \`isOnline\` BOOLEAN DEFAULT FALSE,
+        \`lastSeen\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        \`updatedAt\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       );
     `);
         // Create index if not exists
         await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2f$index$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["runQuery"])(`
-      CREATE INDEX IF NOT EXISTS idx_admin_presence_isOnline ON admin_presence("isOnline");
+      CREATE INDEX IF NOT EXISTS idx_admin_presence_isOnline ON admin_presence(\`isOnline\`);
     `);
         const now = new Date().toISOString();
         // Upsert admin presence
-        await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2f$index$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["runQuery"])(`INSERT INTO admin_presence ("adminId", "isOnline", "lastSeen", "updatedAt")
-       VALUES ($1, $2, $3, $3)
-       ON CONFLICT ("adminId") 
-       DO UPDATE SET 
-         "isOnline" = $2,
-         "lastSeen" = CASE WHEN $2 = TRUE THEN $3 ELSE admin_presence."lastSeen" END,
-         "updatedAt" = $3`, [
+        await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2f$index$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["runQuery"])(`INSERT INTO admin_presence (\`adminId\`, \`isOnline\`, \`lastSeen\`, \`updatedAt\`)
+       VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE 
+         \`isOnline\` = VALUES(\`isOnline\`),
+         \`lastSeen\` = CASE WHEN VALUES(\`isOnline\`) = TRUE THEN VALUES(\`lastSeen\`) ELSE admin_presence.\`lastSeen\` END,
+         \`updatedAt\` = VALUES(\`updatedAt\`)`, [
             adminId,
             isOnline,
+            now,
             now
         ]);
         return (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$api$2d$route$2d$helpers$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["createSuccessResponse"])({
@@ -510,15 +519,15 @@ async function GET(request) {
         // Ensure admin_presence table exists
         await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2f$index$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["runQuery"])(`
       CREATE TABLE IF NOT EXISTS admin_presence (
-        "adminId" VARCHAR(255) PRIMARY KEY,
-        "isOnline" BOOLEAN DEFAULT FALSE,
-        "lastSeen" TIMESTAMP NOT NULL DEFAULT NOW(),
-        "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW()
+        \`adminId\` VARCHAR(255) PRIMARY KEY,
+        \`isOnline\` BOOLEAN DEFAULT FALSE,
+        \`lastSeen\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        \`updatedAt\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       );
     `);
         if (adminId) {
             // Get specific admin status
-            const presence = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2f$index$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getRow"])(`SELECT * FROM admin_presence WHERE "adminId" = $1`, [
+            const presence = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2f$index$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getRow"])(`SELECT * FROM admin_presence WHERE \`adminId\` = ?`, [
                 adminId
             ]);
             if (!presence) {
@@ -536,7 +545,7 @@ async function GET(request) {
             const isActuallyOnline = presence.isOnline && timeSinceLastSeen < 30000; // 30 seconds
             // Update if status changed
             if (presence.isOnline !== isActuallyOnline) {
-                await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2f$index$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["runQuery"])(`UPDATE admin_presence SET "isOnline" = $1, "updatedAt" = NOW() WHERE "adminId" = $2`, [
+                await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2f$index$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["runQuery"])(`UPDATE admin_presence SET \`isOnline\` = ?, \`updatedAt\` = CURRENT_TIMESTAMP WHERE \`adminId\` = ?`, [
                     isActuallyOnline,
                     adminId
                 ]);
@@ -549,7 +558,7 @@ async function GET(request) {
         } else {
             // Get all admin presences
             const { getRows } = await __turbopack_context__.A("[project]/lib/db/index.ts [app-route] (ecmascript, async loader)");
-            const presences = await getRows(`SELECT * FROM admin_presence ORDER BY "updatedAt" DESC`);
+            const presences = await getRows(`SELECT * FROM admin_presence ORDER BY \`updatedAt\` DESC`);
             // Filter out offline admins that haven't been seen in 30 seconds
             const now = Date.now();
             const validPresences = presences.map((presence)=>{
