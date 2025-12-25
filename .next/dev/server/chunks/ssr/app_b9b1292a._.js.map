@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 7, "column": 0}, "map": {"version":3,"sources":["file:///D:/%D8%B3%D8%AF%DB%8C%DB%8C%20%D8%A7%D9%86%D9%84%D8%A7%DB%8C%D9%86%20%D8%A8%D8%AF%D9%88%D9%86%20%D8%AF%DB%8C%D8%AA%D8%A7%20%D8%A8%DB%8C%D8%B3/saded%20-%20Copy%20%284%29/app/favicon.ico.mjs%20%28structured%20image%20object%29"],"sourcesContent":["import src from \"IMAGE\";\nexport default { src, width: 256, height: 256 }\n"],"names":[],"mappings":";;;;AAAA;;uCACe;IAAE,KAAA,mIAAG;IAAE,OAAO;IAAK,QAAQ;AAAI"}}]
+}

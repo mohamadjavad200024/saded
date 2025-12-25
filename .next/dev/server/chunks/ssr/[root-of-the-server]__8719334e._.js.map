@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 22, "column": 0}, "map": {"version":3,"sources":["file:///D:/%D8%B3%D8%AF%DB%8C%DB%8C%20%D8%A7%D9%86%D9%84%D8%A7%DB%8C%D9%86%20%D8%A8%D8%AF%D9%88%D9%86%20%D8%AF%DB%8C%D8%AA%D8%A7%20%D8%A8%DB%8C%D8%B3/saded%20-%20Copy%20%284%29/app/services/page.tsx"],"sourcesContent":["import { redirect } from \"next/navigation\";\r\n\r\n// Prevent 404s from nav links (/services). We currently use /guide for content.\r\nexport default function ServicesPage() {\r\n  redirect(\"/guide\");\r\n}\r\n\r\n\r\n"],"names":[],"mappings":";;;;AAAA;AAAA;;AAGe,SAAS;IACtB,IAAA,iMAAQ,EAAC;AACX"}}]
+}

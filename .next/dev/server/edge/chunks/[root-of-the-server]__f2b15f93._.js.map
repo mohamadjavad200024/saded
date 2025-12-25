@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 16, "column": 0}, "map": {"version":3,"sources":["turbopack:///[project]/middleware.ts"],"sourcesContent":["import { NextResponse } from 'next/server';\nimport type { NextRequest } from 'next/server';\n\n/**\n * Middleware for Next.js\n * This is an empty middleware that just passes through requests\n * Note: Next.js 16+ may show deprecation warning, but this is still supported\n */\nexport function middleware(request: NextRequest) {\n  return NextResponse.next();\n}\n\n// Empty matcher - no routes are matched, so middleware won't run\n// This is intentional to avoid any performance impact\nexport const config = {\n  matcher: [],\n};\n\n\n"],"names":[],"mappings":";;;;;;AAAA;AAAA;;AAQO,SAAS,WAAW,OAAoB;IAC7C,OAAO,gMAAY,CAAC,IAAI;AAC1B;AAIO,MAAM,SAAS;IACpB,SAAS,EAAE;AACb"}}]
+}

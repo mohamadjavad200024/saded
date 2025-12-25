@@ -1,0 +1,7 @@
+var R=require("../../../../chunks/[turbopack]_runtime.js")("server/app/api/settings/page-content/route.js")
+R.c("server/chunks/lib_db_mysql_ts_da483b60._.js")
+R.c("server/chunks/node_modules_next_4bc6ec5c._.js")
+R.c("server/chunks/[root-of-the-server]__80d07ad8._.js")
+R.c("server/chunks/_next-internal_server_app_api_settings_page-content_route_actions_48367184.js")
+R.m("[project]/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/app/api/settings/page-content/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)")
+module.exports=R.m("[project]/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/app/api/settings/page-content/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)").exports
