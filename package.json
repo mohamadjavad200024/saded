@@ -6,7 +6,7 @@
     "dev": "node server.js",
     "dev:webpack": "next dev --webpack",
     "dev:turbo": "next dev --turbo",
-    "build": "next build",
+    "build": "next build --webpack",
     "build:low-resource": "NODE_OPTIONS='--max-old-space-size=2048' next build --webpack",
     "build:push": "npm run build && git add -f .next/server/ .next/static/ .next/BUILD_ID .next/*.json .next/*.js && git commit -m \"Build: Update .next files - $(date +'%Y-%m-%d %H:%M:%S')\" && git push origin $(git branch --show-current)",
     "start": "node server.js",
