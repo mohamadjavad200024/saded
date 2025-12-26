@@ -45,6 +45,31 @@ const nextConfig = {
   // Turbopack disabled to avoid resource issues on Windows and shared hosting
   // Use webpack instead (more stable on resource-constrained systems)
   // turbopack: {},
+  // Webpack configuration for better module resolution
+  webpack: (config, { isServer }) => {
+    // Ensure proper path resolution
+    const path = require('path');
+    const rootDir = path.resolve(__dirname);
+    
+    // Fix path alias resolution
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': rootDir,
+    };
+    
+    // Fix for symlink issues with node_modules
+    // Disable symlinks but add direct path to venv node_modules
+    config.resolve.symlinks = false;
+    
+    // Add node_modules resolution paths (direct path to venv)
+    config.resolve.modules = [
+      path.resolve(rootDir, 'node_modules'),
+      path.resolve('/home/shop1111/nodevenv/public_html/saded/20/lib/node_modules'),
+      'node_modules',
+    ];
+    
+    return config;
+  },
 };
 
 module.exports = nextConfig;

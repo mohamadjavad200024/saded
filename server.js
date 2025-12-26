@@ -5,6 +5,16 @@
 // This must be set before requiring 'next' module
 process.env.NEXT_PRIVATE_SKIP_TURBO = '1';
 
+// Better error handling for unhandled errors
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  console.error('Stack:', error.stack);
+});
+
 // Load environment variables from .env.local (for development)
 if (process.env.NODE_ENV !== 'production') {
   try {
@@ -48,25 +58,101 @@ const handle = app.getRequestHandler();
 
 // Start the server
 app.prepare().then(() => {
-  createServer(async (req, res) => {
+  console.log('[DEBUG] Next.js app prepared successfully');
+  console.log('[DEBUG] Creating HTTP server...');
+  
+  const server = createServer(async (req, res) => {
+    const requestId = Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+    console.log(`[${requestId}] Request: ${req.method} ${req.url}`);
+    console.log(`[${requestId}] Request headers:`, JSON.stringify(req.headers));
+    console.log(`[${requestId}] Request socket remoteAddress:`, req.socket.remoteAddress);
+    console.log(`[${requestId}] Request socket remotePort:`, req.socket.remotePort);
+    
+    // Log response events
+    res.on('finish', () => {
+      console.log(`[${requestId}] Response: ${res.statusCode} ${req.url}`);
+    });
+    
+    res.on('error', (err) => {
+      console.error(`[${requestId}] Response error:`, err);
+    });
+    
+    res.on('close', () => {
+      console.log(`[${requestId}] Response closed`);
+    });
+    
+    let timeout;
     try {
       const parsedUrl = parse(req.url, true);
-      await handle(req, res, parsedUrl);
+      console.log(`[${requestId}] Parsed URL:`, parsedUrl.pathname);
+      console.log(`[${requestId}] Calling handle()...`);
+      
+      // Wrap handle in a promise to catch all errors
+      const handlePromise = handle(req, res, parsedUrl);
+      
+      // Add timeout to detect hanging requests
+      timeout = setTimeout(() => {
+        console.error(`[${requestId}] WARNING: handle() is taking too long (>30s)`);
+      }, 30000);
+      
+      await handlePromise;
+      clearTimeout(timeout);
+      
+      console.log(`[${requestId}] Handle completed, statusCode:`, res.statusCode);
     } catch (err) {
-      console.error('Error occurred handling', req.url, err);
-      res.statusCode = 500;
-      res.end('internal server error');
+      if (timeout) clearTimeout(timeout);
+      console.error(`[${requestId}] ========== ERROR CAUGHT ==========`);
+      console.error(`[${requestId}] Error occurred handling`, req.url);
+      console.error(`[${requestId}] Error type:`, typeof err);
+      console.error(`[${requestId}] Error:`, err);
+      console.error(`[${requestId}] Error stack:`, err ? err.stack : 'No stack');
+      console.error(`[${requestId}] Error message:`, err ? err.message : 'No message');
+      console.error(`[${requestId}] Error name:`, err ? err.name : 'No name');
+      console.error(`[${requestId}] Error code:`, err ? err.code : 'No code');
+      console.error(`[${requestId}] Response headersSent:`, res.headersSent);
+      console.error(`[${requestId}] ==================================`);
+      
+      if (!res.headersSent) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'text/plain');
+        res.end('internal server error');
+      }
     }
-  }).listen(port, listenHostname, (err) => {
+  });
+  
+  server.on('error', (err) => {
+    console.error('[DEBUG] Server error event:', err);
+    console.error('[DEBUG] Server error code:', err.code);
+    console.error('[DEBUG] Server error message:', err.message);
+  });
+  
+  server.on('listening', () => {
+    const addr = server.address();
+    console.log('[DEBUG] Server listening event fired');
+    console.log('[DEBUG] Server address:', JSON.stringify(addr));
+    console.log('[DEBUG] Server is listening on:', addr ? `${addr.address}:${addr.port}` : 'unknown');
+  });
+  
+  server.on('connection', (socket) => {
+    console.log('[DEBUG] New connection from:', socket.remoteAddress, ':', socket.remotePort);
+  });
+  
+  server.listen(port, listenHostname, (err) => {
     if (err) {
-      console.error('Failed to start server:', err);
+      console.error('[DEBUG] Failed to start server:', err);
+      console.error('[DEBUG] Error code:', err.code);
+      console.error('[DEBUG] Error message:', err.message);
       process.exit(1);
     }
+    const addr = server.address();
     console.log(`> Ready on http://${listenHostname}:${port}`);
     console.log(`> Server started successfully`);
+    console.log('[DEBUG] Server.address():', JSON.stringify(addr));
+    console.log('[DEBUG] Testing server with netstat/ss...');
   });
 }).catch((err) => {
   console.error('Failed to prepare Next.js app:', err);
+  console.error('Error stack:', err.stack);
   process.exit(1);
 });
 
