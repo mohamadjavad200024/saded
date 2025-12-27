@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { getRow, getRows, runQuery } from "@/lib/db/index";
 import { AppError } from "@/lib/api-error-handler";
+import { logger } from "@/lib/logger";
 
 export const SESSION_COOKIE_NAME = "saded_session";
 

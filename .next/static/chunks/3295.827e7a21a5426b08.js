@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[3295],{33295:(e,t,n)=>{n.d(t,{fetchWithAuth:()=>s});async function s(e,t={}){let n=new Headers(t.headers);return!n.has("Content-Type")&&t.body&&n.set("Content-Type","application/json"),fetch(e,{...t,credentials:"include",headers:n})}}}]);

@@ -1,76 +1,104 @@
 #!/bin/bash
-# راه حل نهایی - بررسی دقیق و نصب tailwindcss
+# راه حل نهایی - نصب tailwindcss در node_modules پروژه
 
-source /home/shop1111/nodevenv/public_html/saded/20/bin/activate
+echo "=== راه حل نهایی - نصب tailwindcss ==="
 
-echo "=========================================="
-echo "بررسی دقیق tailwindcss"
-echo "=========================================="
+# فعال کردن virtual environment
+source /home/shop1111/nodevenv/repositories/saded/20/bin/activate
 
-cd /home/shop1111/nodevenv/public_html/saded/20
+# رفتن به مسیر پروژه
+cd /home/shop1111/repositories/saded
 
-# بررسی همه مسیرهای ممکن
-echo "بررسی lib/node_modules/tailwindcss..."
-ls -la lib/node_modules/tailwindcss 2>/dev/null && echo "✓ پیدا شد" || echo "✗ پیدا نشد"
-
-echo "بررسی node_modules/tailwindcss..."
-ls -la node_modules/tailwindcss 2>/dev/null && echo "✓ پیدا شد" || echo "✗ پیدا نشد"
-
-echo "جستجوی tailwindcss در همه مسیرها..."
-find . -name "tailwindcss" -type d 2>/dev/null | head -5
-
-echo "بررسی package.json..."
-grep tailwindcss package.json
-
-echo "بررسی package-lock.json..."
-grep -A 2 "tailwindcss" package-lock.json 2>/dev/null | head -5 || echo "package-lock.json وجود ندارد"
-
-echo "=========================================="
-echo "نصب مجدد tailwindcss"
-echo "=========================================="
-
-# حذف cache npm
-npm cache clean --force
-
-# نصب مجدد
-npm install tailwindcss@3.4.19 --save-dev --no-save --force
-
-# بررسی مجدد
-if [ -d "lib/node_modules/tailwindcss" ]; then
-    echo "✓ tailwindcss نصب شد"
-    ls -la lib/node_modules/tailwindcss | head -3
+echo ""
+echo "=== بررسی node_modules فعلی ==="
+if [ -L "node_modules" ]; then
+    echo "node_modules یک symlink است"
+    ls -la node_modules | head -3
+elif [ -d "node_modules" ]; then
+    echo "node_modules یک directory است"
 else
-    echo "✗ tailwindcss هنوز نصب نشد"
-    echo "لیست پکیج‌های نصب شده:"
-    ls lib/node_modules | grep -i tail || echo "هیچ tailwindcss پیدا نشد"
+    echo "node_modules موجود نیست"
+fi
+
+echo ""
+echo "=== نصب tailwindcss در node_modules پروژه ==="
+# نصب در مسیر پروژه - این در node_modules (که symlink است) نصب می‌شود
+npm install tailwindcss@3.4.19 autoprefixer@10.4.23 --save-dev --legacy-peer-deps
+
+echo ""
+echo "=== بررسی نصب ==="
+if [ -d "node_modules/tailwindcss" ] || [ -L "node_modules/tailwindcss" ]; then
+    echo "✓ tailwindcss در node_modules موجود است"
+    ls -la node_modules/tailwindcss | head -3
+else
+    echo "✗ tailwindcss نصب نشد"
     
-    # نصب با روش دیگر
-    echo "تلاش با روش دیگر..."
-    cd lib/node_modules
-    npm install tailwindcss@3.4.19 --save-dev --force 2>&1 | head -10
-    cd ../..
+    # اگر symlink است، بررسی venv
+    if [ -L "node_modules" ]; then
+        echo "بررسی venv..."
+        if [ -d "/home/shop1111/nodevenv/repositories/saded/20/lib/node_modules/tailwindcss" ]; then
+            echo "✓ tailwindcss در venv موجود است"
+        else
+            echo "✗ tailwindcss در venv هم موجود نیست"
+            echo "تلاش برای نصب مستقیم در venv..."
+            cd /home/shop1111/nodevenv/repositories/saded/20
+            npm install tailwindcss@3.4.19 autoprefixer@10.4.23 --save-dev --force
+            cd /home/shop1111/repositories/saded
+        fi
+    fi
 fi
 
-cd /home/shop1111/public_html/saded
+echo ""
+echo "=== آپدیت next.config.js ==="
 
-# ایجاد symlink
-rm -rf node_modules
-ln -sf /home/shop1111/nodevenv/public_html/saded/20/lib/node_modules node_modules
-
-# بررسی از طریق symlink
-if [ -L "node_modules/tailwindcss" ] || [ -d "node_modules/tailwindcss" ]; then
-    echo "✓ tailwindcss از طریق symlink قابل دسترسی است"
-else
-    echo "✗ tailwindcss از طریق symlink قابل دسترسی نیست"
-    echo "لیست node_modules:"
-    ls node_modules | head -10
+# فعال کردن symlinks
+if grep -q "config.resolve.symlinks = false" next.config.js; then
+    echo "فعال کردن symlinks..."
+    sed -i "s|config.resolve.symlinks = false|config.resolve.symlinks = true|" next.config.js
 fi
 
-echo "=========================================="
-echo "Build"
-echo "=========================================="
+# آپدیت venvPath
+if ! grep -q "const venvPath = '/home/shop1111/nodevenv/repositories/saded/20';" next.config.js; then
+    echo "آپدیت venvPath..."
+    sed -i "s|const venvPath =.*|    const venvPath = '/home/shop1111/nodevenv/repositories/saded/20';|" next.config.js
+fi
 
-export NEXT_PRIVATE_SKIP_TURBO=1
+echo ""
+echo "=== بررسی postcss.config.js ==="
+if [ ! -f "postcss.config.js" ]; then
+    echo "ایجاد postcss.config.js..."
+    cat > postcss.config.js << 'EOF'
+module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+};
+EOF
+fi
+
+echo ""
+echo "=== پاک کردن .next ==="
 rm -rf .next
-NODE_OPTIONS='--max-old-space-size=2048' npx next build --webpack
 
+echo ""
+echo "=== Build ==="
+export NEXT_PRIVATE_SKIP_TURBO=1
+export NODE_OPTIONS='--max-old-space-size=2048'
+
+npx next build --webpack 2>&1 | tee build.log
+
+echo ""
+echo "=== بررسی Build ==="
+if [ -f ".next/BUILD_ID" ]; then
+    echo "✓✓✓ Build موفق بود! ✓✓✓"
+    cat .next/BUILD_ID
+    echo ""
+    echo "حالا می‌توانی در cPanel → Node.js App Manager → Restart App را بزنی"
+else
+    echo "✗ Build ناموفق بود"
+    echo ""
+    echo "آخرین خطوط لاگ:"
+    tail -50 build.log | grep -A 10 -B 5 "Error\|error\|ERROR\|Cannot find" || tail -30 build.log
+    exit 1
+fi

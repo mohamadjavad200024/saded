@@ -44,6 +44,7 @@ export function ProductSearch({
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const { getVehicle } = useVehicleStore();
 
   // Search products
   const searchProducts = async (query: string) => {
@@ -263,7 +264,7 @@ export function ProductSearch({
                                 return (
                                   <div className="flex items-center gap-1 text-[8px] sm:text-[9px] text-muted-foreground/70 line-clamp-1">
                                     <VehicleLogo
-                                      logo={vehicle.logo}
+                                      logo={vehicle.logo || undefined}
                                       alt={vehicle.name}
                                       size="sm"
                                       fallbackIcon={false}

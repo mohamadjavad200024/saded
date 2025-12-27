@@ -58,15 +58,24 @@ const nextConfig = {
     };
     
     // Fix for symlink issues with node_modules
-    // Disable symlinks but add direct path to venv node_modules
-    config.resolve.symlinks = false;
+    // Enable symlinks to work with cPanel virtual environment
+    config.resolve.symlinks = true;
     
     // Add node_modules resolution paths (direct path to venv)
+    // Use fixed path for repositories location
+    const venvPath = '/home/shop1111/nodevenv/repositories/saded/20';
     config.resolve.modules = [
       path.resolve(rootDir, 'node_modules'),
-      path.resolve('/home/shop1111/nodevenv/public_html/saded/20/lib/node_modules'),
+      path.resolve(venvPath, 'lib/node_modules'),
+      path.resolve(venvPath, 'lib/node_modules/tailwindcss'),
       'node_modules',
     ];
+    
+    // Add fallback for tailwindcss
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      'tailwindcss': path.resolve(venvPath, 'lib/node_modules/tailwindcss'),
+    };
     
     return config;
   },

@@ -184,7 +184,7 @@ export function VehicleForm({ vehicle, onSuccess }: VehicleFormProps) {
         try {
           jsonStringified = JSON.stringify(payload);
           fetch('http://127.0.0.1:7242/ingest/6e2493c0-cc8b-4c0b-9456-c04638b7e615',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'components/admin/vehicle-form.tsx:102',message:'Before fetch PUT',data:{jsonLength:jsonStringified.length,vehicleId:vehicle.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        } catch (stringifyError) {
+        } catch (stringifyError: any) {
           fetch('http://127.0.0.1:7242/ingest/6e2493c0-cc8b-4c0b-9456-c04638b7e615',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'components/admin/vehicle-form.tsx:102',message:'JSON.stringify error',data:{error:stringifyError?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
           throw stringifyError;
         }

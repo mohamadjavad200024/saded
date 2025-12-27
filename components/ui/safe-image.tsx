@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { 
   getPlaceholderImage, 
   validateImageUrl, 
@@ -27,6 +27,7 @@ interface SafeImageProps {
   placeholder?: "blur" | "empty";
   blurDataURL?: string;
   productId?: string;
+  fallback?: React.ReactNode;
 }
 
 /**
@@ -50,6 +51,7 @@ export function SafeImage({
   placeholder = "empty",
   blurDataURL,
   productId,
+  fallback,
 }: SafeImageProps) {
   // استفاده از store بدون قرار دادن در dependency array
   const productStore = useProductStore();
@@ -341,7 +343,12 @@ export function SafeImage({
         <img {...imgProps} ref={imgRef} />
         {isLoading && !hasError && (
           <div className="absolute inset-0 bg-muted animate-pulse flex items-center justify-center z-10">
-            <Package className="h-8 w-8 text-muted-foreground" />
+            {fallback || <Package className="h-8 w-8 text-muted-foreground" />}
+          </div>
+        )}
+        {hasError && (
+          <div className="absolute inset-0 bg-muted flex items-center justify-center z-10">
+            {fallback || <Package className="h-8 w-8 text-muted-foreground" />}
           </div>
         )}
       </div>

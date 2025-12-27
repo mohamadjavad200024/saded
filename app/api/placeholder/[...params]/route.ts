@@ -8,11 +8,11 @@ import { createErrorResponse } from "@/lib/api-route-helpers";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ params: string[] }> | { params: string[] } }
+  { params }: { params: Promise<{ params: string[] }> }
 ) {
   try {
-    // Handle both sync and async params (Next.js 15+ uses Promise)
-    const resolvedParams = params instanceof Promise ? await params : params;
+    // Next.js 16+ uses Promise for params
+    const resolvedParams = await params;
     // Parse width and height from params
     const [width = "600", height = "600"] = resolvedParams.params || [];
     const w = parseInt(width, 10) || 600;

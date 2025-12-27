@@ -286,9 +286,9 @@ export function ProductDetail({ productId }: ProductDetailProps) {
       <div className="absolute top-0 left-0 z-10 flex items-center gap-2 sm:gap-3" dir="ltr">
         {/* Logo - Circle */}
         <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-muted rounded-full overflow-hidden border-2 border-green-500 flex items-center justify-center p-2 sm:p-3 flex-shrink-0">
-          {vehicle && hasValidLogo ? (
+          {vehicle && hasValidLogo ? ( 
             <img
-              src={vehicle.logo}
+              src={vehicle.logo || ''}       
               alt={vehicle.name}
               className="w-full h-full object-contain rounded-full"
               onError={(e) => {

@@ -26,7 +26,7 @@ interface Wave {
 
 export function HeroCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationFrameRef = useRef<number>();
+  const animationFrameRef = useRef<number | undefined>(undefined);
   const particlesRef = useRef<Particle[]>([]);
   const wavesRef = useRef<Wave[]>([]);
   const mouseRef = useRef({ x: 0, y: 0, isActive: false });

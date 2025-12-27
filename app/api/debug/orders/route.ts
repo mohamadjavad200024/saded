@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
         "SELECT COUNT(*) as count FROM orders"
       );
       results.tableExists = true;
-      results.orderCount = countResult[0]?.count || 0;
+      results.orderCount = countResult?.count || 0;
     } catch (error: any) {
       if (error?.code === "ER_NO_SUCH_TABLE" || error?.message?.includes("doesn't exist")) {
         results.errors.push("Orders table does not exist");

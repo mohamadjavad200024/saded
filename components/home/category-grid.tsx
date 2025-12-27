@@ -207,7 +207,7 @@ export function MinimalCategoryGrid() {
   }, [vehicles.length, loadVehiclesFromDB]);
 
   const allVehicles = useMemo(() => {
-    return vehicles.filter((vehicle) => vehicle.isActive || vehicle.isActive === undefined);
+    return vehicles.filter((vehicle) => vehicle.enabled !== false);
   }, [vehicles]);
 
   const displayVehicles = useMemo(() => {

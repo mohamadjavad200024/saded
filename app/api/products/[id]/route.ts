@@ -46,10 +46,6 @@ export async function GET(
       updatedAt: product.updatedAt instanceof Date ? product.updatedAt : new Date(product.updatedAt),
     };
 
-    // #region agent log
-    fetch(logEndpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'route.ts:47',message:'GET product parsed',data:{productId:parsedProduct.id,airShippingEnabledRaw:product.airShippingEnabled,airShippingEnabledType:typeof product.airShippingEnabled,airShippingEnabledParsed:parsedProduct.airShippingEnabled,airShippingEnabledParsedType:typeof parsedProduct.airShippingEnabled,seaShippingEnabledRaw:product.seaShippingEnabled,seaShippingEnabledType:typeof product.seaShippingEnabled,seaShippingEnabledParsed:parsedProduct.seaShippingEnabled,seaShippingEnabledParsedType:typeof parsedProduct.seaShippingEnabled},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
-
     return createSuccessResponse(parsedProduct);
   } catch (error) {
     return createErrorResponse(error);
