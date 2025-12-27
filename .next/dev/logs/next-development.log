@@ -929,3 +929,9 @@
 [00:00:17.379] Browser LOG     [VehicleStore] Loaded vehicle: {"hasLogo":true,"id":"vehicle-1766511473754-0ar4ro7kj","logoLength":35991,"logoPreview":"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD","logoType":"string","name":"BMW"}
 [00:00:17.379] Browser LOG     [VehicleStore] Loaded vehicle: {"hasLogo":true,"id":"vehicle-1766511910162-52vpew6u8","logoLength":399559,"logoPreview":"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD","logoType":"string","name":"Mercedes-Benz"}
 [00:00:17.379] Browser LOG     [VehicleStore] Total vehicles loaded: 2
+[11:09:32.552] Server  DEBUG   MySQL connection reset (normal for idle connections) "PROTOCOL_CONNECTION_LOST"
+[11:09:32.624] Server  DEBUG   MySQL connection reset (normal for idle connections) "PROTOCOL_CONNECTION_LOST"
+[11:09:32.721] Server  DEBUG   MySQL connection reset (normal for idle connections) "PROTOCOL_CONNECTION_LOST"
+[11:09:32.867] Server  DEBUG   MySQL connection reset (normal for idle connections) "PROTOCOL_CONNECTION_LOST"
+[11:09:33.055] Server  DEBUG   MySQL connection reset (normal for idle connections) "PROTOCOL_CONNECTION_LOST"
+[11:09:39.158] Server  LOG     [DEBUG] New connection from: "127.0.0.1" ":" 64381

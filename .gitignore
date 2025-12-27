@@ -10,13 +10,15 @@
 /coverage
 
 # next.js
-# Allow all .next files to be committed
-# /.next/cache/
-# /.next/dev/
-# /.next/diagnostics/
-# /.next/trace
-# /.next/trace-build
-# /.next/turbopack/
+# Ignore large cache files (over 100MB limit)
+/.next/cache/
+/.next/turbopack/
+# But allow essential build files
+!/.next/server/
+!/.next/static/
+!/.next/BUILD_ID
+!/.next/*.json
+!/.next/*.js
 /out/
 
 # production
