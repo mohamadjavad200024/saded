@@ -10,15 +10,8 @@
 /coverage
 
 # next.js
-# Ignore large cache files (over 100MB limit)
-/.next/cache/
-/.next/turbopack/
-# But allow essential build files
-!/.next/server/
-!/.next/static/
-!/.next/BUILD_ID
-!/.next/*.json
-!/.next/*.js
+# Ignore all .next files (build output should not be in git)
+/.next/
 /out/
 
 # production

@@ -1,1 +1,0 @@
-"use strict";exports.id=1161,exports.ids=[1161],exports.modules={81161:(a,b,c)=>{c.d(b,{fetchWithAuth:()=>d});async function d(a,b={}){let c=new Headers(b.headers);return!c.has("Content-Type")&&b.body&&c.set("Content-Type","application/json"),fetch(a,{...b,credentials:"include",headers:c})}}};
