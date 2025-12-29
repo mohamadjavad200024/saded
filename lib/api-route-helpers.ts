@@ -57,7 +57,7 @@ export function createErrorResponse(
   // Log error in development
   logError(error, "API Route");
 
-  return NextResponse.json(
+  const response = NextResponse.json(
     {
       success: false,
       error: message,
@@ -66,10 +66,16 @@ export function createErrorResponse(
     },
     { status }
   );
+  
+  // CRITICAL: Always set charset=utf-8 for proper Persian character encoding
+  response.headers.set('Content-Type', 'application/json; charset=utf-8');
+  
+  return response;
 }
 
 /**
  * Create standardized success response
+ * CRITICAL: Always include charset=utf-8 to ensure proper Persian character encoding
  */
 export function createSuccessResponse<T>(
   data: T,
@@ -79,9 +85,10 @@ export function createSuccessResponse<T>(
     limit: number;
     total: number;
     totalPages: number;
-  }
+  },
+  headers?: HeadersInit
 ): NextResponse {
-  return NextResponse.json(
+  const response = NextResponse.json(
     {
       success: true,
       data,
@@ -89,6 +96,20 @@ export function createSuccessResponse<T>(
     },
     { status }
   );
+  
+  // CRITICAL: Always set charset=utf-8 for proper Persian character encoding
+  response.headers.set('Content-Type', 'application/json; charset=utf-8');
+  
+  // Apply any additional headers
+  if (headers) {
+    Object.entries(headers).forEach(([key, value]) => {
+      if (typeof value === 'string') {
+        response.headers.set(key, value);
+      }
+    });
+  }
+  
+  return response;
 }
 
 /**

@@ -21,6 +21,7 @@
     "setup-postgres-retry": "node scripts/setup-postgres-with-retry.js",
     "setup-db-production": "node scripts/setup-db-production.js",
     "setup-mysql": "node scripts/setup-mysql.js",
+    "fix-encoding": "node scripts/fix-encoding.js",
     "create-vehicles-table": "node scripts/create-vehicles-table-manual.js",
     "fix-vehicle-logo-column": "node scripts/fix-vehicle-logo-column.js",
     "test-mysql": "node scripts/test-mysql-connection.js",

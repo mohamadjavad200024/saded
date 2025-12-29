@@ -65,6 +65,10 @@ export async function generateMetadata(): Promise<Metadata> {
     alternates: {
       canonical: baseUrl,
     },
+    // CRITICAL: Ensure UTF-8 charset for proper Persian character encoding
+    other: {
+      'charset': 'utf-8',
+    },
     icons: {
       icon: [
         // همیشه از لوگوی سایت استفاده می‌کنیم (اگر وجود داشته باشد)
