@@ -106,34 +106,60 @@ async function fixEncoding() {
     for (const tableName of tableNames) {
       console.log(`\n🔧 در حال تبدیل جدول: ${tableName}`);
       try {
-        // Convert table charset
-        await pool.execute(`ALTER TABLE \`${tableName}\` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
-        console.log(`   ✅ جدول ${tableName} تبدیل شد`);
-        
-        // Get all columns and fix their charset
-        const [columns] = await pool.execute(`SHOW COLUMNS FROM \`${tableName}\``);
-        for (const column of columns) {
-          const columnName = column.Field;
-          const columnType = column.Type;
-          
-          // Only fix TEXT, VARCHAR, CHAR columns
-          if (columnType.includes('VARCHAR') || 
-              columnType.includes('CHAR') || 
-              columnType.includes('TEXT') ||
-              columnType.includes('TINYTEXT') ||
-              columnType.includes('MEDIUMTEXT') ||
-              columnType.includes('LONGTEXT')) {
-            try {
-              await pool.execute(`ALTER TABLE \`${tableName}\` MODIFY \`${columnName}\` ${columnType} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
-              console.log(`   ✅ ستون ${columnName} تبدیل شد`);
-            } catch (error) {
-              // Ignore errors for columns that can't be modified (e.g., primary keys with constraints)
-              if (error.code !== 'ER_CANT_DROP_FIELD_OR_KEY' && 
-                  error.code !== 'ER_DUP_FIELDNAME' &&
-                  !error.message?.includes('Duplicate')) {
-                console.warn(`   ⚠️  خطا در تبدیل ستون ${columnName}:`, error.message);
+        // First, try to convert table charset (this may fail for tables with long indexes)
+        try {
+          await pool.execute(`ALTER TABLE \`${tableName}\` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+          console.log(`   ✅ جدول ${tableName} تبدیل شد (روش کامل)`);
+        } catch (convertError) {
+          // If CONVERT fails (usually due to long indexes), convert columns individually
+          if (convertError.message && convertError.message.includes('key was too long')) {
+            console.log(`   ⚠️  تبدیل کامل جدول ${tableName} ناموفق (به دلیل index های طولانی)، در حال تبدیل ستون‌ها...`);
+            
+            // Get all columns and fix their charset individually
+            const [columns] = await pool.execute(`SHOW COLUMNS FROM \`${tableName}\``);
+            let convertedCount = 0;
+            
+            for (const column of columns) {
+              const columnName = column.Field;
+              const columnType = column.Type;
+              
+              // Only fix TEXT, VARCHAR, CHAR columns
+              if (columnType.includes('VARCHAR') || 
+                  columnType.includes('CHAR') || 
+                  columnType.includes('TEXT') ||
+                  columnType.includes('TINYTEXT') ||
+                  columnType.includes('MEDIUMTEXT') ||
+                  columnType.includes('LONGTEXT')) {
+                try {
+                  // Extract base type without charset/collation
+                  let baseType = columnType;
+                  // Remove existing charset/collation if present
+                  baseType = baseType.replace(/CHARACTER SET \w+/gi, '');
+                  baseType = baseType.replace(/COLLATE \w+/gi, '');
+                  baseType = baseType.trim();
+                  
+                  await pool.execute(`ALTER TABLE \`${tableName}\` MODIFY \`${columnName}\` ${baseType} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+                  convertedCount++;
+                } catch (colError) {
+                  // Ignore errors for columns that can't be modified
+                  if (colError.code !== 'ER_CANT_DROP_FIELD_OR_KEY' && 
+                      colError.code !== 'ER_DUP_FIELDNAME' &&
+                      !colError.message?.includes('Duplicate') &&
+                      !colError.message?.includes('key was too long')) {
+                    console.warn(`   ⚠️  خطا در تبدیل ستون ${columnName}:`, colError.message);
+                  }
+                }
               }
             }
+            
+            if (convertedCount > 0) {
+              console.log(`   ✅ ${convertedCount} ستون از جدول ${tableName} تبدیل شد`);
+            } else {
+              console.log(`   ⚠️  هیچ ستونی از جدول ${tableName} تبدیل نشد`);
+            }
+          } else {
+            // Re-throw if it's a different error
+            throw convertError;
           }
         }
       } catch (error) {
