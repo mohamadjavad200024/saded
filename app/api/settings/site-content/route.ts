@@ -78,9 +78,11 @@ export async function GET(request: NextRequest) {
       return createSuccessResponse(defaultContent);
     }
 
-    // Parse JSON content
+    // Parse JSON content - ensure UTF-8 encoding
     try {
-      const parsedContent = JSON.parse(content.value);
+      // Ensure the value is treated as UTF-8
+      const valueStr = typeof content.value === 'string' ? content.value : String(content.value);
+      const parsedContent = JSON.parse(valueStr);
       // اگر quickLinks و support در دیتابیس نیستند، از defaultContent استفاده کن
       if (!parsedContent.footer?.quickLinks) {
         parsedContent.footer.quickLinks = defaultContent.footer.quickLinks;
@@ -88,10 +90,15 @@ export async function GET(request: NextRequest) {
       if (!parsedContent.footer?.support) {
         parsedContent.footer.support = defaultContent.footer.support;
       }
-      return createSuccessResponse(parsedContent);
+      const response = createSuccessResponse(parsedContent);
+      // Ensure UTF-8 charset in response headers
+      response.headers.set('Content-Type', 'application/json; charset=utf-8');
+      return response;
     } catch (parseError) {
       // If parsing fails, return default
-      return createSuccessResponse(defaultContent);
+      const response = createSuccessResponse(defaultContent);
+      response.headers.set('Content-Type', 'application/json; charset=utf-8');
+      return response;
     }
   } catch (error) {
     // If table doesn't exist or error, return default content
@@ -137,17 +144,23 @@ export async function PUT(request: NextRequest) {
         CREATE TABLE IF NOT EXISTS site_settings (
           id INT AUTO_INCREMENT PRIMARY KEY,
           \`key\` VARCHAR(255) UNIQUE NOT NULL,
-          value TEXT,
+          value TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
           createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `);
     } catch (error) {
-      // Table might already exist, continue
+      // Table might already exist, try to alter charset
+      try {
+        await runQuery(`ALTER TABLE site_settings MODIFY value TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+        await runQuery(`ALTER TABLE site_settings CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+      } catch (alterError) {
+        // Ignore alter errors
+      }
     }
 
-    // Insert or update
-    const contentJson = JSON.stringify(content);
+    // Insert or update - ensure UTF-8 encoding
+    const contentJson = JSON.stringify(content, null, 0);
     await runQuery(
       `INSERT INTO site_settings (\`key\`, value, updatedAt) 
        VALUES ('site_content', ?, NOW())
@@ -160,11 +173,14 @@ export async function PUT(request: NextRequest) {
       "SELECT * FROM site_settings WHERE `key` = 'site_content' LIMIT 1"
     );
 
-    return createSuccessResponse({
+    const response = createSuccessResponse({
       content: updated ? JSON.parse(updated.value) : content,
       updatedAt: updated?.updatedAt || new Date().toISOString(),
       message: "محتوای سایت با موفقیت به‌روزرسانی شد",
     });
+    // Ensure UTF-8 charset in response headers
+    response.headers.set('Content-Type', 'application/json; charset=utf-8');
+    return response;
   } catch (error) {
     return createErrorResponse(error);
   }

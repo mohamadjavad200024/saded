@@ -50,13 +50,16 @@ const DialogContent = React.forwardRef<
         // If a screen-reader description is needed, callers can add <DialogDescription>.
         aria-describedby={undefined}
         className={cn(
-          "fixed !left-1/2 !top-1/2 z-[9999] grid w-full max-w-lg !-translate-x-1/2 !-translate-y-1/2 gap-4 border-[0.25px] border-border/30 glass-morphism-strong p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] rounded-lg",
+          "fixed !left-1/2 !top-1/2 z-[9999] grid w-full max-w-lg !-translate-x-1/2 !-translate-y-1/2 gap-4 border-[0.25px] border-border/30 glass-morphism-strong p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] rounded-lg max-h-[90vh] overflow-y-auto overflow-x-hidden",
           className
         )}
         style={{
           left: '50%',
           top: '50%',
           transform: 'translate(-50%, -50%)',
+          maxWidth: 'calc(100vw - 2rem)',
+          maxHeight: '90vh',
+          overflowX: 'hidden',
           ...(props.style as React.CSSProperties),
         }}
         {...props}

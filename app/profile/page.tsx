@@ -28,11 +28,11 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 function ProfileContent() {
   const { user, logout, updateUser } = useAuthStore();
@@ -428,12 +428,12 @@ function ProfileContent() {
         </button>
       </div>
 
-      {/* Edit Profile Dialog */}
-      <Dialog open={isEditingProfile} onOpenChange={setIsEditingProfile}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>ویرایش پروفایل</DialogTitle>
-          </DialogHeader>
+      {/* Edit Profile Sheet */}
+      <Sheet open={isEditingProfile} onOpenChange={setIsEditingProfile}>
+        <SheetContent side="left" className="w-full sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>ویرایش پروفایل</SheetTitle>
+          </SheetHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="edit-name">نام</Label>
@@ -495,15 +495,15 @@ function ProfileContent() {
               </Button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
-      {/* Change Password Dialog */}
-      <Dialog open={isEditingPassword} onOpenChange={setIsEditingPassword}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>تغییر رمز عبور</DialogTitle>
-          </DialogHeader>
+      {/* Change Password Sheet */}
+      <Sheet open={isEditingPassword} onOpenChange={setIsEditingPassword}>
+        <SheetContent side="left" className="w-full sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>تغییر رمز عبور</SheetTitle>
+          </SheetHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="current-password">رمز عبور فعلی</Label>
@@ -646,8 +646,8 @@ function ProfileContent() {
               </Button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

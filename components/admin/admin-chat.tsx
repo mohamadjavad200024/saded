@@ -27,6 +27,7 @@ import { MessageBubble } from "@/components/chat/message-bubble";
 import { ChatInput } from "@/components/chat/chat-input";
 import { logger } from "@/lib/logger-client";
 import { useAuthStore } from "@/store/auth-store";
+import { useRouter } from "next/navigation";
 import {
   Dialog,
   DialogContent,
@@ -35,7 +36,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import * as VisuallyHiddenPrimitive from "@radix-ui/react-visually-hidden";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
@@ -64,6 +64,7 @@ interface AdminChatProps {
 }
 
 export function AdminChat({ isOpen, onOpenChange, initialCustomerPhone }: AdminChatProps) {
+  const router = useRouter();
   const { toast } = useToast();
   const { user } = useAuthStore();
   const { setOnline, isOnline } = useAdminPresence({
@@ -211,7 +212,8 @@ export function AdminChat({ isOpen, onOpenChange, initialCustomerPhone }: AdminC
       if (isInitial) setIsLoadingMessages(true);
       
       let url = `/api/chat?chatId=${chatId}`;
-      if (!isInitial && lastMessageIdRef.current) {
+      // Only add lastMessageId if it exists and is not a temporary ID
+      if (!isInitial && lastMessageIdRef.current && !lastMessageIdRef.current.startsWith('temp-')) {
         url += `&lastMessageId=${lastMessageIdRef.current}`;
       }
       
@@ -269,7 +271,11 @@ export function AdminChat({ isOpen, onOpenChange, initialCustomerPhone }: AdminC
         if (isInitial) {
           setMessages(formattedMessages);
           if (formattedMessages.length > 0) {
-            lastMessageIdRef.current = formattedMessages[formattedMessages.length - 1].id;
+            const lastMsg = formattedMessages[formattedMessages.length - 1];
+            // Only set lastMessageId if it's not a temporary ID
+            if (lastMsg.id && !lastMsg.id.startsWith('temp-')) {
+              lastMessageIdRef.current = lastMsg.id;
+            }
           }
         } else {
           setMessages((prev) => {
@@ -297,7 +303,11 @@ export function AdminChat({ isOpen, onOpenChange, initialCustomerPhone }: AdminC
             });
             
             if (newMessages.length > 0) {
-              lastMessageIdRef.current = newMessages[newMessages.length - 1].id;
+              const lastMsg = newMessages[newMessages.length - 1];
+              // Only set lastMessageId if it's not a temporary ID
+              if (lastMsg.id && !lastMsg.id.startsWith('temp-')) {
+                lastMessageIdRef.current = lastMsg.id;
+              }
               return [...updatedPrev, ...newMessages];
             }
             // Only update if we actually removed deleted messages or updated status
@@ -827,19 +837,18 @@ export function AdminChat({ isOpen, onOpenChange, initialCustomerPhone }: AdminC
     chat.customerEmail?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // If not open, return null
+  if (!isOpen) {
+    return null;
+  }
+
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] w-full h-[90vh] p-0 flex flex-col gap-0 overflow-hidden">
-        <VisuallyHiddenPrimitive.Root>
-          <DialogHeader>
-            <DialogTitle>چت با کاربران</DialogTitle>
-          </DialogHeader>
-        </VisuallyHiddenPrimitive.Root>
-        <div className="flex h-full overflow-hidden">
+    <div className="h-full w-full flex flex-col overflow-hidden">
+      <div className="flex flex-1 overflow-hidden min-h-0">
           {/* Left Sidebar - Contact List */}
-          <div className="w-full md:w-1/3 lg:w-1/4 border-l border-border flex flex-col bg-background">
+          <div className="w-full md:w-1/3 lg:w-1/4 border-l border-border flex flex-col bg-background min-h-0">
             {/* Header */}
-            <div className="p-4 border-b border-border bg-muted/30">
+            <div className="p-4 border-b border-border bg-muted/30 flex-shrink-0">
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
                   <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -854,7 +863,13 @@ export function AdminChat({ isOpen, onOpenChange, initialCustomerPhone }: AdminC
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => onOpenChange(false)}
+                  onClick={() => {
+                    if (onOpenChange) {
+                      onOpenChange(false);
+                    } else {
+                      router.push("/admin");
+                    }
+                  }}
                   className="h-10 w-10 flex-shrink-0"
                 >
                   <X className="h-4 w-4" />
@@ -925,11 +940,11 @@ export function AdminChat({ isOpen, onOpenChange, initialCustomerPhone }: AdminC
           </div>
 
           {/* Right Side - Chat Area */}
-          <div className="flex-1 flex flex-col bg-background">
+          <div className="flex-1 flex flex-col bg-background min-h-0">
             {selectedChat ? (
               <>
                 {/* Chat Header */}
-                <div className="p-4 border-b border-border bg-muted/30 flex items-center justify-between">
+                <div className="p-4 border-b border-border bg-muted/30 flex items-center justify-between flex-shrink-0">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                       <User className="h-5 w-5 text-primary" />
@@ -1017,7 +1032,7 @@ export function AdminChat({ isOpen, onOpenChange, initialCustomerPhone }: AdminC
                 </ScrollArea>
 
                 {/* Chat Input */}
-                <div className="p-4 border-t border-border bg-muted/30">
+                <div className="p-4 border-t border-border bg-muted/30 flex-shrink-0">
                   <ChatInput
                     message={chatMessaging.message}
                     onMessageChange={chatMessaging.handleMessageChange}
@@ -1076,10 +1091,9 @@ export function AdminChat({ isOpen, onOpenChange, initialCustomerPhone }: AdminC
             )}
           </div>
         </div>
-      </DialogContent>
 
-      {/* Block User Confirmation Dialog */}
-      <Dialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
+        {/* Block User Confirmation Dialog */}
+        <Dialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>مسدود کردن کاربر</DialogTitle>
@@ -1117,6 +1131,6 @@ export function AdminChat({ isOpen, onOpenChange, initialCustomerPhone }: AdminC
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Dialog>
+    </div>
   );
 }

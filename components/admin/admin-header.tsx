@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { AdminChat } from "@/components/admin/admin-chat";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,8 +27,8 @@ interface AdminHeaderProps {
 }
 
 export function AdminHeader({ onSearch }: AdminHeaderProps) {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
   const [totalUnreadCount, setTotalUnreadCount] = useState(0);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -69,20 +69,13 @@ export function AdminHeader({ onSearch }: AdminHeaderProps) {
     // Initial fetch
     fetchTotalUnreadCount();
 
-    // Poll every 5 seconds when chat is closed, every 10 seconds when open
-    const pollInterval = chatOpen ? 10000 : 5000;
+    // Poll every 5 seconds
     const interval = setInterval(() => {
       fetchTotalUnreadCount();
-    }, pollInterval);
+    }, 5000);
 
     return () => clearInterval(interval);
-  }, [fetchTotalUnreadCount, chatOpen]);
-
-  // Update unread count when chat state changes
-  useEffect(() => {
-    // Refresh count when chat opens or closes
-    fetchTotalUnreadCount();
-  }, [chatOpen, fetchTotalUnreadCount]);
+  }, [fetchTotalUnreadCount]);
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -194,7 +187,7 @@ export function AdminHeader({ onSearch }: AdminHeaderProps) {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setChatOpen(true)}
+            onClick={() => router.push("/admin/chat")}
             className="relative"
             title="چت با کاربران"
           >
@@ -241,7 +234,6 @@ export function AdminHeader({ onSearch }: AdminHeaderProps) {
           )}
         </div>
       </div>
-      <AdminChat isOpen={chatOpen} onOpenChange={setChatOpen} />
       
       {/* Change Password Dialog */}
       <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>

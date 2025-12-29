@@ -1,0 +1,70 @@
+# فایل‌هایی که نباید در cPanel آپلود شوند
+
+# Development files
+.env.local
+.env.development
+.env.test
+*.local
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Testing
+coverage/
+__tests__/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+jest.config.js
+jest.setup.js
+
+# Build scripts (Windows specific)
+*.bat
+*.ps1
+
+# Documentation (optional - می‌توانید این خط را حذف کنید اگر می‌خواهید docs آپلود شود)
+docs/
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# PM2 (اگر از PM2 استفاده نمی‌کنید)
+ecosystem.config.js
+.pm2/
+
+# Debug files
+debug-*.js
+
+# Source maps (optional)
+*.map
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Vercel
+.vercel/
+
+# Uploads (اگر می‌خواهید جداگانه آپلود کنید)
+# public/uploads/
+

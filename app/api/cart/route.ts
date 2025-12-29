@@ -4,6 +4,7 @@ import { createErrorResponse, createSuccessResponse } from "@/lib/api-route-help
 import { AppError } from "@/lib/api-error-handler";
 import type { CartItem } from "@/store/cart-store";
 import { logger } from "@/lib/logger";
+import { getSessionUserFromRequest } from "@/lib/auth/session";
 
 /**
  * GET /api/cart - Get cart for current session
@@ -11,13 +12,17 @@ import { logger } from "@/lib/logger";
  */
 export async function GET(request: NextRequest) {
   try {
-    // Get session ID from cookie or header
+    // Get user from session (if logged in)
+    const user = await getSessionUserFromRequest(request);
+    const userId = user?.id || null;
+    
+    // Get session ID from cookie or header (for guest users)
     const sessionId = request.headers.get("x-cart-session-id") ||
                      request.cookies.get("cart-session-id")?.value ||
                      null;
 
-    if (!sessionId) {
-      // Return empty cart if no session
+    // If no user and no session, return empty cart
+    if (!userId && !sessionId) {
       return createSuccessResponse({
         items: [],
         shippingMethod: null,
@@ -30,13 +35,13 @@ export async function GET(request: NextRequest) {
         await runQuery(`
           CREATE TABLE IF NOT EXISTS carts (
             id VARCHAR(255) PRIMARY KEY,
-            \`sessionId\` VARCHAR(255) NOT NULL,
+            \`sessionId\` VARCHAR(255),
             \`userId\` VARCHAR(255),
             items JSON NOT NULL DEFAULT '[]',
             \`shippingMethod\` VARCHAR(50),
             \`createdAt\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             \`updatedAt\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            UNIQUE(\`sessionId\`)
+            UNIQUE(\`sessionId\`, \`userId\`)
           );
           CREATE INDEX IF NOT EXISTS idx_carts_sessionId ON carts(\`sessionId\`);
           CREATE INDEX IF NOT EXISTS idx_carts_userId ON carts(\`userId\`);
@@ -48,24 +53,55 @@ export async function GET(request: NextRequest) {
         }
       }
       
-      const cart = await getRow<any>(
-        "SELECT * FROM carts WHERE \"sessionId\" = ?",
-        [sessionId]
-      );
+      // Get cart by userId (if logged in) or sessionId (if guest)
+      let cart;
+      if (userId) {
+        // User is logged in - get cart by userId
+        cart = await getRow<any>(
+          "SELECT * FROM carts WHERE `userId` = ? ORDER BY `updatedAt` DESC LIMIT 1",
+          [userId]
+        );
+        // If no cart found by userId but sessionId exists, try to migrate session cart to user
+        if (!cart && sessionId) {
+          const sessionCart = await getRow<any>(
+            "SELECT * FROM carts WHERE `sessionId` = ?",
+            [sessionId]
+          );
+          if (sessionCart) {
+            // Migrate session cart to user cart
+            await runQuery(
+              `UPDATE carts SET \`userId\` = ?, \`sessionId\` = NULL WHERE \`sessionId\` = ?`,
+              [userId, sessionId]
+            );
+            cart = await getRow<any>(
+              "SELECT * FROM carts WHERE `userId` = ? ORDER BY `updatedAt` DESC LIMIT 1",
+              [userId]
+            );
+          }
+        }
+      } else {
+        // Guest user - get cart by sessionId
+        cart = await getRow<any>(
+          "SELECT * FROM carts WHERE `sessionId` = ?",
+          [sessionId]
+        );
+      }
 
       if (!cart) {
         const emptyResponse = createSuccessResponse({
           items: [],
           shippingMethod: null,
         });
-        // Set cookie even for empty cart
-        emptyResponse.cookies.set("cart-session-id", sessionId, {
-          httpOnly: false,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
-          maxAge: 60 * 60 * 24 * 365,
-          path: "/",
-        });
+        // Set cookie even for empty cart (only for guest users)
+        if (!userId && sessionId) {
+          emptyResponse.cookies.set("cart-session-id", sessionId, {
+            httpOnly: false,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            maxAge: 60 * 60 * 24 * 365,
+            path: "/",
+          });
+        }
         return emptyResponse;
       }
 
@@ -98,14 +134,16 @@ export async function GET(request: NextRequest) {
         },
       });
       
-      // Set cookie for session ID
-      response.cookies.set("cart-session-id", sessionId, {
-        httpOnly: false,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 60 * 60 * 24 * 365, // 1 year
-        path: "/",
-      });
+      // Set cookie for session ID (only for guest users)
+      if (!userId && sessionId) {
+        response.cookies.set("cart-session-id", sessionId, {
+          httpOnly: false,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          maxAge: 60 * 60 * 24 * 365, // 1 year
+          path: "/",
+        });
+      }
       
       return response;
     } catch (dbError: any) {
@@ -147,10 +185,18 @@ export async function POST(request: NextRequest) {
       throw new AppError("Invalid JSON in request body", 400, "INVALID_JSON");
     });
 
+    // Get user from session (if logged in)
+    const user = await getSessionUserFromRequest(request);
+    const userId = user?.id || null;
+
     const { items, shippingMethod, sessionId } = body;
 
-    if (!sessionId || typeof sessionId !== "string") {
-      throw new AppError("Session ID is required", 400, "MISSING_SESSION_ID");
+    // If no user and no sessionId, create a new sessionId for guest
+    let finalSessionId = sessionId;
+    if (!userId && !sessionId) {
+      finalSessionId = `guest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    } else if (!finalSessionId) {
+      finalSessionId = `guest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     }
 
     if (!Array.isArray(items)) {
@@ -180,13 +226,13 @@ export async function POST(request: NextRequest) {
         await runQuery(`
           CREATE TABLE IF NOT EXISTS carts (
             id VARCHAR(255) PRIMARY KEY,
-            \`sessionId\` VARCHAR(255) NOT NULL,
+            \`sessionId\` VARCHAR(255),
             \`userId\` VARCHAR(255),
             items JSON NOT NULL DEFAULT '[]',
             \`shippingMethod\` VARCHAR(50),
             \`createdAt\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             \`updatedAt\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            UNIQUE(\`sessionId\`)
+            UNIQUE(\`sessionId\`, \`userId\`)
           );
           CREATE INDEX IF NOT EXISTS idx_carts_sessionId ON carts(\`sessionId\`);
           CREATE INDEX IF NOT EXISTS idx_carts_userId ON carts(\`userId\`);
@@ -198,28 +244,66 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      // Check if cart exists
-      const existingCart = await getRow<any>(
-        "SELECT * FROM carts WHERE \"sessionId\" = ?",
-        [sessionId]
-      );
+      // Check if cart exists (by userId if logged in, or by sessionId if guest)
+      let existingCart;
+      if (userId) {
+        existingCart = await getRow<any>(
+          "SELECT * FROM carts WHERE `userId` = ? ORDER BY `updatedAt` DESC LIMIT 1",
+          [userId]
+        );
+        // If no cart found by userId but sessionId exists, try to migrate
+        if (!existingCart && finalSessionId) {
+          const sessionCart = await getRow<any>(
+            "SELECT * FROM carts WHERE `sessionId` = ?",
+            [finalSessionId]
+          );
+          if (sessionCart) {
+            // Migrate session cart to user cart
+            await runQuery(
+              `UPDATE carts SET \`userId\` = ?, \`sessionId\` = NULL WHERE \`sessionId\` = ?`,
+              [userId, finalSessionId]
+            );
+            existingCart = await getRow<any>(
+              "SELECT * FROM carts WHERE `userId` = ? ORDER BY `updatedAt` DESC LIMIT 1",
+              [userId]
+            );
+          }
+        }
+      } else {
+        existingCart = await getRow<any>(
+          "SELECT * FROM carts WHERE `sessionId` = ?",
+          [finalSessionId]
+        );
+      }
 
       if (existingCart) {
         // Update existing cart
-        const updateResult = await runQuery(
-          `UPDATE carts SET items = ?, \`shippingMethod\` = ?, \`updatedAt\` = ? WHERE \`sessionId\` = ?`,
-          [JSON.stringify(items), shippingMethod || null, now, sessionId]
-        );
-        logger.debug("Cart updated in database:", { sessionId, itemCount: items.length });
+        // Always ensure sessionId is set, even if userId exists
+        const sessionIdForUpdate = finalSessionId || (userId ? `user-${userId}` : `guest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
+        if (userId) {
+          await runQuery(
+            `UPDATE carts SET items = ?, \`shippingMethod\` = ?, \`updatedAt\` = ?, \`userId\` = ?, \`sessionId\` = ? WHERE id = ?`,
+            [JSON.stringify(items), shippingMethod || null, now, userId, sessionIdForUpdate, existingCart.id]
+          );
+        } else {
+          await runQuery(
+            `UPDATE carts SET items = ?, \`shippingMethod\` = ?, \`updatedAt\` = ?, \`sessionId\` = ? WHERE \`sessionId\` = ?`,
+            [JSON.stringify(items), shippingMethod || null, now, sessionIdForUpdate, finalSessionId]
+          );
+        }
+        logger.debug("Cart updated in database:", { userId, sessionId: sessionIdForUpdate, itemCount: items.length });
       } else {
         // Create new cart
         const cartId = `cart-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        const insertResult = await runQuery(
-          `INSERT INTO carts (id, \`sessionId\`, items, \`shippingMethod\`, \`createdAt\`, \`updatedAt\`)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [cartId, sessionId, JSON.stringify(items), shippingMethod || null, now, now]
+        // Always set sessionId, even if userId exists (for compatibility with existing table structure)
+        // If userId exists, we can still keep sessionId for tracking purposes
+        const sessionIdForInsert = finalSessionId || (userId ? `user-${userId}` : `guest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
+        await runQuery(
+          `INSERT INTO carts (id, \`sessionId\`, \`userId\`, items, \`shippingMethod\`, \`createdAt\`, \`updatedAt\`)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [cartId, sessionIdForInsert, userId, JSON.stringify(items), shippingMethod || null, now, now]
         );
-        logger.debug("Cart created in database:", { cartId, sessionId, itemCount: items.length });
+        logger.debug("Cart created in database:", { cartId, userId, sessionId: sessionIdForInsert, itemCount: items.length });
       }
 
       const response = NextResponse.json({
@@ -227,14 +311,16 @@ export async function POST(request: NextRequest) {
         message: "Cart saved successfully",
       });
       
-      // Set cookie for session ID
-      response.cookies.set("cart-session-id", sessionId, {
-        httpOnly: false,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 60 * 60 * 24 * 365, // 1 year
-        path: "/",
-      });
+      // Set cookie for session ID (only for guest users)
+      if (!userId && finalSessionId) {
+        response.cookies.set("cart-session-id", finalSessionId, {
+          httpOnly: false,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          maxAge: 60 * 60 * 24 * 365, // 1 year
+          path: "/",
+        });
+      }
       
       return response;
     } catch (dbError: any) {

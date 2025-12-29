@@ -42,6 +42,8 @@ const DB_CONFIG = {
   connectTimeout: 10000, // 10 seconds
   // Note: reconnect option removed - MySQL2 handles reconnection automatically
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
+  // Ensure UTF-8 encoding for all connections
+  charset: 'utf8mb4',
 };
 
 // Create connection pool

@@ -39,6 +39,9 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select'],
   },
+  // CRITICAL: Disable Turbopack completely - use webpack instead
+  // This is required to avoid symlink issues in dev mode
+  // Do NOT use turbopack config at all - it will enable Turbopack
   // Production optimizations
   compress: true,
   poweredByHeader: false,
@@ -58,24 +61,16 @@ const nextConfig = {
     };
     
     // Fix for symlink issues with node_modules
-    // Enable symlinks to work with cPanel virtual environment
-    config.resolve.symlinks = true;
+    // DISABLE symlinks to avoid Turbopack errors on cPanel
+    // Turbopack doesn't handle symlinks well, so we disable them
+    config.resolve.symlinks = false;
     
-    // Add node_modules resolution paths (direct path to venv)
-    // Use fixed path for repositories location
-    const venvPath = '/home/shop1111/nodevenv/repositories/saded/20';
+    // Use relative paths for node_modules resolution
+    // This works with both local development and cPanel hosting
     config.resolve.modules = [
       path.resolve(rootDir, 'node_modules'),
-      path.resolve(venvPath, 'lib/node_modules'),
-      path.resolve(venvPath, 'lib/node_modules/tailwindcss'),
       'node_modules',
     ];
-    
-    // Add fallback for tailwindcss
-    config.resolve.fallback = {
-      ...config.resolve.fallback,
-      'tailwindcss': path.resolve(venvPath, 'lib/node_modules/tailwindcss'),
-    };
     
     return config;
   },
