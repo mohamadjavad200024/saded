@@ -115,7 +115,48 @@ async function fixEncoding() {
           if (convertError.message && convertError.message.includes('key was too long')) {
             console.log(`   ⚠️  تبدیل کامل جدول ${tableName} ناموفق (به دلیل index های طولانی)، در حال تبدیل ستون‌ها...`);
             
-            // Get all columns and fix their charset individually
+            // Step 1: Get all non-primary indexes and drop them temporarily
+            const [indexes] = await pool.execute(`SHOW INDEXES FROM \`${tableName}\``);
+            const indexesToDrop = [];
+            const indexInfo = {};
+            
+            for (const idx of indexes) {
+              const keyName = idx.Key_name;
+              // Skip PRIMARY key
+              if (keyName === 'PRIMARY') continue;
+              
+              if (!indexInfo[keyName]) {
+                indexInfo[keyName] = {
+                  unique: idx.Non_unique === 0,
+                  columns: []
+                };
+              }
+              
+              indexInfo[keyName].columns.push({
+                name: idx.Column_name,
+                subpart: idx.Sub_part
+              });
+            }
+            
+            // Drop all non-primary indexes
+            for (const keyName of Object.keys(indexInfo)) {
+              try {
+                if (indexInfo[keyName].unique) {
+                  await pool.execute(`ALTER TABLE \`${tableName}\` DROP INDEX \`${keyName}\``);
+                } else {
+                  await pool.execute(`ALTER TABLE \`${tableName}\` DROP INDEX \`${keyName}\``);
+                }
+                indexesToDrop.push({ name: keyName, info: indexInfo[keyName] });
+                console.log(`   🔧 Index ${keyName} موقتاً حذف شد`);
+              } catch (dropError) {
+                // Ignore errors if index doesn't exist
+                if (!dropError.message?.includes("doesn't exist")) {
+                  console.warn(`   ⚠️  خطا در حذف index ${keyName}:`, dropError.message);
+                }
+              }
+            }
+            
+            // Step 2: Get all columns and fix their charset individually
             const [columns] = await pool.execute(`SHOW COLUMNS FROM \`${tableName}\``);
             let convertedCount = 0;
             
@@ -141,14 +182,36 @@ async function fixEncoding() {
                   await pool.execute(`ALTER TABLE \`${tableName}\` MODIFY \`${columnName}\` ${baseType} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
                   convertedCount++;
                 } catch (colError) {
-                  // Ignore errors for columns that can't be modified
-                  if (colError.code !== 'ER_CANT_DROP_FIELD_OR_KEY' && 
-                      colError.code !== 'ER_DUP_FIELDNAME' &&
-                      !colError.message?.includes('Duplicate') &&
-                      !colError.message?.includes('key was too long')) {
-                    console.warn(`   ⚠️  خطا در تبدیل ستون ${columnName}:`, colError.message);
-                  }
+                  console.warn(`   ⚠️  خطا در تبدیل ستون ${columnName}:`, colError.message);
                 }
+              }
+            }
+            
+            // Step 3: Recreate indexes with proper length for utf8mb4
+            // For utf8mb4, VARCHAR(255) needs to be limited to 191 characters in indexes
+            for (const idx of indexesToDrop) {
+              try {
+                const idxInfo = idx.info;
+                const columnDefs = idxInfo.columns.map(col => {
+                  // For VARCHAR columns in utf8mb4, limit to 191 chars in index
+                  const colInfo = columns.find(c => c.Field === col.name);
+                  if (colInfo && colInfo.Type.includes('VARCHAR')) {
+                    const match = colInfo.Type.match(/VARCHAR\((\d+)\)/);
+                    if (match && parseInt(match[1]) > 191) {
+                      return `\`${col.name}\`(191)`;
+                    }
+                  }
+                  return `\`${col.name}\``;
+                }).join(', ');
+                
+                if (idxInfo.unique) {
+                  await pool.execute(`ALTER TABLE \`${tableName}\` ADD UNIQUE INDEX \`${idx.name}\` (${columnDefs})`);
+                } else {
+                  await pool.execute(`ALTER TABLE \`${tableName}\` ADD INDEX \`${idx.name}\` (${columnDefs})`);
+                }
+                console.log(`   ✅ Index ${idx.name} دوباره ایجاد شد`);
+              } catch (recreateError) {
+                console.warn(`   ⚠️  خطا در ایجاد مجدد index ${idx.name}:`, recreateError.message);
               }
             }
             
