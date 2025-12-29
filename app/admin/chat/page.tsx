@@ -16,7 +16,7 @@ export default function AdminChatPage() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-background flex flex-col overflow-hidden" style={{ margin: 0, padding: 0 }}>
+    <div className="h-full w-full flex flex-col overflow-hidden -m-4 lg:-m-6">
       <AdminChat
         isOpen={isOpen}
         onOpenChange={(open) => {

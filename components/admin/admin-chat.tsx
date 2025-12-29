@@ -940,7 +940,7 @@ export function AdminChat({ isOpen, onOpenChange, initialCustomerPhone }: AdminC
           </div>
 
           {/* Right Side - Chat Area */}
-          <div className="flex-1 flex flex-col bg-background min-h-0">
+          <div className="flex-1 flex flex-col border-l border-border bg-card">
             {selectedChat ? (
               <>
                 {/* Chat Header */}
