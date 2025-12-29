@@ -157,20 +157,24 @@ async function fixEncoding() {
             }
             
             // Step 2: Get all columns and fix their charset individually
-            const [columns] = await pool.execute(`SHOW COLUMNS FROM \`${tableName}\``);
+            const [columns] = await pool.execute(`SHOW FULL COLUMNS FROM \`${tableName}\``);
             let convertedCount = 0;
             
             for (const column of columns) {
               const columnName = column.Field;
               const columnType = column.Type;
+              const currentCollation = column.Collation || '';
               
-              // Only fix TEXT, VARCHAR, CHAR columns
-              if (columnType.includes('VARCHAR') || 
-                  columnType.includes('CHAR') || 
-                  columnType.includes('TEXT') ||
-                  columnType.includes('TINYTEXT') ||
-                  columnType.includes('MEDIUMTEXT') ||
-                  columnType.includes('LONGTEXT')) {
+              // Check if column needs conversion (not already utf8mb4_unicode_ci)
+              const needsConversion = currentCollation !== 'utf8mb4_unicode_ci' && 
+                                     (columnType.includes('VARCHAR') || 
+                                      columnType.includes('CHAR') || 
+                                      columnType.includes('TEXT') ||
+                                      columnType.includes('TINYTEXT') ||
+                                      columnType.includes('MEDIUMTEXT') ||
+                                      columnType.includes('LONGTEXT'));
+              
+              if (needsConversion) {
                 try {
                   // Extract base type without charset/collation
                   let baseType = columnType;
@@ -181,6 +185,7 @@ async function fixEncoding() {
                   
                   await pool.execute(`ALTER TABLE \`${tableName}\` MODIFY \`${columnName}\` ${baseType} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
                   convertedCount++;
+                  console.log(`   ✅ ستون ${columnName} تبدیل شد (${currentCollation || 'no collation'} -> utf8mb4_unicode_ci)`);
                 } catch (colError) {
                   console.warn(`   ⚠️  خطا در تبدیل ستون ${columnName}:`, colError.message);
                 }
