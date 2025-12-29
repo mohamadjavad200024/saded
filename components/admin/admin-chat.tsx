@@ -844,9 +844,9 @@ export function AdminChat({ isOpen, onOpenChange, initialCustomerPhone }: AdminC
 
   return (
     <div className="h-screen w-screen fixed inset-0 z-50 bg-background flex flex-col overflow-hidden" style={{ margin: 0, padding: 0 }}>
-      <div className="flex flex-1 overflow-hidden min-h-0">
+      <div className="flex flex-1 overflow-hidden min-h-0 max-w-6xl mx-auto w-full">
           {/* Left Sidebar - Contact List */}
-          <div className="w-full md:w-1/3 lg:w-1/4 border-l border-border flex flex-col bg-background min-h-0">
+          <div className="w-full sm:w-64 md:w-72 border-l border-border flex flex-col bg-background min-h-0 flex-shrink-0">
             {/* Header */}
             <div className="p-4 border-b border-border bg-muted/30 flex-shrink-0">
               <div className="flex items-center gap-2">
