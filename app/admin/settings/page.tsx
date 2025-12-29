@@ -46,13 +46,7 @@ export default function AdminSettingsPage() {
   });
 
   useEffect(() => {
-    // #region agent log
-    if (typeof window !== "undefined") {
-      const cookies = document.cookie;
-      const allCookies = cookies.split(';').map(c => c.trim().split('=')[0]);
-      const hasSadedSession = cookies.includes('saded_session');
-      fetch('http://127.0.0.1:7242/ingest/6e2493c0-cc8b-4c0b-9456-c04638b7e615',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:52',message:'AdminSettingsPage: Auth state check',data:{isAuthenticated,userId:user?.id||null,userRole:user?.role||null,hasCookies:!!cookies,cookieNames:allCookies,hasSadedSession},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'L'})}).catch(()=>{});
-    }
+    // #region agent log - Disabled to prevent ERR_CONNECTION_REFUSED errors
     // #endregion
     if (!isAuthenticated || user?.role !== "admin") {
       return;
@@ -65,17 +59,11 @@ export default function AdminSettingsPage() {
     try {
       // Load from API
       const response = await fetch("/api/site-settings");
-      // #region agent log
-      if (typeof window !== "undefined") {
-        fetch('http://127.0.0.1:7242/ingest/6e2493c0-cc8b-4c0b-9456-c04638b7e615',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:67',message:'loadSettings: API response received',data:{status:response.status,statusText:response.statusText,ok:response.ok},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'R'})}).catch(()=>{});
-      }
+      // #region agent log - Disabled
       // #endregion
       if (response.ok) {
         const result = await response.json();
-        // #region agent log
-        if (typeof window !== "undefined") {
-          fetch('http://127.0.0.1:7242/ingest/6e2493c0-cc8b-4c0b-9456-c04638b7e615',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:70',message:'loadSettings: Parsed result',data:{success:result.success,hasData:!!result.data,dataKeys:result.data?Object.keys(result.data):[],error:result.error||null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'S'})}).catch(()=>{});
-        }
+        // #region agent log - Disabled
         // #endregion
         if (result.success && result.data) {
           setSettings(prev => ({ ...prev, ...result.data }));
@@ -88,29 +76,18 @@ export default function AdminSettingsPage() {
             itemsPerPage: result.data.itemsPerPage ?? 10,
         });
         } else {
-          // #region agent log
-          if (typeof window !== "undefined") {
-            fetch('http://127.0.0.1:7242/ingest/6e2493c0-cc8b-4c0b-9456-c04638b7e615',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:81',message:'loadSettings: Invalid response structure',data:{success:result.success,hasData:!!result.data,resultKeys:Object.keys(result)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'T'})}).catch(()=>{});
-          }
+          // #region agent log - Disabled
           // #endregion
           throw new Error(result.error || "ساختار پاسخ نامعتبر است");
         }
       } else {
         const errorText = await response.text().catch(() => "Unknown error");
-        // #region agent log
-        if (typeof window !== "undefined") {
-          fetch('http://127.0.0.1:7242/ingest/6e2493c0-cc8b-4c0b-9456-c04638b7e615',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:87',message:'loadSettings: Response not OK',data:{status:response.status,statusText:response.statusText,errorText:errorText.substring(0,200)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'U'})}).catch(()=>{});
-        }
+        // #region agent log - Disabled
         // #endregion
         throw new Error(`خطا در بارگذاری تنظیمات از سرور: ${response.status} ${response.statusText}`);
       }
     } catch (error: any) {
-      // #region agent log - Suppressed in production
-      // This is a development tool that causes ERR_CONNECTION_REFUSED errors
-      // Silently fail to avoid console noise
-      if (typeof window !== "undefined" && process.env.NODE_ENV === 'development') {
-        fetch('http://127.0.0.1:7242/ingest/6e2493c0-cc8b-4c0b-9456-c04638b7e615',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:92',message:'loadSettings: Error caught',data:{errorMessage:error?.message||'unknown',errorStack:error?.stack?.substring(0,300)||'none'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'V'})}).catch(()=>{});
-      }
+      // #region agent log - Disabled to prevent ERR_CONNECTION_REFUSED errors
       // #endregion
       console.error("Error loading settings:", error);
       toast({
@@ -128,9 +105,7 @@ export default function AdminSettingsPage() {
     setIsSaving(true);
 
     try {
-      // #region agent log
-      const cookies = document.cookie;
-      fetch('http://127.0.0.1:7242/ingest/6e2493c0-cc8b-4c0b-9456-c04638b7e615',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:98',message:'Client: handleSave - About to send PUT',data:{hasCookies:!!cookies,cookieCount:(cookies.match(/;/g)||[]).length+1,hasSadedSession:cookies.includes('saded_session')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
+      // #region agent log - Disabled to prevent ERR_CONNECTION_REFUSED errors
       // #endregion
       
       // Prepare headers with userId fallback
@@ -150,8 +125,7 @@ export default function AdminSettingsPage() {
         headers,
         body: JSON.stringify(settings),
       });
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/6e2493c0-cc8b-4c0b-9456-c04638b7e615',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:109',message:'Client: handleSave - Response received',data:{status:response.status,statusText:response.statusText,ok:response.ok},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'K'})}).catch(()=>{});
+      // #region agent log - Disabled
       // #endregion
 
       if (!response.ok) {

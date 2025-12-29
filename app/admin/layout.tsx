@@ -106,6 +106,18 @@ export default function AdminLayout({
     return <>{children}</>;
   }
 
+  // Full screen layout for chat page
+  if (pathname === "/admin/chat") {
+    return (
+      <ErrorBoundary>
+        {children}
+        <Toaster />
+        <AdminChatPolling />
+        <NotificationCenter position="top-right" maxNotifications={5} />
+      </ErrorBoundary>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <div className="h-screen w-full max-w-full flex overflow-hidden">
