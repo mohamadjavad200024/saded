@@ -129,7 +129,7 @@ export function PersistentNotificationComponent({
         damping: 25,
       }}
       className={cn(
-        "relative w-full max-w-lg sm:max-w-xl pointer-events-auto",
+        "relative w-full max-w-lg sm:max-w-xl pointer-events-auto max-w-[calc(100vw-2rem)] overflow-x-hidden",
         !notification.read && "ring-2 ring-primary/40 shadow-lg"
       )}
       onAnimationComplete={() => {

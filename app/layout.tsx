@@ -5,6 +5,8 @@ import "leaflet/dist/leaflet.css";
 import { Providers } from "@/components/providers";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
+import { getSiteSettings } from "@/lib/site-settings";
+import { ErrorHandler } from "./error-handler";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -26,78 +28,120 @@ const geistMono = Geist_Mono({
 
 const baseUrl = process.env.NEXT_PUBLIC_URL || "https://saded.ir";
 
-export const metadata: Metadata = {
-  title: {
-    default: "ساد - فروشگاه قطعات خودرو وارداتی",
-    template: "%s | ساد",
-  },
-  description: "فروشگاه آنلاین قطعات خودرو وارداتی با بهترین کیفیت و قیمت. بیش از 50,000 قطعه خودرو از برندهای معتبر",
-  keywords: ["قطعات خودرو", "قطعات وارداتی", "خودرو", "فروشگاه آنلاین", "قطعات یدکی", "لوازم یدکی خودرو"],
-  authors: [{ name: "ساد" }],
-  creator: "ساد",
-  publisher: "ساد",
-  formatDetection: {
-    email: false,
-    address: false,
-    telephone: false,
-  },
-  metadataBase: new URL(baseUrl),
-  alternates: {
-    canonical: baseUrl,
-  },
-  openGraph: {
-    type: "website",
-    locale: "fa_IR",
-    url: baseUrl,
-    siteName: "ساد - فروشگاه قطعات خودرو",
-    title: "ساد - فروشگاه قطعات خودرو وارداتی",
-    description: "فروشگاه آنلاین قطعات خودرو وارداتی با بهترین کیفیت و قیمت. بیش از 50,000 قطعه خودرو از برندهای معتبر",
-    images: [
-      {
-        url: `${baseUrl}/og-image.jpg`,
-        width: 1200,
-        height: 630,
-        alt: "ساد - فروشگاه قطعات خودرو",
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "ساد - فروشگاه قطعات خودرو وارداتی",
-    description: "فروشگاه آنلاین قطعات خودرو وارداتی با بهترین کیفیت و قیمت",
-    images: [`${baseUrl}/og-image.jpg`],
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
+// Generate metadata dynamically to include logo
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSiteSettings();
+  
+  // Make logo URL absolute if it's relative
+  let logoUrl = settings.logoUrl;
+  if (logoUrl && !logoUrl.startsWith('http') && !logoUrl.startsWith('data:')) {
+    if (logoUrl.startsWith('/')) {
+      logoUrl = `${baseUrl}${logoUrl}`;
+    } else {
+      logoUrl = `${baseUrl}/${logoUrl}`;
+    }
+  }
+  
+  // Always use logoUrl if available, otherwise fallback to /favicon.ico
+  const finalLogoUrl = logoUrl || `${baseUrl}/favicon.ico`;
+  const ogImageUrl = logoUrl || `${baseUrl}/og-image.jpg`;
+
+  return {
+    title: {
+      default: `${settings.siteName} - فروشگاه قطعات خودرو وارداتی`,
+      template: `%s | ${settings.siteName}`,
+    },
+    description: settings.siteDescription || "فروشگاه آنلاین قطعات خودرو وارداتی با بهترین کیفیت و قیمت. بیش از 50,000 قطعه خودرو از برندهای معتبر",
+    keywords: ["قطعات خودرو", "قطعات وارداتی", "خودرو", "فروشگاه آنلاین", "قطعات یدکی", "لوازم یدکی خودرو"],
+    authors: [{ name: settings.siteName }],
+    creator: settings.siteName,
+    publisher: settings.siteName,
+    formatDetection: {
+      email: false,
+      address: false,
+      telephone: false,
+    },
+    metadataBase: new URL(baseUrl),
+    alternates: {
+      canonical: baseUrl,
+    },
+    icons: {
+      icon: [
+        // همیشه از لوگوی سایت استفاده می‌کنیم (اگر وجود داشته باشد)
+        ...(logoUrl ? [
+          { url: finalLogoUrl, sizes: "32x32", type: "image/png" },
+          { url: finalLogoUrl, sizes: "16x16", type: "image/png" },
+          { url: finalLogoUrl, sizes: "any" },
+        ] : [
+          // اگر لوگو وجود ندارد، از favicon.ico استفاده می‌کنیم
+          { url: "/favicon.ico", sizes: "any", type: "image/x-icon" },
+        ]),
+      ],
+      shortcut: logoUrl 
+        ? [{ url: finalLogoUrl, sizes: "any" }]
+        : [{ url: "/favicon.ico", sizes: "any" }],
+      apple: [
+        { url: finalLogoUrl, sizes: "180x180" },
+      ],
+    },
+    openGraph: {
+      type: "website",
+      locale: "fa_IR",
+      url: baseUrl,
+      siteName: `${settings.siteName} - فروشگاه قطعات خودرو`,
+      title: `${settings.siteName} - فروشگاه قطعات خودرو وارداتی`,
+      description: settings.siteDescription || "فروشگاه آنلاین قطعات خودرو وارداتی با بهترین کیفیت و قیمت. بیش از 50,000 قطعه خودرو از برندهای معتبر",
+      images: [
+        {
+          url: ogImageUrl,
+          width: 1200,
+          height: 630,
+          alt: `${settings.siteName} - فروشگاه قطعات خودرو`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${settings.siteName} - فروشگاه قطعات خودرو وارداتی`,
+      description: settings.siteDescription || "فروشگاه آنلاین قطعات خودرو وارداتی با بهترین کیفیت و قیمت",
+      images: [ogImageUrl],
+    },
+    robots: {
       index: true,
       follow: true,
-      "max-video-preview": -1,
-      "max-image-preview": "large",
-      "max-snippet": -1,
+      googleBot: {
+        index: true,
+        follow: true,
+        "max-video-preview": -1,
+        "max-image-preview": "large",
+        "max-snippet": -1,
+      },
     },
-  },
-  verification: {
-    // Add Google Search Console verification code here when available
-    // google: "your-google-verification-code",
-  },
-};
+    verification: {
+      // Add Google Search Console verification code here when available
+      // google: "your-google-verification-code",
+    },
+  };
+}
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Get site settings for Schema.org structured data
+  const settings = await getSiteSettings();
+  const logoUrl = settings.logoUrl || `${baseUrl}/logo.png`;
+
   // Organization Schema.org structured data
   const organizationSchema = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    "name": "ساد",
+    "name": settings.siteName,
     "alternateName": "Saded",
     "url": baseUrl,
-    "logo": `${baseUrl}/logo.png`,
-    "description": "فروشگاه آنلاین قطعات خودرو وارداتی با بهترین کیفیت و قیمت",
+    "logo": logoUrl,
+    "description": settings.siteDescription || "فروشگاه آنلاین قطعات خودرو وارداتی با بهترین کیفیت و قیمت",
     "address": {
       "@type": "PostalAddress",
       "addressCountry": "IR"
@@ -113,9 +157,9 @@ export default function RootLayout({
   };
 
   return (
-    <html lang="fa" dir="rtl" suppressHydrationWarning>
+    <html lang="fa" dir="rtl" suppressHydrationWarning className="overflow-x-hidden">
       <body
-        className={`${inter.variable} ${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${inter.variable} ${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden`}
       >
         {/* Background with TV Static Effect - Global */}
         <div className="fixed inset-0 -z-10 bg-background">
@@ -148,7 +192,10 @@ export default function RootLayout({
         />
         <ErrorBoundary>
           <Providers>
-            {children}
+            <ErrorHandler />
+            <div className="flex flex-col min-h-screen w-full">
+              {children}
+            </div>
             <BottomNavigation />
           </Providers>
         </ErrorBoundary>

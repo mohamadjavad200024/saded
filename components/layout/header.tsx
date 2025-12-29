@@ -274,20 +274,12 @@ export function Header() {
             </DropdownMenu>
           ) : (
             <Link href="/auth">
-              <Button variant="ghost" size="icon" className="hidden md:flex h-9 w-9">
+              <Button variant="ghost" size="icon" className="h-9 w-9">
                 <User className="h-5 w-5" />
                 <span className="sr-only">حساب کاربری</span>
               </Button>
             </Link>
           )}
-
-          {/* Profile Button - Mobile (replaces hamburger menu) */}
-          <Link href={isAuthenticated ? "/profile" : "/auth"}>
-            <Button variant="ghost" size="icon" className="lg:hidden h-9 w-9">
-              <User className="h-5 w-5" />
-              <span className="sr-only">پروفایل</span>
-            </Button>
-          </Link>
 
           {/* Cart */}
           <Link href="/cart" aria-label={isMounted ? `سبد خرید با ${itemCount} آیتم` : "سبد خرید"}>

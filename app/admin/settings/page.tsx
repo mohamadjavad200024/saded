@@ -105,8 +105,10 @@ export default function AdminSettingsPage() {
         throw new Error(`خطا در بارگذاری تنظیمات از سرور: ${response.status} ${response.statusText}`);
       }
     } catch (error: any) {
-      // #region agent log
-      if (typeof window !== "undefined") {
+      // #region agent log - Suppressed in production
+      // This is a development tool that causes ERR_CONNECTION_REFUSED errors
+      // Silently fail to avoid console noise
+      if (typeof window !== "undefined" && process.env.NODE_ENV === 'development') {
         fetch('http://127.0.0.1:7242/ingest/6e2493c0-cc8b-4c0b-9456-c04638b7e615',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:92',message:'loadSettings: Error caught',data:{errorMessage:error?.message||'unknown',errorStack:error?.stack?.substring(0,300)||'none'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'V'})}).catch(()=>{});
       }
       // #endregion

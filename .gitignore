@@ -59,3 +59,16 @@ pm2-*.log
 
 # PM2
 .pm2/
+
+# Temporary files and archives
+*.zip
+*.tgz
+*.tar.gz
+.next.zip
+server.zip
+passenger.zip
+DEPLOYMENT.zip
+
+# Backup files
+*.backup
+*~

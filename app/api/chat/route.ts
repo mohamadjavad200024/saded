@@ -607,8 +607,9 @@ export async function GET(request: NextRequest) {
       let messagesQuery = `SELECT * FROM chat_messages WHERE chatId = ?`;
       const queryParams: any[] = [chatId];
       
-      if (lastMessageId) {
+      if (lastMessageId && !lastMessageId.startsWith('temp-')) {
         // Get messages after the last known message ID (for polling)
+        // Skip temporary IDs (they don't exist in DB yet)
         // First get the createdAt of the last message, then get messages after that time
         const lastMessage = await getRow<any>(
           `SELECT createdAt FROM chat_messages WHERE id = ?`,

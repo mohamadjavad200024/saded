@@ -6,9 +6,9 @@ import { logger } from "@/lib/logger";
 
 export const SESSION_COOKIE_NAME = "saded_session";
 
-// Session نامحدود - تا زمانی که کاربر logout نکند
-// برای امنیت، از maxAge بسیار طولانی استفاده می‌کنیم (10 سال)
-const SESSION_MAX_AGE_SECONDS = 10 * 365 * 24 * 60 * 60; // 10 years in seconds
+// Session یک هفته‌ای - کاربر برای یک هفته لاگین می‌ماند
+// برای امنیت و راحتی کاربر، از maxAge یک هفته استفاده می‌کنیم
+const SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60; // 7 days in seconds (1 week)
 
 function nowIso(): string {
   // MySQL friendly datetime (YYYY-MM-DD HH:mm:ss)
@@ -128,13 +128,13 @@ export async function ensureAuthTables(): Promise<void> {
   }
 
   // Sessions table
-  // Note: expiresAt is kept for backward compatibility but not enforced (sessions are unlimited)
+  // Note: expiresAt is now enforced - sessions expire after 1 week
   await runQuery(`
     CREATE TABLE IF NOT EXISTS sessions (
       id VARCHAR(255) PRIMARY KEY,
       userId VARCHAR(255) NOT NULL,
       tokenHash CHAR(64) NOT NULL,
-      expiresAt TIMESTAMP NULL DEFAULT NULL,
+      expiresAt TIMESTAMP NOT NULL,
       createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       lastSeenAt TIMESTAMP NULL DEFAULT NULL,
       userAgent VARCHAR(255) NULL DEFAULT NULL,
@@ -144,13 +144,6 @@ export async function ensureAuthTables(): Promise<void> {
       KEY idx_sessions_expiresAt (expiresAt)
     )
   `);
-  
-    // Migrate existing sessions: set expiresAt to NULL for unlimited sessions
-    try {
-      await runQuery(`UPDATE sessions SET expiresAt = NULL WHERE expiresAt IS NOT NULL`);
-    } catch {
-      // Best-effort migration, ignore errors
-    }
   } catch (error: any) {
     // If database is not available, log but don't throw - allow app to continue
     if (error?.code === 'ECONNRESET' || 
@@ -183,8 +176,9 @@ export async function createSession(userId: string, request: NextRequest): Promi
   const token = crypto.randomBytes(32).toString("base64url");
   const tokenHash = sha256Hex(token);
   const sessionId = `sess_${Date.now()}_${crypto.randomBytes(6).toString("hex")}`;
-  // Session نامحدود - expiresAt را NULL می‌گذاریم
-  const expiresAt = null;
+  // Session یک هفته‌ای - expiresAt را 7 روز بعد تنظیم می‌کنیم
+  const expiresAt = new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000);
+  const expiresAtStr = expiresAt.toISOString().slice(0, 19).replace("T", " ");
 
   const ua = request.headers.get("user-agent");
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
@@ -196,7 +190,7 @@ export async function createSession(userId: string, request: NextRequest): Promi
       sessionId,
       userId,
       tokenHash,
-      expiresAt,
+      expiresAtStr,
       nowIso(),
       nowIso(),
       ua || null,
@@ -299,9 +293,7 @@ export async function getSessionUserFromRequest(request: NextRequest): Promise<S
 
   if (!row) return null;
 
-  // Session نامحدود - بررسی expiration را حذف می‌کنیم
-  // فقط اگر expiresAt وجود داشته باشد و منقضی شده باشد، آن را حذف می‌کنیم
-  // (برای backward compatibility با sessions قدیمی)
+  // بررسی expiration - session یک هفته‌ای است
   if (row.expiresAt) {
     const expires = new Date(row.expiresAt);
     if (!Number.isNaN(expires.getTime()) && expires.getTime() < Date.now()) {
@@ -309,6 +301,10 @@ export async function getSessionUserFromRequest(request: NextRequest): Promise<S
       await runQuery(`DELETE FROM sessions WHERE tokenHash = ?`, [tokenHash]);
       return null;
     }
+  } else {
+    // اگر expiresAt وجود ندارد، session را حذف می‌کنیم (برای backward compatibility)
+    await runQuery(`DELETE FROM sessions WHERE tokenHash = ?`, [tokenHash]);
+    return null;
   }
 
   // Touch session (ignore errors - not critical)
@@ -373,7 +369,7 @@ export function setSessionCookie(response: NextResponse, token: string, request:
       cookieValueInResponse: !!cookieValue,
       cookieValueMatches: cookieValue === token,
       maxAge: options.maxAge,
-      expiresIn: "unlimited (until logout)",
+      expiresIn: "1 week",
       secure: options.secure,
       sameSite: options.sameSite,
       requestHost: request.nextUrl.hostname,

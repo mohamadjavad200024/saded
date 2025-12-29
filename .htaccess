@@ -1,0 +1,44 @@
+# Proxy Next.js Application
+# این فایل درخواست‌ها را به Node.js application که روی پورت 3001 اجرا می‌شود proxy می‌کند
+# 
+# نکته: اگر از cPanel Node.js App Manager استفاده می‌کنید، ممکن است این فایل با تنظیمات خودکار cPanel تداخل داشته باشد
+# در این صورت، ابتدا Application را در Node.js App Manager Start کنید و ببینید آیا کار می‌کند یا نه
+
+# غیرفعال کردن لیست دایرکتوری
+Options -Indexes
+
+# فعال‌سازی mod_rewrite
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  
+  # اگر فایل استاتیک وجود دارد (مثل CSS، JS، تصاویر)، مستقیماً سرو کنید
+  RewriteCond %{REQUEST_FILENAME} -f
+  RewriteRule ^(.*)$ - [L]
+  
+  # اگر دایرکتوری استاتیک وجود دارد، مستقیماً سرو کنید
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^(.*)$ - [L]
+  
+  # Proxy همه درخواست‌های دیگر به Node.js application
+  # پورت 3001 را با پورت واقعی Application خود جایگزین کنید
+  RewriteRule ^(.*)$ http://localhost:3001/$1 [P,L]
+</IfModule>
+
+# اگر mod_proxy فعال است، از آن استفاده کن (برای Apache)
+<IfModule mod_proxy.c>
+  ProxyPreserveHost On
+  ProxyPass / http://localhost:3001/
+  ProxyPassReverse / http://localhost:3001/
+  ProxyPassReverse / http://77191336.shop/
+</IfModule>
+
+# تنظیمات امنیتی
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  Header set X-Frame-Options "SAMEORIGIN"
+  Header set X-XSS-Protection "1; mode=block"
+</IfModule>
+
+# برای LiteSpeed: اگر از LiteSpeed استفاده می‌کنید، ممکن است نیاز به تنظیمات خاص باشد
+# در این صورت، با پشتیبانی هاست تماس بگیرید
+

@@ -96,7 +96,10 @@ function checkEnvFile() {
 // Check 1: Required files
 console.log('\n📋 بررسی فایل‌های ضروری:');
 if (!checkFile('package.json', 'package.json')) allChecksPassed = false;
-if (!checkFile('next.config.ts', 'next.config.ts')) allChecksPassed = false;
+if (!checkFile('next.config.js', 'next.config.js') && !checkFile('next.config.ts', 'next.config.ts')) {
+  console.log('⚠️  next.config.js یا next.config.ts یافت نشد');
+  allChecksPassed = false;
+}
 if (!checkFile('tsconfig.json', 'tsconfig.json')) allChecksPassed = false;
 
 // Check 2: Build directory

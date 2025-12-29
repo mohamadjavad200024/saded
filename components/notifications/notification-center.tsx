@@ -137,10 +137,13 @@ export function NotificationCenter({
   return (
     <div
       className={cn(
-        "fixed z-[9999] pointer-events-none flex flex-col gap-2 sm:gap-3",
+        "fixed z-[9999] pointer-events-none flex flex-col gap-2 sm:gap-3 max-w-[calc(100vw-2rem)] overflow-x-hidden",
         positionClasses[position],
         className
       )}
+      style={{
+        maxWidth: 'calc(100vw - 2rem)',
+      }}
     >
       <AnimatePresence mode="popLayout">
         {visibleNotifications.map((notification, index) => (
