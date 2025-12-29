@@ -99,7 +99,7 @@ async function fixEncoding() {
     // Get all tables
     console.log('\n📋 دریافت لیست جداول...');
     const [tables] = await pool.execute(`SHOW TABLES`);
-    const tableNames = tables.map((row: any) => Object.values(row)[0]);
+    const tableNames = tables.map((row) => Object.values(row)[0]);
     console.log(`✅ ${tableNames.length} جدول پیدا شد:`, tableNames.join(', '));
     
     // Fix each table
@@ -112,7 +112,7 @@ async function fixEncoding() {
         
         // Get all columns and fix their charset
         const [columns] = await pool.execute(`SHOW COLUMNS FROM \`${tableName}\``);
-        for (const column of columns as any[]) {
+        for (const column of columns) {
           const columnName = column.Field;
           const columnType = column.Type;
           
@@ -126,7 +126,7 @@ async function fixEncoding() {
             try {
               await pool.execute(`ALTER TABLE \`${tableName}\` MODIFY \`${columnName}\` ${columnType} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
               console.log(`   ✅ ستون ${columnName} تبدیل شد`);
-            } catch (error: any) {
+            } catch (error) {
               // Ignore errors for columns that can't be modified (e.g., primary keys with constraints)
               if (error.code !== 'ER_CANT_DROP_FIELD_OR_KEY' && 
                   error.code !== 'ER_DUP_FIELDNAME' &&
@@ -136,7 +136,7 @@ async function fixEncoding() {
             }
           }
         }
-      } catch (error: any) {
+      } catch (error) {
         console.error(`   ❌ خطا در تبدیل جدول ${tableName}:`, error.message);
       }
     }
@@ -147,7 +147,7 @@ async function fixEncoding() {
     console.log('   2. مطمئن شوید که API responses charset=utf-8 دارند');
     console.log('   3. مطمئن شوید که HTML meta charset درست است');
     
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ خطا در تبدیل encoding:', error.message);
     throw error;
   }
@@ -174,7 +174,7 @@ async function main() {
     
     console.log('\n✅ اسکریپت با موفقیت اجرا شد!');
     process.exit(0);
-  } catch (error: any) {
+  } catch (error) {
     console.error('\n❌ خطا در اجرای اسکریپت:', error);
     if (pool) {
       await pool.end();
