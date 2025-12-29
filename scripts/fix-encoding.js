@@ -159,37 +159,59 @@ async function fixEncoding() {
             // Step 2: Get all columns and fix their charset individually
             const [columns] = await pool.execute(`SHOW FULL COLUMNS FROM \`${tableName}\``);
             let convertedCount = 0;
+            let skippedCount = 0;
+            let alreadyUtf8mb4Count = 0;
             
             for (const column of columns) {
               const columnName = column.Field;
               const columnType = column.Type;
               const currentCollation = column.Collation || '';
               
-              // Check if column needs conversion (not already utf8mb4_unicode_ci)
-              const needsConversion = currentCollation !== 'utf8mb4_unicode_ci' && 
-                                     (columnType.includes('VARCHAR') || 
-                                      columnType.includes('CHAR') || 
-                                      columnType.includes('TEXT') ||
-                                      columnType.includes('TINYTEXT') ||
-                                      columnType.includes('MEDIUMTEXT') ||
-                                      columnType.includes('LONGTEXT'));
+              // Check if column is text-based
+              const isTextColumn = columnType.includes('VARCHAR') || 
+                                   columnType.includes('CHAR') || 
+                                   columnType.includes('TEXT') ||
+                                   columnType.includes('TINYTEXT') ||
+                                   columnType.includes('MEDIUMTEXT') ||
+                                   columnType.includes('LONGTEXT');
               
-              if (needsConversion) {
-                try {
-                  // Extract base type without charset/collation
-                  let baseType = columnType;
-                  // Remove existing charset/collation if present
-                  baseType = baseType.replace(/CHARACTER SET \w+/gi, '');
-                  baseType = baseType.replace(/COLLATE \w+/gi, '');
-                  baseType = baseType.trim();
-                  
-                  await pool.execute(`ALTER TABLE \`${tableName}\` MODIFY \`${columnName}\` ${baseType} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
-                  convertedCount++;
-                  console.log(`   ✅ ستون ${columnName} تبدیل شد (${currentCollation || 'no collation'} -> utf8mb4_unicode_ci)`);
-                } catch (colError) {
-                  console.warn(`   ⚠️  خطا در تبدیل ستون ${columnName}:`, colError.message);
-                }
+              if (!isTextColumn) {
+                skippedCount++;
+                continue; // Skip non-text columns
               }
+              
+              // Check if column needs conversion (not already utf8mb4_unicode_ci)
+              if (currentCollation === 'utf8mb4_unicode_ci') {
+                alreadyUtf8mb4Count++;
+                continue; // Already utf8mb4
+              }
+              
+              // Column needs conversion
+              try {
+                // Extract base type without charset/collation
+                let baseType = columnType;
+                // Remove existing charset/collation if present
+                baseType = baseType.replace(/CHARACTER SET \w+/gi, '');
+                baseType = baseType.replace(/COLLATE \w+/gi, '');
+                baseType = baseType.trim();
+                
+                await pool.execute(`ALTER TABLE \`${tableName}\` MODIFY \`${columnName}\` ${baseType} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+                convertedCount++;
+                console.log(`   ✅ ستون ${columnName} تبدیل شد (${currentCollation || 'no collation'} -> utf8mb4_unicode_ci)`);
+              } catch (colError) {
+                console.warn(`   ⚠️  خطا در تبدیل ستون ${columnName}:`, colError.message);
+              }
+            }
+            
+            // Show summary
+            if (convertedCount > 0) {
+              console.log(`   ✅ ${convertedCount} ستون از جدول ${tableName} تبدیل شد`);
+            }
+            if (alreadyUtf8mb4Count > 0) {
+              console.log(`   ℹ️  ${alreadyUtf8mb4Count} ستون از قبل utf8mb4_unicode_ci بود`);
+            }
+            if (convertedCount === 0 && alreadyUtf8mb4Count === 0 && skippedCount > 0) {
+              console.log(`   ℹ️  این جدول ستون‌های متنی ندارد (${skippedCount} ستون غیرمتنی)`);
             }
             
             // Step 3: Recreate indexes with proper length for utf8mb4
