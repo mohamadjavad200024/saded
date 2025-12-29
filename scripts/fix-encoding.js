@@ -162,12 +162,16 @@ async function fixEncoding() {
             let skippedCount = 0;
             let alreadyUtf8mb4Count = 0;
             
+            // Debug: Log all columns for troubleshooting
+            const textColumns = [];
+            const nonTextColumns = [];
+            
             for (const column of columns) {
               const columnName = column.Field;
-              const columnType = column.Type;
+              const columnType = String(column.Type).toUpperCase();
               const currentCollation = column.Collation || '';
               
-              // Check if column is text-based
+              // Check if column is text-based (case-insensitive)
               const isTextColumn = columnType.includes('VARCHAR') || 
                                    columnType.includes('CHAR') || 
                                    columnType.includes('TEXT') ||
@@ -177,8 +181,11 @@ async function fixEncoding() {
               
               if (!isTextColumn) {
                 skippedCount++;
+                nonTextColumns.push(`${columnName}(${column.Type})`);
                 continue; // Skip non-text columns
               }
+              
+              textColumns.push(`${columnName}(${column.Type}, collation: ${currentCollation || 'none'})`);
               
               // Check if column needs conversion (not already utf8mb4_unicode_ci)
               if (currentCollation === 'utf8mb4_unicode_ci') {
@@ -203,15 +210,22 @@ async function fixEncoding() {
               }
             }
             
-            // Show summary
+            // Show summary with details
             if (convertedCount > 0) {
               console.log(`   ✅ ${convertedCount} ستون از جدول ${tableName} تبدیل شد`);
             }
             if (alreadyUtf8mb4Count > 0) {
               console.log(`   ℹ️  ${alreadyUtf8mb4Count} ستون از قبل utf8mb4_unicode_ci بود`);
+              if (textColumns.length > 0) {
+                console.log(`   📋 ستون‌های متنی: ${textColumns.join(', ')}`);
+              }
             }
-            if (convertedCount === 0 && alreadyUtf8mb4Count === 0 && skippedCount > 0) {
-              console.log(`   ℹ️  این جدول ستون‌های متنی ندارد (${skippedCount} ستون غیرمتنی)`);
+            if (convertedCount === 0 && alreadyUtf8mb4Count === 0) {
+              if (textColumns.length > 0) {
+                console.log(`   ⚠️  ${textColumns.length} ستون متنی پیدا شد اما collation ندارند: ${textColumns.join(', ')}`);
+              } else if (skippedCount > 0) {
+                console.log(`   ℹ️  این جدول ستون‌های متنی ندارد (${skippedCount} ستون غیرمتنی)`);
+              }
             }
             
             // Step 3: Recreate indexes with proper length for utf8mb4
