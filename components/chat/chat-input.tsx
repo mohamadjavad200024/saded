@@ -148,7 +148,16 @@ export function ChatInput({
   
   const actualIsSaving = isSaving ?? isSending ?? false;
   return (
-    <div className="border-t border-border/40 bg-background p-2 sm:p-3 space-y-2 relative flex-shrink-0">
+    <div 
+      className={`border-t border-border/40 bg-background p-2 sm:p-3 space-y-2 relative flex-shrink-0 ${
+        isKeyboardOpen ? "pb-safe" : ""
+      }`}
+      style={isKeyboardOpen && typeof window !== 'undefined' && window.visualViewport ? {
+        paddingBottom: `max(env(safe-area-inset-bottom, 0px), ${window.innerHeight - window.visualViewport.height}px)`,
+      } : {
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+      }}
+    >
       {/* Scroll to bottom button */}
       <AnimatePresence>
         {showScrollToBottom && (

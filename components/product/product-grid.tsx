@@ -176,24 +176,72 @@ export function ProductGrid() {
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
             {/* Mobile Filter Button */}
-            <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+            <Sheet 
+              open={filtersOpen} 
+              onOpenChange={(open) => {
+                setFiltersOpen(open);
+                if (open) {
+                  // Mark that sheet was just opened to prevent auto-focus
+                  if (typeof window !== 'undefined') {
+                    sessionStorage.setItem('filterSheetJustOpened', 'true');
+                    // Clear after a short delay
+                    setTimeout(() => {
+                      sessionStorage.removeItem('filterSheetJustOpened');
+                    }, 500);
+                  }
+                }
+              }}
+            >
               <SheetTrigger asChild>
                 <Button
-                  variant="outline"
+                  variant={hasActiveFilters ? "default" : "outline"}
                   size="sm"
-                  className="lg:hidden flex items-center gap-2 h-9 w-auto sm:h-10 px-3 sm:px-4 text-xs sm:text-sm"
+                  className={`lg:hidden flex items-center gap-2 h-9 w-auto sm:h-10 px-3 sm:px-4 text-xs sm:text-sm transition-all ${
+                    hasActiveFilters 
+                      ? "bg-primary hover:bg-primary/90 shadow-md" 
+                      : "hover:bg-muted/50"
+                  }`}
                 >
-                  <Filter className="h-4 w-4 sm:h-4 sm:w-4" />
+                  <Filter className={`h-4 w-4 sm:h-4 sm:w-4 ${hasActiveFilters ? "animate-pulse" : ""}`} />
                   <span className="text-xs sm:text-sm">فیلترها</span>
+                  {hasActiveFilters && (
+                    <span className="bg-primary-foreground/20 text-primary-foreground px-1.5 py-0.5 rounded-full text-[10px] font-bold">
+                      {Object.values(filters).filter(v => 
+                        v !== undefined && 
+                        v !== null && 
+                        (Array.isArray(v) ? v.length > 0 : true)
+                      ).length}
+                    </span>
+                  )}
                 </Button>
               </SheetTrigger>
               <SheetContent 
                 side="bottom" 
-                className="h-screen max-h-screen overflow-y-auto rounded-t-2xl border-t-2 border-border"
+                className="h-[90vh] max-h-[90vh] overflow-y-auto rounded-t-3xl border-t-2 border-primary/20 bg-background/95 backdrop-blur-xl shadow-2xl"
+                onOpenAutoFocus={(e) => {
+                  // Prevent auto-focus on any input when sheet opens
+                  e.preventDefault();
+                }}
+                onInteractOutside={(e) => {
+                  // Allow closing by clicking outside
+                }}
               >
-                <SheetHeader className="pb-4 border-b border-border/30">
-                  <SheetTitle className="text-right">
-                    <span className="text-lg sm:text-xl font-bold">فیلتر محصولات</span>
+                <SheetHeader className="pb-4 border-b border-border/30 sticky top-0 bg-background/95 backdrop-blur-sm z-10 -mx-6 px-6 pt-2">
+                  <SheetTitle className="text-right flex items-center justify-between">
+                    <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                      فیلتر محصولات
+                    </span>
+                    {hasActiveFilters && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs bg-primary/20 text-primary px-2.5 py-1 rounded-full font-semibold">
+                          {Object.values(filters).filter(v => 
+                            v !== undefined && 
+                            v !== null && 
+                            (Array.isArray(v) ? v.length > 0 : true)
+                          ).length} فعال
+                        </span>
+                      </div>
+                    )}
                   </SheetTitle>
                 </SheetHeader>
                 <div className="mt-6 pb-6">

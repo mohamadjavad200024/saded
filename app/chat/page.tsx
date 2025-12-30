@@ -1257,21 +1257,55 @@ function ChatPageContent() {
     };
   }, []);
 
-  // Detect keyboard open state on mobile
+  // Detect keyboard open state on mobile and adjust input position
   useEffect(() => {
-    if (typeof window === "undefined" || !window.visualViewport) return;
+    if (typeof window === "undefined") return;
 
     const handleViewportChange = () => {
       if (window.visualViewport) {
         const viewportHeight = window.visualViewport.height;
         const windowHeight = window.innerHeight;
+        const heightDiff = windowHeight - viewportHeight;
         // If viewport is significantly smaller than window, keyboard is likely open
-        setIsKeyboardOpen(viewportHeight < windowHeight * 0.75);
+        // Use a threshold of 150px to account for browser UI
+        const keyboardIsOpen = heightDiff > 150;
+        setIsKeyboardOpen(keyboardIsOpen);
+        
+        // Scroll to bottom when keyboard opens
+        if (keyboardIsOpen && messagesEndRef.current) {
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+          }, 100);
+        }
+      } else {
+        // Fallback for browsers without visualViewport
+        // Use focus events on textarea
+        const textarea = textareaRef.current;
+        if (textarea) {
+          const handleFocus = () => setIsKeyboardOpen(true);
+          const handleBlur = () => {
+            // Delay to check if keyboard is actually closed
+            setTimeout(() => setIsKeyboardOpen(false), 300);
+          };
+          textarea.addEventListener('focus', handleFocus);
+          textarea.addEventListener('blur', handleBlur);
+          return () => {
+            textarea.removeEventListener('focus', handleFocus);
+            textarea.removeEventListener('blur', handleBlur);
+          };
+        }
       }
     };
 
-    window.visualViewport.addEventListener("resize", handleViewportChange);
-    window.visualViewport.addEventListener("scroll", handleViewportChange);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", handleViewportChange);
+      window.visualViewport.addEventListener("scroll", handleViewportChange);
+      // Initial check
+      handleViewportChange();
+    } else {
+      // Fallback for browsers without visualViewport
+      handleViewportChange();
+    }
 
     return () => {
       if (window.visualViewport) {
@@ -1595,14 +1629,17 @@ function ChatPageContent() {
                 </div>
               </div>
 
-              {/* Input Area - Fixed at bottom */}
+              {/* Input Area - Fixed at bottom, sticks to keyboard */}
               <div 
-                className={`flex-shrink-0 border-t border-border/40 bg-background/95 backdrop-blur-sm p-2 sm:p-3 space-y-2 relative ${
-                  isKeyboardOpen ? "fixed bottom-0 left-0 right-0 z-50" : ""
+                className={`flex-shrink-0 border-t border-border/40 bg-background/95 backdrop-blur-sm p-2 sm:p-3 space-y-2 ${
+                  isKeyboardOpen ? "fixed left-0 right-0 z-50" : "relative"
                 }`}
                 style={isKeyboardOpen && typeof window !== 'undefined' && window.visualViewport ? {
-                  bottom: `${window.innerHeight - window.visualViewport.height}px`
-                } : {}}
+                  bottom: `${window.innerHeight - window.visualViewport.height}px`,
+                  paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+                } : {
+                  paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+                }}
               >
                 {/* Scroll to bottom button */}
                 <AnimatePresence>

@@ -174,6 +174,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger, initialOrderNumber
   const hasScrolledOnOpenRef = useRef<boolean>(false);
   const lastUserMessageIdRef = useRef<string | null>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
 
   // Check if user is scrolled up
   const checkScrollPosition = useCallback(() => {
@@ -1814,37 +1815,45 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger, initialOrderNumber
           onDelete={handleDelete}
         />
 
-        <ChatInput
-          message={message}
-          setMessage={setMessage}
-          attachments={attachments}
-          setAttachments={setAttachments}
-          showAttachmentOptions={showAttachmentOptions}
-          setShowAttachmentOptions={setShowAttachmentOptions}
-          isRecording={isRecording}
-          recordingTime={recordingTime}
-          audioUrl={audioUrl}
-          isSaving={isSaving}
-          showScrollToBottom={showScrollToBottom}
-          showPermissionGuide={showPermissionGuide}
-          setShowPermissionGuide={setShowPermissionGuide}
-          textareaRef={textareaRef}
-          imageInputRef={imageInputRef}
-          fileInputRef={fileInputRef}
-          typingTimeoutRef={typingTimeoutRef}
-          handleSendMessage={handleSendMessage}
-          handleFileSelect={handleFileSelect}
-          handleRemoveAttachment={handleRemoveAttachment}
-          handleLocationShare={handleLocationShare}
-          startRecording={startRecording}
-          stopRecording={stopRecording}
-          saveRecording={saveRecording}
-          cancelRecording={cancelRecording}
-          sendTypingStatus={sendTypingStatus}
-          scrollToBottom={scrollToBottom}
-          formatTime={formatTime}
-          toast={toast}
-        />
+        <div 
+          className="relative"
+          style={isKeyboardOpen && typeof window !== 'undefined' && window.visualViewport ? {
+            paddingBottom: `${window.innerHeight - window.visualViewport.height}px`,
+          } : {}}
+        >
+          <ChatInput
+            message={message}
+            setMessage={setMessage}
+            attachments={attachments}
+            setAttachments={setAttachments}
+            showAttachmentOptions={showAttachmentOptions}
+            setShowAttachmentOptions={setShowAttachmentOptions}
+            isRecording={isRecording}
+            recordingTime={recordingTime}
+            audioUrl={audioUrl}
+            isSaving={isSaving}
+            showScrollToBottom={showScrollToBottom}
+            showPermissionGuide={showPermissionGuide}
+            setShowPermissionGuide={setShowPermissionGuide}
+            textareaRef={textareaRef}
+            imageInputRef={imageInputRef}
+            fileInputRef={fileInputRef}
+            typingTimeoutRef={typingTimeoutRef}
+            handleSendMessage={handleSendMessage}
+            handleFileSelect={handleFileSelect}
+            handleRemoveAttachment={handleRemoveAttachment}
+            handleLocationShare={handleLocationShare}
+            startRecording={startRecording}
+            stopRecording={stopRecording}
+            saveRecording={saveRecording}
+            cancelRecording={cancelRecording}
+            sendTypingStatus={sendTypingStatus}
+            scrollToBottom={scrollToBottom}
+            formatTime={formatTime}
+            toast={toast}
+            isKeyboardOpen={isKeyboardOpen}
+          />
+        </div>
         </SheetContent>
       </Sheet>
     </>
