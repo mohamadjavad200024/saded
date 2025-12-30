@@ -90,7 +90,10 @@ export function useGlobalChatPolling({
         }
 
         url = `/api/chat?chatId=${currentChatId}`;
-        if (lastPolledMessageIdRef.current && lastPolledMessageIdRef.current !== "1") {
+        // Only add lastMessageId if it exists, is not "1", and is not a temporary ID
+        if (lastPolledMessageIdRef.current && 
+            lastPolledMessageIdRef.current !== "1" && 
+            !lastPolledMessageIdRef.current.startsWith('temp-')) {
           url += `&lastMessageId=${lastPolledMessageIdRef.current}`;
         }
       } else {

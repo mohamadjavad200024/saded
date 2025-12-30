@@ -765,6 +765,17 @@ function TrackOrderContent() {
       <QuickBuyChat 
         isOpen={chatOpen} 
         onOpenChange={setChatOpen}
+        initialOrderNumber={order?.orderNumber}
+        initialOrderInfo={order ? {
+          orderNumber: order.orderNumber,
+          items: Array.isArray(order.items) ? order.items.map((item: any) => ({
+            id: item.id || item.productId || "",
+            name: item.name || "",
+            quantity: item.quantity || 0,
+            price: item.price || 0,
+          })) : [],
+          total: order.total || 0,
+        } : undefined}
       />
     </div>
   );

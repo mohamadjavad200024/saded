@@ -25,6 +25,7 @@ interface ChatInputProps {
   // Support both naming conventions
   setMessage?: React.Dispatch<React.SetStateAction<string>>;
   onMessageChange?: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  isKeyboardOpen?: boolean;
   
   attachments: Attachment[];
   setAttachments?: React.Dispatch<React.SetStateAction<Attachment[]>>;
@@ -119,6 +120,7 @@ export function ChatInput({
   scrollToBottom,
   formatTime,
   toast,
+  isKeyboardOpen = false,
 }: ChatInputProps) {
   // Support both prop naming conventions (for backward compatibility)
   const actualSetMessage = setMessage || ((value: string) => {

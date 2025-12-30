@@ -121,7 +121,7 @@
 }
 
 body {
-  background: var(--background);
+  background: transparent; /* Transparent to show noise background */
   color: var(--foreground);
   font-family: var(--font-sans);
   font-feature-settings: "rlig" 1, "calt" 1;
@@ -145,6 +145,7 @@ html {
   max-width: 100%;
   overflow-x: hidden;
   position: relative;
+  background: transparent !important; /* Transparent to show noise background */
 }
 
 /* Prevent horizontal overflow in all containers */
@@ -161,15 +162,209 @@ main {
   width: 100%;
 }
 
-/* Center content in pages (except admin) */
+/* Center content in pages (except admin) - Limit width for better UX */
 body:not(.admin-panel-active) main {
   max-width: 100%;
   width: 100%;
 }
 
+/* Limit main container width for user-facing pages (not admin) */
+body:not(.admin-panel-active) > div > main {
+  max-width: 100%;
+  width: 100%;
+}
+
+/* Add container wrapper for user-facing pages - Limit width to prevent excessive width */
+body:not(.admin-panel-active) > div {
+  max-width: 100vw;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  overflow-x: hidden;
+}
+
 /* Center content containers */
 body:not(.admin-panel-active) main > * {
   max-width: 100%;
+}
+
+/* Limit width of main page containers (except admin) - Use standard container max-width */
+body:not(.admin-panel-active) > div > div {
+  max-width: 100%;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Limit container class width for user-facing pages (not admin) */
+body:not(.admin-panel-active) .container {
+  max-width: 1024px; /* Limit to 1024px for screens 1024px and above */
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+/* Limit overall page width for user-facing pages (not admin) - For desktop screens */
+@media (min-width: 1024px) {
+  body:not(.admin-panel-active) {
+    max-width: 1024px;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    overflow-x: hidden;
+  }
+
+  /* Limit main wrapper div width for user-facing pages - CRITICAL: This limits the entire page */
+  body:not(.admin-panel-active) > div {
+    max-width: 1024px;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    overflow-x: hidden;
+    position: relative;
+  }
+}
+
+/* For mobile/tablet, keep full width */
+@media (max-width: 1023px) {
+  body:not(.admin-panel-active) {
+    max-width: 100vw;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    overflow-x: hidden;
+  }
+
+  body:not(.admin-panel-active) > div {
+    max-width: 100vw;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    overflow-x: hidden;
+    position: relative;
+  }
+}
+
+/* Limit all direct children of body (except admin) - For desktop */
+@media (min-width: 1024px) {
+  body:not(.admin-panel-active) > * {
+    max-width: 1024px;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+/* For mobile/tablet */
+@media (max-width: 1023px) {
+  body:not(.admin-panel-active) > * {
+    max-width: 100vw;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+/* Ensure header respects max-width and is centered - For desktop */
+@media (min-width: 1024px) {
+  body:not(.admin-panel-active) header {
+    max-width: 1024px;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  body:not(.admin-panel-active) header .container {
+    max-width: 1024px;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  body:not(.admin-panel-active) footer {
+    max-width: 1024px;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  body:not(.admin-panel-active) footer .container {
+    max-width: 1024px;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+/* For mobile/tablet, keep full width */
+@media (max-width: 1023px) {
+  body:not(.admin-panel-active) header {
+    max-width: 100vw;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  body:not(.admin-panel-active) header .container {
+    max-width: 100%;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  body:not(.admin-panel-active) footer {
+    max-width: 100vw;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  body:not(.admin-panel-active) footer .container {
+    max-width: 100%;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+/* Limit main content area - For desktop */
+@media (min-width: 1024px) {
+  body:not(.admin-panel-active) main {
+    max-width: 1024px;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    overflow-x: hidden;
+  }
+
+  body:not(.admin-panel-active) > div > div {
+    max-width: 1024px;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    overflow-x: hidden;
+  }
+}
+
+/* For mobile/tablet */
+@media (max-width: 1023px) {
+  body:not(.admin-panel-active) main {
+    max-width: 100vw;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    overflow-x: hidden;
+  }
+
+  body:not(.admin-panel-active) > div > div {
+    max-width: 100vw;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    overflow-x: hidden;
+  }
 }
 
 /* Ensure RTL layout doesn't cause overflow */
@@ -207,6 +402,70 @@ body:not(.admin-panel-active) main > * {
 
 .pb-safe-area-inset-bottom {
   padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+}
+
+/* Ensure noise background stays sharp and prominent on all devices - Same as admin */
+/* Target noise background layers - Force large, prominent noise */
+div[style*="noiseFilter"],
+div[style*="noiseFilter2"] {
+  image-rendering: -webkit-optimize-contrast !important;
+  image-rendering: crisp-edges !important;
+  image-rendering: pixelated !important;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  /* Prevent scaling on mobile - keep noise size consistent and large */
+  background-size: 50px 50px !important; /* Smaller size = larger, more prominent noise */
+  background-repeat: repeat !important;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: auto;
+  /* Ensure noise is visible and prominent */
+  opacity: inherit !important;
+  pointer-events: none !important;
+}
+
+/* Ensure noise stays large and prominent on mobile devices */
+@media (max-width: 768px) {
+  div[style*="noiseFilter"],
+  div[style*="noiseFilter2"] {
+    background-size: 50px 50px !important; /* Keep same large size on mobile */
+    image-rendering: pixelated !important;
+    opacity: inherit !important;
+  }
+}
+
+/* Ensure noise background container is visible and behind all content */
+.fixed.inset-0[class*="-z-10"] {
+  z-index: -10 !important;
+  pointer-events: none !important;
+}
+
+.fixed.inset-0[class*="-z-10"] > div[style*="noiseFilter"],
+.fixed.inset-0[class*="-z-10"] > div[style*="noiseFilter2"] {
+  pointer-events: none !important;
+  z-index: -1 !important;
+}
+
+/* Ensure main content wrapper doesn't cover noise */
+body > div:not([class*="fixed"]) {
+  background: transparent !important;
+  position: relative;
+  z-index: 0;
+}
+
+/* Ensure all page containers are transparent to show noise */
+body > div > div,
+body > div > main,
+body > div > section,
+body > div > article {
+  background: transparent !important;
+}
+
+/* Exception: Only allow background on specific components that need it */
+.card,
+[class*="Card"],
+[class*="card"] {
+  background: var(--card) !important; /* Cards can have background */
 }
 
 /* Custom Scrollbar - Thin */
@@ -292,6 +551,10 @@ body:not(.admin-panel-active) main > * {
   100% {
     background-position: -5% -10%;
   }
+}
+
+.animate-static {
+  animation: static 0.3s steps(10) infinite;
 }
 
 .animate-pulse-slow {

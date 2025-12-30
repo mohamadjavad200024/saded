@@ -64,9 +64,15 @@ interface QuickBuyChatProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   trigger?: React.ReactNode;
+  initialOrderNumber?: string;
+  initialOrderInfo?: {
+    orderNumber?: string;
+    items?: Array<{ id: string; name: string; quantity: number; price: number }>;
+    total?: number;
+  };
 }
 
-export function QuickBuyChat({ isOpen, onOpenChange, trigger }: QuickBuyChatProps): React.ReactElement {
+export function QuickBuyChat({ isOpen, onOpenChange, trigger, initialOrderNumber, initialOrderInfo }: QuickBuyChatProps): React.ReactElement {
   const router = useRouter();
   const { toast } = useToast();
   const { showNotification, requestPermission } = useNotifications();

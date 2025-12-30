@@ -165,26 +165,40 @@ export default async function RootLayout({
       <body
         className={`${inter.variable} ${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden`}
       >
-        {/* Background with TV Static Effect - Global */}
-        <div className="fixed inset-0 -z-10 bg-background">
-          {/* Base background */}
-          <div className="absolute inset-0 bg-background" />
+        {/* Background with TV Static Effect - Global - Same as admin */}
+        <div className="fixed inset-0 -z-10 pointer-events-none" style={{ backgroundColor: 'var(--background)' }}>
+          {/* Base background - Transparent to show noise */}
+          <div className="absolute inset-0" style={{ backgroundColor: 'var(--background)', opacity: 0.3 }} />
           
-          {/* TV Static/Noise Effect - Layer 1 */}
+          {/* TV Static/Noise Effect - Layer 1 (Large, prominent noise with animation) */}
           <div 
-            className="absolute inset-0 opacity-[0.15] dark:opacity-[0.25]"
+            className="absolute inset-0"
             style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
-              backgroundSize: '200px 200px',
+              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.15' numOctaves='9' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+              backgroundSize: '50px 50px', // Smaller = larger, more prominent noise particles
+              backgroundRepeat: 'repeat',
+              imageRendering: 'pixelated',
+              willChange: 'auto',
+              animation: 'static 0.3s steps(10) infinite',
+              pointerEvents: 'none',
+              opacity: 0.7, // Higher opacity for more visibility
+              mixBlendMode: 'normal',
             }}
           />
           
-          {/* TV Static/Noise Effect - Layer 2 */}
+          {/* TV Static/Noise Effect - Layer 2 (Additional layer for depth with animation) */}
           <div 
-            className="absolute inset-0 opacity-[0.08] dark:opacity-[0.15] mix-blend-mode-overlay"
+            className="absolute inset-0"
             style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter2'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter2)'/%3E%3C/svg%3E")`,
-              backgroundSize: '150px 150px',
+              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter2'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.2' numOctaves='8' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter2)'/%3E%3C/svg%3E")`,
+              backgroundSize: '50px 50px', // Same size for consistency
+              backgroundRepeat: 'repeat',
+              imageRendering: 'pixelated',
+              willChange: 'auto',
+              animation: 'static 0.4s steps(10) infinite reverse',
+              pointerEvents: 'none',
+              opacity: 0.5, // Higher opacity for more visibility
+              mixBlendMode: 'overlay',
             }}
           />
         </div>
@@ -197,7 +211,7 @@ export default async function RootLayout({
         <ErrorBoundary>
           <Providers>
             <ErrorHandler />
-            <div className="flex flex-col min-h-screen w-full">
+            <div className="flex flex-col min-h-screen w-full max-w-full overflow-x-hidden relative z-0 bg-transparent">
               {children}
             </div>
             <BottomNavigation />

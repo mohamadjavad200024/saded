@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { useCartStore } from "@/store/cart-store";
 import { useProductStore } from "@/store/product-store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -344,42 +345,54 @@ export function CartContent() {
                 <div className="text-sm sm:text-base font-medium">روش ارسال:</div>
                 <div className={`grid gap-2 sm:gap-3 ${(airAvailable && seaAvailable) ? "grid-cols-2" : "grid-cols-1"}`}>
                   {airAvailable && (
-                    <button
+                    <motion.button
                       onClick={() => handleShippingMethodChange("air")}
+                      whileTap={{ scale: 0.95 }}
                       className={`flex flex-col items-center justify-center gap-2 p-3 sm:p-4 rounded-lg border-[0.25px] transition-all ${
                         shippingMethod === "air"
                           ? "border-primary/30 bg-primary/5"
                           : "border-border/30 hover:border-primary/20"
                       }`}
                     >
-                      <Plane className={`h-5 w-5 sm:h-6 sm:w-6 ${
-                        shippingMethod === "air" ? "text-primary" : "text-muted-foreground"
-                      }`} />
+                      <motion.div
+                        animate={shippingMethod === "air" ? { scale: 1.1 } : { scale: 1 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <Plane className={`h-5 w-5 sm:h-6 sm:w-6 ${
+                          shippingMethod === "air" ? "text-primary" : "text-muted-foreground"
+                        }`} />
+                      </motion.div>
                       <span className={`text-xs sm:text-sm font-medium ${
                         shippingMethod === "air" ? "text-primary" : "text-foreground"
                       }`}>
                         هوایی
                       </span>
-                    </button>
+                    </motion.button>
                   )}
                   {seaAvailable && (
-                    <button
+                    <motion.button
                       onClick={() => handleShippingMethodChange("sea")}
+                      whileTap={{ scale: 0.95 }}
                       className={`flex flex-col items-center justify-center gap-2 p-3 sm:p-4 rounded-lg border-[0.25px] transition-all ${
                         shippingMethod === "sea"
                           ? "border-primary/30 bg-primary/5"
                           : "border-border/30 hover:border-primary/20"
                       }`}
                     >
-                      <Ship className={`h-5 w-5 sm:h-6 sm:w-6 ${
-                        shippingMethod === "sea" ? "text-primary" : "text-muted-foreground"
-                      }`} />
+                      <motion.div
+                        animate={shippingMethod === "sea" ? { scale: 1.1 } : { scale: 1 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <Ship className={`h-5 w-5 sm:h-6 sm:w-6 ${
+                          shippingMethod === "sea" ? "text-primary" : "text-muted-foreground"
+                        }`} />
+                      </motion.div>
                       <span className={`text-xs sm:text-sm font-medium ${
                         shippingMethod === "sea" ? "text-primary" : "text-foreground"
                       }`}>
                         دریایی
                       </span>
-                    </button>
+                    </motion.button>
                   )}
                 </div>
               </div>

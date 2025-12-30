@@ -189,7 +189,8 @@ export function ProductGrid() {
               </SheetTrigger>
               <SheetContent 
                 side="bottom" 
-                className="h-[85vh] sm:h-[90vh] overflow-y-auto rounded-t-2xl border-t-2 border-border"
+                className="h-screen max-h-screen overflow-y-auto rounded-t-2xl border-t-2 border-border fixed inset-x-0 bottom-0 top-0 z-[100]"
+                style={{ height: '100vh', maxHeight: '100vh', position: 'fixed' }}
               >
                 <SheetHeader className="pb-4 border-b border-border/30">
                   <SheetTitle className="text-right">

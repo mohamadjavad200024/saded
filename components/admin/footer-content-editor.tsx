@@ -212,26 +212,31 @@ export function FooterContentEditor() {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include", // Include cookies for session authentication
         body: JSON.stringify({ content }),
       });
 
-      if (response.ok) {
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // Reload content to ensure we have the latest saved data
+        await loadContent();
         toast({
           title: "موفق",
-          description: "محتوای Footer با موفقیت ذخیره شد",
+          description: data.message || "محتوای Footer با موفقیت ذخیره شد",
         });
       } else {
-        const error = await response.json();
         toast({
           title: "خطا",
-          description: error.error || "خطا در ذخیره محتوا",
+          description: data.error || data.message || "خطا در ذخیره محتوا",
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Error saving footer content:", error);
       toast({
         title: "خطا",
-        description: "خطا در ذخیره محتوا",
+        description: error?.message || "خطا در ذخیره محتوا",
         variant: "destructive",
       });
     } finally {

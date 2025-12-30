@@ -173,7 +173,7 @@ export function ProductSearch({
           </Button>
         )}
       </SheetTrigger>
-      <SheetContent side="bottom" className="h-[95vh] sm:h-[90vh] flex flex-col p-0 gap-0">
+      <SheetContent side="bottom" className="h-screen max-h-screen flex flex-col p-0 gap-0" style={{ height: '100vh', maxHeight: '100vh' }}>
         <SheetTitle className="sr-only">جستجوی محصولات</SheetTitle>
         {/* Ultra Minimal Header with Search - Sticky at Top */}
         <div className="sticky top-0 z-10 bg-background/98 backdrop-blur-sm border-b border-border/15 flex-shrink-0 shadow-sm">

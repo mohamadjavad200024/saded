@@ -111,6 +111,7 @@ function ChatPageContent() {
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [showPermissionGuide, setShowPermissionGuide] = useState(false);
   const [chatId, setChatId] = useState<string | null>(null);
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -1097,6 +1098,30 @@ function ChatPageContent() {
     };
   }, []);
 
+  // Detect keyboard open state on mobile
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.visualViewport) return;
+
+    const handleViewportChange = () => {
+      if (window.visualViewport) {
+        const viewportHeight = window.visualViewport.height;
+        const windowHeight = window.innerHeight;
+        // If viewport is significantly smaller than window, keyboard is likely open
+        setIsKeyboardOpen(viewportHeight < windowHeight * 0.75);
+      }
+    };
+
+    window.visualViewport.addEventListener("resize", handleViewportChange);
+    window.visualViewport.addEventListener("scroll", handleViewportChange);
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", handleViewportChange);
+        window.visualViewport.removeEventListener("scroll", handleViewportChange);
+      }
+    };
+  }, []);
+
   return (
     <div className="flex flex-col overflow-hidden" style={{ height: '100dvh' }}>
       <div className="flex-1 flex justify-center w-full min-h-0">
@@ -1124,7 +1149,14 @@ function ChatPageContent() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <div 
+          className="flex-1 flex flex-col min-h-0 overflow-hidden"
+          style={isKeyboardOpen ? { 
+            paddingBottom: typeof window !== 'undefined' && window.visualViewport 
+              ? `${window.innerHeight - window.visualViewport.height}px` 
+              : '0px' 
+          } : {}}
+        >
           {step === "info" ? (
             <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 bg-gradient-to-b from-background via-background to-muted/10">
               {/* Welcome Message */}
@@ -1405,7 +1437,14 @@ function ChatPageContent() {
               </div>
 
               {/* Input Area - Fixed at bottom */}
-              <div className="flex-shrink-0 border-t border-border/40 bg-background/95 backdrop-blur-sm p-2 sm:p-3 space-y-2 relative">
+              <div 
+                className={`flex-shrink-0 border-t border-border/40 bg-background/95 backdrop-blur-sm p-2 sm:p-3 space-y-2 relative ${
+                  isKeyboardOpen ? "fixed bottom-0 left-0 right-0 z-50" : ""
+                }`}
+                style={isKeyboardOpen && typeof window !== 'undefined' && window.visualViewport ? {
+                  bottom: `${window.innerHeight - window.visualViewport.height}px`
+                } : {}}
+              >
                 {/* Scroll to bottom button */}
                 <AnimatePresence>
                   {showScrollToBottom && (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { MapPin, Loader2, Check, Navigation, X } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -179,27 +179,18 @@ export function LocationPicker({ open, onOpenChange, onLocationSelect, initialLo
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent 
-        className="flex flex-col p-0 gap-0 max-w-[95vw] sm:max-w-3xl lg:max-w-4xl w-full h-[90vh] sm:h-[85vh] max-h-[90vh] sm:max-h-[85vh] overflow-hidden"
-        style={{
-          position: 'fixed',
-          left: '50%',
-          top: '50%',
-          transform: 'translate(-50%, -50%)',
-          margin: 0,
-        }}
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent 
+        side="bottom"
+        className="flex flex-col p-0 gap-0 w-full h-screen max-h-screen overflow-hidden rounded-t-2xl border-t-2 border-border"
+        style={{ height: '100vh', maxHeight: '100vh' }}
       >
         {/* Header */}
-        <DialogHeader className="px-4 pt-4 pb-3 flex-shrink-0 relative border-b border-border/30">
-          <DialogTitle className="text-right text-base sm:text-lg pr-8">
+        <SheetHeader className="px-4 pt-4 pb-3 flex-shrink-0 relative border-b border-border/30">
+          <SheetTitle className="text-right text-base sm:text-lg pr-8">
             انتخاب موقعیت روی نقشه
-          </DialogTitle>
-          <DialogClose className="absolute left-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none z-50 h-8 w-8 flex items-center justify-center">
-            <X className="h-4 w-4" />
-            <span className="sr-only">بستن</span>
-          </DialogClose>
-        </DialogHeader>
+          </SheetTitle>
+        </SheetHeader>
         
         {/* Map Container */}
         <div className="flex-1 relative min-h-0 overflow-hidden">
@@ -269,7 +260,7 @@ export function LocationPicker({ open, onOpenChange, onLocationSelect, initialLo
         </div>
 
         {/* Footer */}
-        <DialogFooter className="px-4 pb-4 pt-3 flex-col sm:flex-row gap-3 bg-background border-t border-border/30 flex-shrink-0">
+        <SheetFooter className="px-4 pb-4 pt-3 flex-col sm:flex-row gap-3 bg-background border-t border-border/30 flex-shrink-0">
           <div className="flex gap-2 w-full sm:w-auto order-1">
             <Button 
               onClick={handleConfirm} 
@@ -310,8 +301,8 @@ export function LocationPicker({ open, onOpenChange, onLocationSelect, initialLo
               <span className="text-xs sm:text-sm">روی نقشه کلیک کنید تا موقعیت را انتخاب کنید</span>
             )}
           </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

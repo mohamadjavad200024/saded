@@ -72,6 +72,8 @@ function CheckoutPageContent() {
   const address = watch("address");
   const notes = watch("notes");
   const location = watch("location");
+  const city = watch("city");
+  const province = watch("province");
   
   // همگام‌سازی state با form value
   useEffect(() => {
@@ -79,6 +81,37 @@ function CheckoutPageContent() {
       setAddressType(watchedAddressType as "location" | "postalCode" | "address");
     }
   }, [watchedAddressType, addressType]);
+
+  // Save guest user data to localStorage when form changes
+  useEffect(() => {
+    if (!isAuthenticated) {
+      // Only save for guest users
+      const formData = {
+        firstName,
+        lastName,
+        phone,
+        email,
+        addressType,
+        location,
+        address,
+        city,
+        postalCode,
+        province,
+        notes,
+      };
+      
+      // Only save if at least one field has a value
+      const hasData = Object.values(formData).some(value => value && String(value).trim() !== "");
+      
+      if (hasData) {
+        try {
+          localStorage.setItem("checkoutData", JSON.stringify({ formData }));
+        } catch (error) {
+          console.error("Error saving checkout data to localStorage:", error);
+        }
+      }
+    }
+  }, [firstName, lastName, phone, email, addressType, location, address, city, postalCode, province, notes, isAuthenticated]);
 
   // Authentication removed - checkout is now open to everyone
 
@@ -509,7 +542,7 @@ function CheckoutPageContent() {
                       </div>
                       <div className="flex items-center gap-2">
                         <Phone className="h-3.5 w-3.5 text-primary-foreground/80 flex-shrink-0" />
-                        <span className="text-sm sm:text-base text-primary-foreground/80 truncate">
+                        <span className="text-sm sm:text-base text-primary-foreground/80 truncate bg-primary-foreground/20 px-2 py-1 rounded">
                           {(user as any)?.phone || "-"}
                         </span>
                       </div>

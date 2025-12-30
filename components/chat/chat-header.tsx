@@ -13,9 +13,14 @@ interface ChatHeaderProps {
     phone: string;
   };
   onEditInfo: () => void;
+  orderInfo?: {
+    orderNumber?: string;
+    items?: Array<{ id: string; name: string; quantity: number; price: number }>;
+    total?: number;
+  };
 }
 
-export function ChatHeader({ step, isOnline, lastSeen, customerInfo, onEditInfo }: ChatHeaderProps) {
+export function ChatHeader({ step, isOnline, lastSeen, customerInfo, onEditInfo, orderInfo }: ChatHeaderProps) {
   return (
     <SheetHeader className="px-4 sm:px-6 py-2 border-b border-border/40">
       <div className="flex items-center gap-2">

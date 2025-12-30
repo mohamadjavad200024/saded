@@ -239,11 +239,11 @@ export function Header() {
           {/* Theme Toggle */}
           <ThemeToggle />
 
-          {/* Profile Button - Desktop */}
+          {/* Profile Button - Always visible on all screen sizes */}
           {isAuthenticated && user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="hidden md:flex h-9 w-9">
+                <Button variant="ghost" size="icon" className="h-9 w-9">
                   <User className="h-5 w-5" />
                   <span className="sr-only">حساب کاربری</span>
                 </Button>
