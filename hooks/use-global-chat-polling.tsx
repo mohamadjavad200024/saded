@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
-import { useNotifications } from "@/hooks/use-notifications";
-import { usePersistentNotifications } from "@/hooks/use-persistent-notifications";
 import { logger } from "@/lib/logger-client";
 
 interface UseGlobalChatPollingOptions {
@@ -16,8 +14,6 @@ export function useGlobalChatPolling({
   chatId,
   onNewMessage,
 }: UseGlobalChatPollingOptions) {
-  const { showNotification } = useNotifications();
-  const { showMessageNotification } = usePersistentNotifications();
   const adminStatusRef = useRef<{ isOnline: boolean; lastChecked: number }>({
     isOnline: false,
     lastChecked: 0,
@@ -26,8 +22,6 @@ export function useGlobalChatPolling({
   const lastPolledMessageIdRef = useRef<string | null>(null);
   const lastPolledTimeRef = useRef<number>(0); // Start at 0, will be set on first poll
   const processedMessageIdsRef = useRef<Set<string>>(new Set());
-  const notificationDebounceRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
-  const lastNotificationTimeRef = useRef<Map<string, number>>(new Map());
 
   // Load last message ID from localStorage for user
   useEffect(() => {
@@ -199,72 +193,6 @@ export function useGlobalChatPolling({
             // Check admin status before showing notification
             const isAdminOnline = await checkAdminStatus();
 
-            // Only show notification if chat is closed
-            if (!chatIsOpen) {
-              // Prevent duplicate notifications with debouncing
-              const notificationKey = `user-${currentChatId}-${latestMessage.id}`;
-              const now = Date.now();
-              const lastNotificationTime = lastNotificationTimeRef.current.get(notificationKey) || 0;
-              
-              // Skip if notification was shown recently (within 5 seconds)
-              if (now - lastNotificationTime < 5000) {
-                logger.debug(`[User Notification] ⏭️ Skipping duplicate notification for ${currentChatId}`);
-                // Still call callback
-                if (onNewMessage) {
-                  onNewMessage(latestMessage, data.data.chat);
-                }
-                return;
-              }
-
-              // Clear existing debounce timeout if any
-              const existingTimeout = notificationDebounceRef.current.get(notificationKey);
-              if (existingTimeout) {
-                clearTimeout(existingTimeout);
-              }
-
-              // Debounce notification to prevent spam
-              const timeoutId = setTimeout(() => {
-                logger.debug("New support message detected, showing notification:", previewText);
-                
-                // Update last notification time
-                lastNotificationTimeRef.current.set(notificationKey, Date.now());
-              
-                // Show browser notification
-                showNotification({
-                  title: "پیام جدید از پشتیبانی",
-                  body: previewText,
-                  tag: `support-${latestMessage.id}`,
-                  requireInteraction: false,
-                  sound: true,
-                }).catch((error) => {
-                  logger.error("[User Notification] Error showing browser notification:", error);
-                });
-
-                // Show persistent notification
-                showMessageNotification("پشتیبانی", previewText, {
-                  onOpen: () => {
-                    if (onNewMessage) {
-                      onNewMessage(latestMessage);
-                    }
-                  },
-                  chatId: currentChatId || undefined,
-                  metadata: {
-                    messageId: latestMessage.id,
-                    chatId: currentChatId,
-                    isAdminOffline: !isAdminOnline,
-                    isAdmin: false, // This is for user
-                  },
-                });
-
-                // Clean up timeout reference
-                notificationDebounceRef.current.delete(notificationKey);
-              }, 300); // 300ms debounce
-
-              notificationDebounceRef.current.set(notificationKey, timeoutId);
-            } else {
-              logger.debug("New support message detected but chat is open, skipping notification");
-            }
-
             // Call callback if provided
             if (onNewMessage) {
               onNewMessage(latestMessage, data.data.chat);
@@ -408,26 +336,9 @@ export function useGlobalChatPolling({
                   // The Notification Center will filter out notifications from the currently open chat
                   // This ensures notifications from other users always show, even when chatting with one user
                   
-                  // Prevent duplicate notifications with debouncing
-                  const notificationKey = `admin-${chat.id}-${latestMessage.id}`;
-                  const now = Date.now();
-                  const lastNotificationTime = lastNotificationTimeRef.current.get(notificationKey) || 0;
-                  
-                  // Skip if notification was shown recently (within 5 seconds)
-                  if (now - lastNotificationTime < 5000) {
-                    logger.debug(`[Admin Notification] ⏭️ Skipping duplicate notification for chat ${chat.id} (shown ${Math.round((now - lastNotificationTime) / 1000)}s ago)`);
-                    // Still mark as processed and call callback
-                    processedMessageIdsRef.current.add(latestMessage.id);
-                    if (onNewMessage) {
-                      onNewMessage(latestMessage, chat);
-                    }
-                    continue;
-                  }
-
                   // Mark as processed immediately to prevent duplicate processing
                   processedMessageIdsRef.current.add(latestMessage.id);
 
-                  // Notifications disabled for admin - only call callback
                   // Call callback if provided
                   if (onNewMessage) {
                     onNewMessage(latestMessage, chat);
@@ -455,7 +366,7 @@ export function useGlobalChatPolling({
         logger.error("Error polling for new messages:", error);
       }
     }
-  }, [isUser, chatId, showNotification, showMessageNotification, onNewMessage, checkAdminStatus]);
+  }, [isUser, chatId, onNewMessage, checkAdminStatus]);
 
   // Start polling
   useEffect(() => {
@@ -487,9 +398,6 @@ export function useGlobalChatPolling({
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
       }
-      // Clean up notification debounce timers
-      notificationDebounceRef.current.forEach((timeout) => clearTimeout(timeout));
-      notificationDebounceRef.current.clear();
     };
   }, [pollForNewMessages, isUser, chatId]);
 
@@ -500,9 +408,6 @@ export function useGlobalChatPolling({
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
       }
-      // Clean up notification debounce timers
-      notificationDebounceRef.current.forEach((timeout) => clearTimeout(timeout));
-      notificationDebounceRef.current.clear();
     },
   };
 }

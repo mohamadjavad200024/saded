@@ -12,7 +12,7 @@ import { Search, Package, MapPin, Phone, Mail, Calendar, Truck, CheckCircle2, Cl
 import { SafeImage } from "@/components/ui/safe-image";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { QuickBuyChat } from "@/components/chat/quick-buy-chat";
+import { useRouter } from "next/navigation";
 
 const statusConfig = {
   pending: {
@@ -62,13 +62,13 @@ const paymentStatusConfig = {
 };
 
 function TrackOrderContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const initialOrderNumber = searchParams.get("orderNumber") || "";
   const [orderNumber, setOrderNumber] = useState(initialOrderNumber);
   const [order, setOrder] = useState<any>(null);
   const [notFound, setNotFound] = useState(false);
   const [hasSearched, setHasSearched] = useState(false); // برای تشخیص اینکه آیا جستجویی انجام شده یا نه
-  const [chatOpen, setChatOpen] = useState(false);
   const { orders, updateOrder } = useOrderStore();
   const { getProduct, loadProductsFromDB } = useProductStore();
 
@@ -185,7 +185,13 @@ function TrackOrderContent() {
             پیگیری سفارش
           </h1>
           <Button
-            onClick={() => setChatOpen(true)}
+            onClick={() => {
+              if (order?.orderNumber) {
+                router.push(`/chat?orderNumber=${encodeURIComponent(order.orderNumber)}`);
+              } else {
+                router.push("/chat");
+              }
+            }}
             variant="outline"
             size="sm"
             className="flex items-center gap-2"
@@ -760,23 +766,6 @@ function TrackOrderContent() {
           </div>
         )}
       </div>
-      
-      {/* چت با ادمین */}
-      <QuickBuyChat 
-        isOpen={chatOpen} 
-        onOpenChange={setChatOpen}
-        initialOrderNumber={order?.orderNumber}
-        initialOrderInfo={order ? {
-          orderNumber: order.orderNumber,
-          items: Array.isArray(order.items) ? order.items.map((item: any) => ({
-            id: item.id || item.productId || "",
-            name: item.name || "",
-            quantity: item.quantity || 0,
-            price: item.price || 0,
-          })) : [],
-          total: order.total || 0,
-        } : undefined}
-      />
     </div>
   );
 }

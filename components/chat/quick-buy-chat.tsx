@@ -44,10 +44,8 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
-import { useNotifications } from "@/hooks/use-notifications";
 import { OnlineStatusBadge } from "@/components/chat/online-status-badge";
 import { useAdminPresence } from "@/hooks/use-admin-presence";
-import { usePersistentNotifications } from "@/hooks/use-persistent-notifications";
 import { TypingIndicator } from "@/components/chat/typing-indicator";
 import { logger } from "@/lib/logger-client";
 import { ChatMessages } from "@/components/chat/chat-messages";
@@ -75,8 +73,6 @@ interface QuickBuyChatProps {
 export function QuickBuyChat({ isOpen, onOpenChange, trigger, initialOrderNumber, initialOrderInfo }: QuickBuyChatProps): React.ReactElement {
   const router = useRouter();
   const { toast } = useToast();
-  const { showNotification, requestPermission } = useNotifications();
-  const { showMessageNotification } = usePersistentNotifications();
   const { isOnline, lastSeen, checkStatus } = useAdminPresence({
     enabled: true,
     heartbeatInterval: 20000, // 20 seconds for user side
@@ -169,9 +165,6 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger, initialOrderNumber
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
   const lastPolledMessageIdRef = useRef<string | null>(null);
-  const processedNotificationIdsRef = useRef<Set<string>>(new Set());
-  const notificationDebounceRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
-  const lastNotificationTimeRef = useRef<Map<string, number>>(new Map());
   const systemMessageShownRef = useRef<boolean>(false);
   const systemMessageIdRef = useRef<string | null>(null);
   
@@ -936,8 +929,6 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger, initialOrderNumber
           }, 1000);
         }
         
-        // Don't show notifications when chat is open - user is already viewing
-        // Global polling handles notifications when chat is closed
         
         // Convert database messages to component messages
         const formattedMessages: Message[] = newMessages.map((msg: any) => {
@@ -1081,10 +1072,6 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger, initialOrderNumber
     }
   };
 
-  // Request notification permission on mount
-  useEffect(() => {
-    requestPermission();
-  }, []);
 
   // Listen for openChat event from notifications
   useEffect(() => {
@@ -1644,21 +1631,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger, initialOrderNumber
           const adminStatusData = await adminStatusResponse.json();
           if (adminStatusData.success && adminStatusData.data?.admins) {
             const isAdminOnline = Array.isArray(adminStatusData.data.admins) && adminStatusData.data.admins.length > 0;
-            if (!isAdminOnline) {
-              // Show persistent notification that admin is offline
-              showMessageNotification("پشتیبانی", "پشتیبان در حال حاضر آنلاین نیست. پیام شما دریافت شده و در اسرع وقت پاسخ داده خواهد شد.", {
-                onOpen: () => {
-                  if (!isOpen) {
-                    onOpenChange(true);
-                  }
-                },
-                chatId: chatId || undefined,
-                metadata: {
-                  isAdminOffline: true,
-                  isAdmin: false, // This is for user
-                },
-              });
-            }
+            // Admin is offline - message will be handled when admin comes online
           }
         }
       } catch (adminError) {
@@ -1829,7 +1802,6 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger, initialOrderNumber
         onEditInfo={() => {
           window.location.href = "/auth";
         }}
-        orderInfo={initialOrderInfo}
       />
 
         <ChatMessages

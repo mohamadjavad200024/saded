@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -28,13 +28,17 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { AudioPlayer } from "@/components/chat/audio-player";
-import { useNotifications } from "@/hooks/use-notifications";
 import { OnlineStatusBadge } from "@/components/chat/online-status-badge";
 import { useAdminPresence } from "@/hooks/use-admin-presence";
 import { TypingIndicator } from "@/components/chat/typing-indicator";
 import { logger } from "@/lib/logger-client";
 import { useAuthStore } from "@/store/auth-store";
 import { ProtectedRoute } from "@/components/auth/protected-route";
+import { useProductStore } from "@/store/product-store";
+import { SafeImage } from "@/components/ui/safe-image";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { getPlaceholderImage } from "@/lib/image-utils";
 
 type MessageStatus = "sending" | "sent" | "delivered" | "read";
 
@@ -58,13 +62,16 @@ interface Attachment {
 
 function ChatPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { showNotification, requestPermission } = useNotifications();
   const { isOnline, lastSeen, checkStatus } = useAdminPresence({
     enabled: true,
     heartbeatInterval: 20000,
   });
   const { user, isAuthenticated } = useAuthStore();
+  const { getProduct, loadProductsFromDB } = useProductStore();
+  const orderNumberFromQuery = searchParams.get("orderNumber");
+  const orderInfoSentRef = useRef(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
@@ -306,6 +313,162 @@ function ChatPageContent() {
     const t = setInterval(() => pollForNewMessages(chatId), 3000);
     return () => clearInterval(t);
   }, [chatId, pollForNewMessages, user]);
+
+  // Load order info and create order message when orderNumber is in query params
+  useEffect(() => {
+    if (!orderNumberFromQuery || !isAuthenticated || !user || orderInfoSentRef.current || !chatId || messages.length === 0) return;
+    
+    const fetchOrderAndCreateMessage = async () => {
+      try {
+        // Fetch order
+        const orderResponse = await fetch(`/api/orders?orderNumber=${encodeURIComponent(orderNumberFromQuery)}`, {
+          credentials: 'include',
+        });
+        
+        if (!orderResponse.ok) return;
+        
+        const orderResult = await orderResponse.json();
+        if (!orderResult.success || !orderResult.data || orderResult.data.length === 0) return;
+        
+        const order = orderResult.data[0];
+        if (!order.items || order.items.length === 0) return;
+        
+        // Load products to get images
+        await loadProductsFromDB();
+        
+        // Get first item from order
+        const firstItem = order.items[0];
+        const productId = firstItem.productId || firstItem.id;
+        const product = getProduct(productId);
+        
+        // Get status label
+        const statusLabels: Record<string, string> = {
+          pending: "در انتظار",
+          processing: "در حال پردازش",
+          shipped: "ارسال شده",
+          delivered: "تحویل داده شده",
+          cancelled: "لغو شده",
+        };
+        const statusLabel = statusLabels[order.status] || order.status;
+        
+        // Get product image
+        let productImage = firstItem.image;
+        if (!productImage && product && product.images && product.images.length > 0) {
+          productImage = product.images[0];
+        }
+        if (!productImage) {
+          productImage = getPlaceholderImage(300, 300);
+        }
+        
+        // Get product name
+        const productName = firstItem.name || (product ? product.name : "محصول");
+        
+        // Check if order message already exists
+        const hasOrderMessage = messages.some(
+          (msg) =>
+            msg.sender === "user" &&
+            (msg.text.includes(order.orderNumber) || msg.text.includes("سفارش"))
+        );
+        
+        if (!hasOrderMessage) {
+          // Create order message with product card
+          const orderMessageText = `سوال در مورد سفارش ${order.orderNumber}\n\nمحصول: ${productName}\nوضعیت: ${statusLabel}`;
+          
+          const orderMessage: Message = {
+            id: `order-msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            text: orderMessageText,
+            sender: "user",
+            timestamp: new Date(),
+            status: "sending",
+            attachments: [
+              {
+                id: `order-attachment-${Date.now()}`,
+                type: "image",
+                url: productImage,
+                name: productName,
+              },
+            ],
+          };
+          
+          // Add message to state
+          setMessages((prev) => [...prev, orderMessage]);
+          
+          // Mark as sent
+          orderInfoSentRef.current = true;
+          
+          // Send message to server
+          setTimeout(async () => {
+            try {
+              const finalCustomerInfo = {
+                name: user.name || "",
+                phone: user.phone || "",
+                email: customerInfo.email || "",
+              };
+
+              const messageToSave = {
+                id: orderMessage.id,
+                text: orderMessageText,
+                sender: "user",
+                timestamp: orderMessage.timestamp.toISOString(),
+                attachments: orderMessage.attachments?.filter((att) => {
+                  const url = att.url;
+                  return url && 
+                         !url.startsWith('blob:') && 
+                         !url.startsWith('data:') &&
+                         (url.startsWith('http') || url.startsWith('/'));
+                }) || [],
+                status: "sent",
+              };
+
+              const response = await fetch("/api/chat", {
+                method: "POST",
+                headers: { 
+                  "Content-Type": "application/json",
+                  ...(process.env.NODE_ENV === 'development' && user?.id ? { 'x-user-id': user.id } : {}),
+                },
+                credentials: "include",
+                body: JSON.stringify({
+                  chatId: chatId,
+                  customerInfo: finalCustomerInfo,
+                  messages: [messageToSave],
+                }),
+              });
+
+              if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.data?.messages && data.data.messages.length > 0) {
+                  const savedMessage = data.data.messages[0];
+                  setMessages((prev) =>
+                    prev.map((msg) =>
+                      msg.id === orderMessage.id
+                        ? {
+                            ...msg,
+                            id: savedMessage.id,
+                            status: savedMessage.status || "sent",
+                          }
+                        : msg
+                    )
+                  );
+                }
+              }
+            } catch (error) {
+              logger.error("Error saving order message:", error);
+            }
+          }, 500);
+        } else {
+          orderInfoSentRef.current = true;
+        }
+      } catch (error) {
+        logger.error("Error fetching order for chat:", error);
+      }
+    };
+    
+    // Wait for chat to be initialized
+    const timeout = setTimeout(() => {
+      fetchOrderAndCreateMessage();
+    }, 1500);
+    return () => clearTimeout(timeout);
+  }, [orderNumberFromQuery, isAuthenticated, user, chatId, messages, getProduct, loadProductsFromDB, customerInfo]);
 
   const createChat = useCallback(
     async (info: { name: string; phone: string; email?: string }, opts?: { silent?: boolean }) => {
@@ -1079,10 +1242,6 @@ function ChatPageContent() {
     return () => container.removeEventListener("scroll", handleScroll);
   }, [checkScrollPosition]);
 
-  // Request notification permission
-  useEffect(() => {
-    requestPermission();
-  }, [requestPermission]);
 
   // Set body and html overflow for chat page
   useEffect(() => {
