@@ -302,6 +302,9 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger, initialOrderNumber
     }
   }, [chatId]);
 
+  // Track if order info message has been sent
+  const orderInfoSentRef = useRef(false);
+
   useEffect(() => {
     if (!isOpen) {
       // Reset state when chat is closed (but keep customer info in localStorage)
@@ -317,6 +320,8 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger, initialOrderNumber
         pollingIntervalRef.current = null;
       }
       setIsPolling(false);
+      // Reset order info sent flag when chat closes
+      orderInfoSentRef.current = false;
       // Don't reset customerInfo, messages, or chatId - keep them for next time
       // Messages will be loaded from database when chat opens again
     } else {
@@ -338,6 +343,79 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger, initialOrderNumber
       }
     }
   }, [isOpen]);
+
+  // Auto-send order info message when chat opens with order info
+  useEffect(() => {
+    if (
+      isOpen &&
+      initialOrderInfo?.orderNumber &&
+      !orderInfoSentRef.current &&
+      isAuthenticated &&
+      user
+    ) {
+      // Wait for messages to load first
+      const checkAndSend = () => {
+        // Check if order info message already exists in messages
+        const hasOrderMessage = messages.some(
+          (msg) =>
+            msg.sender === "user" &&
+            (msg.text.includes(initialOrderInfo!.orderNumber!) ||
+              msg.text.includes("سفارش") ||
+              msg.text.includes("ORDER"))
+        );
+
+        if (!hasOrderMessage && messages.length > 0) {
+          const orderMessageText = `سلام، در مورد سفارش ${initialOrderInfo.orderNumber} سوال دارم.${
+            initialOrderInfo.items && initialOrderInfo.items.length > 0
+              ? `\n\nمحصولات:\n${initialOrderInfo.items
+                  .map((item, idx) => `${idx + 1}. ${item.name} (${item.quantity} عدد)`)
+                  .join("\n")}`
+              : ""
+          }${
+            initialOrderInfo.total
+              ? `\n\nمبلغ کل: ${initialOrderInfo.total.toLocaleString("fa-IR")} تومان`
+              : ""
+          }`;
+
+          // Create order info message
+          const orderMessage: Message = {
+            id: `order-msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            text: orderMessageText,
+            sender: "user",
+            timestamp: new Date(),
+            status: "sending",
+          };
+
+          // Add message to state
+          setMessages((prev) => {
+            const updated = [...prev, orderMessage];
+            lastUserMessageIdRef.current = orderMessage.id;
+            return updated;
+          });
+
+          // Mark as sent
+          orderInfoSentRef.current = true;
+
+          // Save to database after a delay
+          setTimeout(() => {
+            saveChatToDatabase(false).catch((error) => {
+              logger.error("Error saving order info message:", error);
+            });
+          }, 500);
+        } else if (hasOrderMessage) {
+          // Order message already exists, mark as sent
+          orderInfoSentRef.current = true;
+        }
+      };
+
+      // Wait a bit for chat history to load, then check and send
+      const timeout = setTimeout(() => {
+        checkAndSend();
+      }, 1500); // Wait 1.5 seconds for chat history to load
+
+      return () => clearTimeout(timeout);
+    }
+  }, [isOpen, initialOrderInfo?.orderNumber, isAuthenticated, user, messages]);
 
   // Check microphone permission
   // Recording functions moved to useChatRecording hook (defined after uploadFile)
@@ -1751,6 +1829,7 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger, initialOrderNumber
         onEditInfo={() => {
           window.location.href = "/auth";
         }}
+        orderInfo={initialOrderInfo}
       />
 
         <ChatMessages

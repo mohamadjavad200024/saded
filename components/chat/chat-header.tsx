@@ -3,6 +3,8 @@
 import { Button } from "@/components/ui/button";
 import { SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { OnlineStatusBadge } from "@/components/chat/online-status-badge";
+import { Badge } from "@/components/ui/badge";
+import { Package } from "lucide-react";
 
 interface ChatHeaderProps {
   step: "chat";
@@ -25,8 +27,8 @@ export function ChatHeader({ step, isOnline, lastSeen, customerInfo, onEditInfo,
     <SheetHeader className="px-4 sm:px-6 py-2 border-b border-border/40">
       <div className="flex items-center gap-2">
         <div className="flex-1 min-w-0">
-          <SheetTitle className="text-base font-semibold text-foreground flex items-center gap-2">
-            خرید سریع
+          <SheetTitle className="text-base font-semibold text-foreground flex items-center gap-2 flex-wrap">
+            <span>خرید سریع</span>
             {step === "chat" && (
               <OnlineStatusBadge 
                 isOnline={isOnline} 
@@ -34,7 +36,24 @@ export function ChatHeader({ step, isOnline, lastSeen, customerInfo, onEditInfo,
                 showText={false} 
               />
             )}
+            {orderInfo?.orderNumber && (
+              <Badge variant="outline" className="text-xs font-mono flex items-center gap-1.5 bg-primary/5 border-primary/20 text-primary">
+                <Package className="h-3 w-3" />
+                <span className="hidden sm:inline">سفارش:</span>
+                <span>{orderInfo.orderNumber}</span>
+              </Badge>
+            )}
           </SheetTitle>
+          {orderInfo?.orderNumber && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {orderInfo.items && orderInfo.items.length > 0 && (
+                <span>{orderInfo.items.length} محصول • </span>
+              )}
+              {orderInfo.total && (
+                <span>جمع: {orderInfo.total.toLocaleString("fa-IR")} تومان</span>
+              )}
+            </p>
+          )}
         </div>
         {step === "chat" && customerInfo.name && customerInfo.phone && (
           <Button
