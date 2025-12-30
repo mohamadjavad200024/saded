@@ -67,7 +67,22 @@ export function LocationPicker({ open, onOpenChange, onLocationSelect, initialLo
 
   // دریافت موقعیت فعلی کاربر هنگام باز شدن مودال
   useEffect(() => {
-    if (open && navigator.geolocation) {
+    if (open) {
+      // Check if geolocation is supported
+      if (!navigator.geolocation) {
+        // Geolocation not supported - use default location
+        setIsLoading(false);
+        return;
+      }
+
+      // Check if we're on HTTPS (required for geolocation in most browsers)
+      const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost';
+      if (!isSecure) {
+        // Not on HTTPS - silently use default location
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -77,7 +92,8 @@ export function LocationPicker({ open, onOpenChange, onLocationSelect, initialLo
           setIsLoading(false);
         },
         (error) => {
-          console.error("Error getting location:", error);
+          // Silently handle errors - user can still select location manually
+          // Error codes: 1=PERMISSION_DENIED, 2=POSITION_UNAVAILABLE, 3=TIMEOUT
           setIsLoading(false);
         },
         {

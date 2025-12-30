@@ -590,10 +590,13 @@ export function QuickBuyChat({ isOpen, onOpenChange, trigger, initialOrderNumber
           // ignore and fallback to legacy lookup
         }
 
-        // Find chat by customer info
-        url += `customerPhone=${encodeURIComponent(customerInfo.phone)}`;
-        if (customerInfo.name) {
-          url += `&customerName=${encodeURIComponent(customerInfo.name)}`;
+        // Only add customer info if we don't have a chatId
+        if (!savedChatId) {
+          // Find chat by customer info
+          url += `customerPhone=${encodeURIComponent(customerInfo.phone)}`;
+          if (customerInfo.name) {
+            url += `&customerName=${encodeURIComponent(customerInfo.name)}`;
+          }
         }
       }
 

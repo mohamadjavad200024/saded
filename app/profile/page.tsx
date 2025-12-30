@@ -430,7 +430,7 @@ function ProfileContent() {
 
       {/* Edit Profile Sheet */}
       <Sheet open={isEditingProfile} onOpenChange={setIsEditingProfile}>
-        <SheetContent side="left" className="w-full sm:max-w-md overflow-y-auto h-screen max-h-screen fixed">
+        <SheetContent side="left" className="w-full sm:max-w-md overflow-y-auto h-screen max-h-screen">
           <SheetHeader>
             <SheetTitle>ویرایش پروفایل</SheetTitle>
           </SheetHeader>
@@ -500,7 +500,7 @@ function ProfileContent() {
 
       {/* Change Password Sheet */}
       <Sheet open={isEditingPassword} onOpenChange={setIsEditingPassword}>
-        <SheetContent side="left" className="w-full sm:max-w-md overflow-y-auto h-screen max-h-screen fixed">
+        <SheetContent side="left" className="w-full sm:max-w-md overflow-y-auto h-screen max-h-screen">
           <SheetHeader>
             <SheetTitle>تغییر رمز عبور</SheetTitle>
           </SheetHeader>

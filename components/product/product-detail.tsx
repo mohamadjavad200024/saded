@@ -438,42 +438,54 @@ export function ProductDetail({ productId }: ProductDetailProps) {
               <label className="text-xs sm:text-sm font-medium block">روش ارسال:</label>
               <div className={`grid gap-2 sm:gap-3 ${(product.airShippingEnabled && product.seaShippingEnabled) ? "grid-cols-2" : "grid-cols-1"}`}>
                 {product.airShippingEnabled && (
-                  <button
+                  <motion.button
                     onClick={() => setShippingMethod("air")}
+                    whileTap={{ scale: 0.95 }}
                     className={`flex flex-col items-center justify-center gap-2 p-3 sm:p-4 rounded-lg border-[0.25px] transition-all ${
                       shippingMethod === "air"
                         ? "border-primary/30 bg-primary/5"
                         : "border-border/30 hover:border-primary/20"
                     }`}
                   >
-                    <Plane className={`h-5 w-5 sm:h-6 sm:w-6 ${
-                      shippingMethod === "air" ? "text-primary" : "text-muted-foreground"
-                    }`} />
+                    <motion.div
+                      animate={shippingMethod === "air" ? { scale: 1.1 } : { scale: 1 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <Plane className={`h-5 w-5 sm:h-6 sm:w-6 ${
+                        shippingMethod === "air" ? "text-primary" : "text-muted-foreground"
+                      }`} />
+                    </motion.div>
                     <span className={`text-xs sm:text-sm font-medium ${
                       shippingMethod === "air" ? "text-primary" : "text-foreground"
                     }`}>
                       ارسال هوایی
                     </span>
-                  </button>
+                  </motion.button>
                 )}
                 {product.seaShippingEnabled && (
-                  <button
+                  <motion.button
                     onClick={() => setShippingMethod("sea")}
+                    whileTap={{ scale: 0.95 }}
                     className={`flex flex-col items-center justify-center gap-2 p-3 sm:p-4 rounded-lg border-[0.25px] transition-all ${
                       shippingMethod === "sea"
                         ? "border-primary/30 bg-primary/5"
                         : "border-border/30 hover:border-primary/20"
                     }`}
                   >
-                    <Ship className={`h-5 w-5 sm:h-6 sm:w-6 ${
-                      shippingMethod === "sea" ? "text-primary" : "text-muted-foreground"
-                    }`} />
+                    <motion.div
+                      animate={shippingMethod === "sea" ? { scale: 1.1 } : { scale: 1 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <Ship className={`h-5 w-5 sm:h-6 sm:w-6 ${
+                        shippingMethod === "sea" ? "text-primary" : "text-muted-foreground"
+                      }`} />
+                    </motion.div>
                     <span className={`text-xs sm:text-sm font-medium ${
                       shippingMethod === "sea" ? "text-primary" : "text-foreground"
                     }`}>
                       ارسال دریایی
                     </span>
-                  </button>
+                  </motion.button>
                 )}
               </div>
             </div>
