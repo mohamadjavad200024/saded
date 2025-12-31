@@ -18,7 +18,6 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 import { VehicleLogo } from "@/components/ui/vehicle-logo";
 
@@ -192,29 +191,36 @@ export function ProductGrid() {
                 }
               }}
             >
-              <SheetTrigger asChild>
-                <Button
-                  variant={hasActiveFilters ? "default" : "outline"}
-                  size="sm"
-                  className={`lg:hidden flex items-center gap-2 h-9 w-auto sm:h-10 px-3 sm:px-4 text-xs sm:text-sm transition-all ${
-                    hasActiveFilters 
-                      ? "bg-primary hover:bg-primary/90 shadow-md" 
-                      : "hover:bg-muted/50"
-                  }`}
-                >
-                  <Filter className={`h-4 w-4 sm:h-4 sm:w-4 ${hasActiveFilters ? "animate-pulse" : ""}`} />
-                  <span className="text-xs sm:text-sm">فیلترها</span>
-                  {hasActiveFilters && (
-                    <span className="bg-primary-foreground/20 text-primary-foreground px-1.5 py-0.5 rounded-full text-[10px] font-bold">
-                      {Object.values(filters).filter(v => 
-                        v !== undefined && 
-                        v !== null && 
-                        (Array.isArray(v) ? v.length > 0 : true)
-                      ).length}
-                    </span>
-                  )}
-                </Button>
-              </SheetTrigger>
+              <Button
+                variant={hasActiveFilters ? "default" : "outline"}
+                size="sm"
+                className={`lg:hidden flex items-center gap-2 h-9 w-auto sm:h-10 px-3 sm:px-4 text-xs sm:text-sm transition-all ${
+                  hasActiveFilters 
+                    ? "bg-primary hover:bg-primary/90 shadow-md" 
+                    : "hover:bg-muted/50"
+                }`}
+                onClick={() => {
+                  setFiltersOpen(true);
+                  if (typeof window !== 'undefined') {
+                    sessionStorage.setItem('filterSheetJustOpened', 'true');
+                    setTimeout(() => {
+                      sessionStorage.removeItem('filterSheetJustOpened');
+                    }, 500);
+                  }
+                }}
+              >
+                <Filter className={`h-4 w-4 sm:h-4 sm:w-4 ${hasActiveFilters ? "animate-pulse" : ""}`} />
+                <span className="text-xs sm:text-sm">فیلترها</span>
+                {hasActiveFilters && (
+                  <span className="bg-primary-foreground/20 text-primary-foreground px-1.5 py-0.5 rounded-full text-[10px] font-bold">
+                    {Object.values(filters).filter(v => 
+                      v !== undefined && 
+                      v !== null && 
+                      (Array.isArray(v) ? v.length > 0 : true)
+                    ).length}
+                  </span>
+                )}
+              </Button>
               <SheetContent 
                 side="bottom" 
                 className="h-[90vh] max-h-[90vh] overflow-y-auto rounded-t-3xl border-t-2 border-primary/20 bg-background/95 backdrop-blur-xl shadow-2xl"

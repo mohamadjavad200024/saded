@@ -23,6 +23,7 @@ export function Header() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const { getItemCount, initializeSession, loadFromDatabase, items } = useCartStore();
@@ -241,37 +242,47 @@ export function Header() {
 
           {/* Profile Button - Always visible on all screen sizes */}
           {isAuthenticated && user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-9 w-9">
-                  <User className="h-5 w-5" />
-                  <span className="sr-only">حساب کاربری</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <div className="px-2 py-1.5">
-                  <p className="text-sm font-semibold">{user.name}</p>
-                  <p className="text-xs text-muted-foreground">{user.phone}</p>
-                </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/profile" className="cursor-pointer">
-                    <User className="ml-2 h-4 w-4" />
-                    پروفایل
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => {
-                    logout();
-                  }}
-                  className="cursor-pointer text-destructive focus:text-destructive"
-                >
-                  <LogOut className="ml-2 h-4 w-4" />
-                  خروج
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <>
+              {/* Backdrop overlay when dropdown is open */}
+              {profileMenuOpen && (
+                <div 
+                  className="fixed inset-0 z-[9997] bg-black/20 backdrop-blur-sm animate-in fade-in-0"
+                  onClick={() => setProfileMenuOpen(false)}
+                  style={{ pointerEvents: 'auto' }}
+                />
+              )}
+              <DropdownMenu open={profileMenuOpen} onOpenChange={setProfileMenuOpen}>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 relative z-[9999]">
+                    <User className="h-5 w-5" />
+                    <span className="sr-only">حساب کاربری</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 bg-background/95 backdrop-blur-xl border-[0.25px] border-border/30 shadow-xl">
+                  <div className="px-2 py-1.5 bg-background/50 rounded-t-md">
+                    <p className="text-sm font-semibold">{user.name}</p>
+                    <p className="text-xs text-muted-foreground">{user.phone}</p>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile" className="cursor-pointer">
+                      <User className="ml-2 h-4 w-4" />
+                      پروفایل
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => {
+                      logout();
+                    }}
+                    className="cursor-pointer text-destructive focus:text-destructive"
+                  >
+                    <LogOut className="ml-2 h-4 w-4" />
+                    خروج
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
           ) : (
             <Link href="/auth">
               <Button variant="ghost" size="icon" className="h-9 w-9">

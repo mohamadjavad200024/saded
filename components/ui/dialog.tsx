@@ -41,8 +41,12 @@ const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
 >(({ className, children, ...props }, ref) => {
-  // Generate a unique ID for the description
-  const descriptionId = React.useId();
+  // Generate a stable unique ID for the description using useRef
+  const descriptionIdRef = React.useRef<string | null>(null);
+  if (!descriptionIdRef.current) {
+    descriptionIdRef.current = `dialog-description-${Math.random().toString(36).substr(2, 9)}`;
+  }
+  const descriptionId = descriptionIdRef.current;
 
   return (
     <DialogPrimitive.Portal>

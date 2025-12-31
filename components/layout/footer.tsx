@@ -160,7 +160,7 @@ export function Footer() {
   }
 
   return (
-      <footer className="border-t-[0.25px] border-border/30 bg-background">
+      <footer className="border-t-[0.25px] border-border/30 bg-background sticky bottom-0 z-[9998] md:relative md:z-0 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:pb-12">
       <div className="container py-12">
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8">
           {/* About */}
